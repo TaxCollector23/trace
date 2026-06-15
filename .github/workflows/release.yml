@@ -1,0 +1,105 @@
+name: release
+
+# Build cross-platform `trg` binaries (with the dashboard embedded) and publish
+# them to a GitHub Release when a v* tag is pushed.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build ${{ matrix.artifact }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+            artifact: trg-macos-arm64
+            cross: false
+          - os: macos-13
+            target: x86_64-apple-darwin
+            artifact: trg-macos-x64
+            cross: false
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: trg-linux-x64
+            cross: false
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact: trg-linux-arm64
+            cross: true
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: trg-windows-x64.exe
+            cross: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Build the dashboard so it is embedded into the binary ---
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build dashboard
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run build
+
+      # --- Rust toolchain ---
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross
+        if: matrix.cross
+        run: cargo install cross --locked
+
+      # rust-embed embeds apps/web/dist in release builds.
+      - name: Build (cargo)
+        if: ${{ !matrix.cross }}
+        run: cargo build --release --target ${{ matrix.target }} -p trg-cli
+
+      - name: Build (cross)
+        if: matrix.cross
+        run: cross build --release --target ${{ matrix.target }} -p trg-cli
+
+      # --- Stage the artifact under its release name ---
+      - name: Stage artifact (unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/trg" "dist/${{ matrix.artifact }}"
+      - name: Stage artifact (windows)
+        if: runner.os == 'Windows'
+        run: |
+          mkdir dist
+          copy "target\${{ matrix.target }}\release\trg.exe" "dist\${{ matrix.artifact }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          generate_release_notes: true

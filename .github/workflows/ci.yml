@@ -1,0 +1,67 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: rustfmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy --all-targets -- -D warnings
+      - name: test
+        run: cargo test --all
+
+  web:
+    name: Dashboard build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: build dashboard
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run build
+
+  landing:
+    name: Landing build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: build landing
+        working-directory: apps/landing
+        run: |
+          npm ci
+          npm run build
+
+  installers:
+    name: Installer validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck / syntax
+        run: |
+          sh -n scripts/install.sh
+          bash -n integrations/github/scripts/ci-scan.sh
+          bash -n integrations/claude/traceguard-hook.sh
+      - name: node syntax checks
+        run: |
+          node --check integrations/vscode/extension.js
+          node --check integrations/cursor/src/index.js
+          node --check packages/npm/bin/trg.js
