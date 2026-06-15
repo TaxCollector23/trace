@@ -1,0 +1,53 @@
+---
+title: GitHub
+description: GitHub App and Actions integration with sanitized summaries.
+---
+
+The GitHub integration has four surfaces, kept realistically scoped.
+
+## 1. GitHub App
+
+The App (planned scope) listens for repository events and posts TraceGuard
+summaries as PR check results:
+
+- `pull_request` opened / synchronized
+- `push`
+- creates a **check run** with a TraceGuard summary
+- links a local TraceGuard run to a commit SHA
+- shows changed files and warnings as the check result
+
+See `integrations/github/app/` for the manifest and event-handler skeleton.
+
+## 2. GitHub Actions
+
+Run TraceGuard in CI to flag risky diffs and secret-like changes:
+
+```yaml
+- uses: TaxCollector23/TraceGuard/integrations/github@main
+  with:
+    checks: "npm run build, npm test"
+```
+
+The action:
+
+- runs configured checks
+- scans the diff for risky changes and secret-like content
+- uploads a **sanitized** TraceGuard summary artifact
+- creates a status / check result
+
+## 3. Pull request checks
+
+The sanitized summary surfaces as a PR check: counts of files changed,
+risky-command flags, redacted secret findings, and check pass/fail.
+
+## 4. Local CLI metadata import
+
+The CLI can associate a local run with the current commit SHA so dashboard runs
+line up with Git history.
+
+## What is never uploaded
+
+<Warning>
+The GitHub integration uploads **only sanitized summaries**. It never uploads
+raw project files, raw secrets, or your local SQLite database.
+</Warning>

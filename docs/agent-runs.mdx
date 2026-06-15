@@ -1,0 +1,46 @@
+---
+title: Agent Runs
+description: What a monitored run captures, and how attribution works.
+---
+
+A **run** is one monitored session. It starts when you launch something through
+TraceGuard and ends when that command exits.
+
+```bash
+trg run "claude fix the login bug"
+```
+
+## What a run captures
+
+1. The current project and a new run record.
+2. A **checkpoint** of the Git state before the command starts.
+3. The starting Git commit and whether the working tree was dirty.
+4. File creations, edits, and deletions (via a debounced file watcher).
+5. Command output (streamed to your console and saved to logs).
+6. Risky command decisions (allow / warn / require approval / block).
+7. Secrets detected in diffs, command output, or changed files (redacted).
+8. The final Git diff — the **source of truth** for the patch review.
+9. Optional configured project checks (build/test).
+10. A deterministic diagnosis when something fails.
+
+## Run attribution
+
+TraceGuard works best when agents are launched **through** the wrapper:
+
+```bash
+trg run <command>
+```
+
+This is how TraceGuard attributes commands, output, and risks to a run. The file
+watcher and Git diff can still observe changes a tool makes outside the wrapper,
+but full command guarding and run attribution require `trg run`.
+
+## Run statuses
+
+| Status | Meaning |
+| --- | --- |
+| `running` | The command is still executing. |
+| `completed` | Finished with exit code 0 and passing checks. |
+| `failed` | Non-zero exit or a failing check. |
+| `blocked` | The command was blocked or you declined an approval prompt. |
+| `rolled_back` | The run's changes were rolled back via a checkpoint. |

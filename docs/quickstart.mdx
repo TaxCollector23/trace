@@ -1,0 +1,49 @@
+---
+title: Quickstart
+description: Record your first AI agent run in under a minute.
+---
+
+<Steps>
+<Step title="Initialize your project">
+From the root of a project (ideally a Git repository):
+
+```bash
+trg init
+```
+
+This creates a `.traceguard/` folder with a `config.toml`, and registers the
+project in the global TraceGuard database. If the folder is not a Git
+repository, TraceGuard warns you — checkpoints and rollback require Git.
+</Step>
+
+<Step title="Run an agent through TraceGuard">
+```bash
+trg run "claude fix the login bug"
+# or any command:
+trg run "npm test"
+```
+
+TraceGuard checkpoints your Git state, watches for file changes, records output,
+scans for secrets and risky commands, and captures the final diff.
+</Step>
+
+<Step title="Open the dashboard">
+```bash
+trg dashboard
+```
+
+This starts the local daemon if needed and opens
+`http://127.0.0.1:8757` (or the next free port) in your browser.
+</Step>
+
+<Step title="Review and (if needed) roll back">
+Browse the **Run Timeline**, **Patch Review**, **Cost Center**, **Risk Center**,
+and **Rollback Center**. To undo a run's changes:
+
+```bash
+trg rollback
+```
+
+Rollback is Git-based and always asks for confirmation.
+</Step>
+</Steps>

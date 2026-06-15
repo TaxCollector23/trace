@@ -1,0 +1,25 @@
+---
+title: Codex
+description: Codex CLI wrapper adapter.
+---
+
+The Codex integration is wrapper-first.
+
+```bash
+trg run codex
+trg run "codex <prompt>"
+```
+
+The adapter:
+
+- starts a TraceGuard run
+- creates a checkpoint
+- monitors file changes
+- monitors command output
+- records the Git diff and final state
+- maps the Codex run to a TraceGuard run id where possible
+
+If Codex exposes logs, hooks, or config files, the adapter in
+`integrations/codex/` can add optional deeper integration. TraceGuard does not
+assume unsupported Codex internals — when nothing more is available, wrapper
+monitoring is the reliable baseline.

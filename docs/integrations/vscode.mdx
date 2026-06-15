@@ -1,0 +1,29 @@
+---
+title: VS Code
+description: A lightweight extension bridging to the local daemon.
+---
+
+The optional VS Code extension (`integrations/vscode/`) is a lightweight bridge
+to the local TraceGuard daemon — it does **not** duplicate the full dashboard.
+
+It provides:
+
+- a TraceGuard sidebar panel
+- current project status
+- recent runs
+- a button to open the dashboard
+- a button to run the current terminal command through `trg`
+- warnings for risky modified files
+- links to Patch Review and the Rollback Center
+
+## Install (development)
+
+```bash
+cd integrations/vscode
+npm install
+npm run compile
+# Press F5 in VS Code to launch an Extension Development Host
+```
+
+The extension talks to `http://127.0.0.1:<port>` using the port recorded in
+`~/.traceguard/daemon.json`. It never connects to any remote service.

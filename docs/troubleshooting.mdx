@@ -1,0 +1,55 @@
+---
+title: Troubleshooting
+description: Common issues and how to resolve them.
+---
+
+## The dashboard won't open
+
+Check the daemon:
+
+```bash
+trg daemon status
+```
+
+If it is not running, start it and open the dashboard:
+
+```bash
+trg daemon start
+trg dashboard
+```
+
+The daemon binds to `127.0.0.1` and prefers port `8757`, falling back to the next
+free port. The active port is shown by `trg daemon status` and stored in
+`~/.traceguard/daemon.json`.
+
+## Port 8757 is in use
+
+That is fine — TraceGuard automatically tries `8758`, `8759`, and so on. Use the
+port reported by `trg daemon status`.
+
+## "not a TraceGuard project"
+
+Run `trg init` in your project root first. TraceGuard searches upward from the
+current directory for a `.traceguard/config.toml`.
+
+## Rollback says it needs Git
+
+Checkpoints and rollback require a Git repository. Run `git init` yourself (and
+commit a baseline) before relying on rollback. TraceGuard will not initialize
+Git for you.
+
+## The daemon log
+
+The daemon writes to `~/.traceguard/daemon.log`. Check it if the server fails to
+start.
+
+## Resetting state
+
+Stopping the daemon and removing `~/.traceguard` clears all global state
+(database, daemon file, logs). Your projects' `.traceguard/` folders are
+separate.
+
+```bash
+trg daemon stop
+rm -rf ~/.traceguard
+```

@@ -1,0 +1,53 @@
+---
+title: Cost Tracking
+description: Track AI/API usage and cost, with honest partial-data support.
+---
+
+TraceGuard tracks AI/API usage when the data is available, and is honest when it
+is not.
+
+## What it records
+
+For each usage record: provider, model, input tokens, output tokens, cached
+tokens (when available), estimated cost, latency, timestamp, and run ID. The
+**Cost Center** displays these per run.
+
+## Providers
+
+Cost estimation is designed for OpenAI, Anthropic, Google Gemini, and Groq.
+Local models (Ollama, llama.cpp, LM Studio, …) are treated as zero cost.
+
+## How usage is captured
+
+The preferred mechanism is a **local HTTP proxy**:
+
+```text
+AI client / tool  ->  TraceGuard local proxy  ->  provider API
+```
+
+The proxy observes request/response token counts and attributes them to the
+active run. In the MVP you can also ingest usage records directly through the
+local API adapter:
+
+```bash
+POST /api/runs/<run_id>/cost
+{
+  "provider": "anthropic",
+  "model": "claude-sonnet-4",
+  "input_tokens": 12000,
+  "output_tokens": 3000,
+  "cached_tokens": 8000
+}
+```
+
+TraceGuard computes `estimated_cost` from published per-model pricing.
+
+## Partial data
+
+If a tool does not route through the proxy and no usage is imported, TraceGuard
+does not know the cost. Rather than guess, the dashboard shows:
+
+- **Cost unavailable** when there is no usage data, or
+- **Estimated cost** when token counts are known but pricing is approximate.
+
+TraceGuard does not lie about precision.

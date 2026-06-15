@@ -1,0 +1,66 @@
+---
+title: Prompt Compression
+description: Shrink prompts locally while preserving what matters.
+---
+
+The **Prompt Compressor** reduces token usage in long, repetitive prompts before
+you send them to an agent. It is **local and deterministic** by default — no
+model call, and no prompt text leaves your machine.
+
+## What it preserves
+
+Compression removes filler words and duplicate sentences, but it never weakens
+your intent. It preserves:
+
+- constraints and must-not-do rules (`do not`, `never`, `only`, `must`, …)
+- commands (`npm test`, `cargo build`, …)
+- file names and paths (`src/auth/login.ts`)
+- acceptance criteria
+- formatting instructions
+- fenced code blocks (kept verbatim)
+
+It does **not** rewrite your prompt into vaguer instructions, and it never sends
+the compressed prompt automatically — you review and accept it.
+
+## CLI
+
+```bash
+# Inline
+trg compress-prompt "fix the auth bug but do not rewrite the whole app..."
+
+# Interactive: paste, then Ctrl-D (Ctrl-Z on Windows)
+trg compress-prompt
+```
+
+| Flag | Description |
+| --- | --- |
+| `--budget` | Append an [output-budget](#output-budget) guidance block. |
+| `--target <n>` | Soft output token target for the budget block. |
+| `-y`, `--yes` | Accept without prompting. |
+
+You get a before/after **token estimate** (clearly labelled as an estimate) and a
+reduction percentage. On accept, TraceGuard records the stats locally.
+
+## Output budget
+
+Output-budget controls generate prompt guidance to cut wasteful output, e.g. *be
+concise*, *don't repeat unchanged code*, *summarize in bullets*, *only show
+changed files*, *ask before large rewrites*, and a soft token target. This is
+**guidance, not enforcement**, unless your provider/tool supports hard output
+limits.
+
+You can build a budget block in the dashboard under **Utilities**, or with
+`trg compress-prompt --budget --target 800`.
+
+## Prompt history & privacy
+
+Token counts and reduction stats are always stored locally. The **prompt text**
+is only stored when `prompt_history = true` in your project config (the default).
+Disable it to keep prompt text out of the database entirely:
+
+```toml
+prompt_history = false
+```
+
+Nothing is uploaded regardless. If a future opt-in LLM-based compressor is used,
+TraceGuard will clearly warn you that prompt text would leave the machine.

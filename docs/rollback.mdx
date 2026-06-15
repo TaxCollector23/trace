@@ -1,0 +1,41 @@
+---
+title: Rollback
+description: Git-based checkpoints and careful rollback.
+---
+
+TraceGuard creates a **checkpoint** before every monitored run and lets you
+restore it later. Rollback is always Git-based.
+
+## Checkpoints
+
+Before a run, in a Git repository, TraceGuard:
+
+- records the current commit hash
+- records whether the working tree is dirty
+- creates a lightweight checkpoint with `git stash create` (which captures the
+  dirty state **without** disturbing your working tree), or uses `HEAD` when the
+  tree is clean
+- captures the Git diff before and after the run
+
+Checkpoints are labelled by run, e.g. `traceguard/run-<run_id>-before`.
+
+## Rolling back
+
+```bash
+trg rollback
+```
+
+This restores the most recent checkpoint, or asks you to choose when several are
+available. You can also roll back from the **Rollback Center** in the dashboard.
+
+<Warning>
+Rollback never wipes your work without confirmation. A stash-based checkpoint is
+re-applied; a clean-tree checkpoint resets to the recorded commit. Review the
+target before confirming.
+</Warning>
+
+## Requirements
+
+Rollback and checkpoints require Git. If your project is not a Git repository,
+`trg init` warns you, and runs are recorded without checkpoint/rollback support.
+TraceGuard will not run `git init` for you.

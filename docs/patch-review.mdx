@@ -1,0 +1,34 @@
+---
+title: Patch Review
+description: Review what an agent changed, grounded in the real Git diff.
+---
+
+The **Patch Review** page shows the code changes for a run. Everything is derived
+from the actual Git diff and file-change data — TraceGuard does not invent facts.
+
+It shows:
+
+- files added, modified, and deleted
+- dependency files changed (`package.json`, `Cargo.toml`, lockfiles, …)
+- config files changed (`tsconfig.json`, `vite.config.*`, …)
+- environment files touched (`.env`, `id_rsa`, `*.pem`, …)
+- a plain-English change summary
+
+## Why the Git diff is the source of truth
+
+The file watcher provides timeline detail (it shows *when* files changed during
+the run), but a flurry of editor saves is noisy. The **final Git diff** is what
+TraceGuard uses for the authoritative list of changes, so the patch review
+matches exactly what is in your working tree relative to the run's starting
+commit.
+
+## Failure diagnosis
+
+When a run or a configured check fails, TraceGuard adds **deterministic**
+diagnosis notes to the timeline — no AI guessing. For example:
+
+- a "module not found" error plus a changed `package.json` → suggests a
+  dependency install is out of sync
+- a build failure plus a changed `tsconfig.json` → surfaces that config change
+- a TypeScript error plus changed `.ts` files → links them
+- an error message that names a deleted file → flags the deletion

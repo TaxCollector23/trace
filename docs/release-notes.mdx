@@ -1,0 +1,35 @@
+---
+title: Release Notes
+description: TraceGuard changelog.
+---
+
+## v0.1.0 — Local-first MVP
+
+Initial release.
+
+**Core**
+- `trg` CLI: `init`, `run`, `dashboard`, `rollback`, `compress-prompt`,
+  `daemon start|stop|status`.
+- Local Axum daemon bound to `127.0.0.1`, port discovery from `8757`.
+- Local SQLite persistence and the local React dashboard (Dashboard, Run
+  Timeline, Patch Review, Cost Center, Risk Center, Rollback Center, Utilities).
+
+**Monitoring**
+- Run recording with checkpoints, file watching, command output capture.
+- Git checkpoints and Git-based rollback.
+- Rule-based command guarding (allow / warn / require approval / block).
+- Local secret detection with redaction.
+- Cost tracking schema with honest partial-data handling.
+- Deterministic patch diagnosis.
+
+**Productivity**
+- Prompt Compressor (local, deterministic) and output-budget controls.
+
+**Surfaces**
+- Public landing site (`apps/landing`, Vercel).
+- Mintlify documentation.
+- Integration scaffolds: GitHub, Claude Code, Codex, VS Code, Cursor.
+- Installers: Homebrew tap, shell script, PowerShell script, optional npm
+  wrapper.
+
+> Dates and versions are updated as releases are tagged.

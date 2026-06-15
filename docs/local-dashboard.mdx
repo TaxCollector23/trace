@@ -1,0 +1,55 @@
+---
+title: Local Dashboard
+description: Review runs in a local-only web dashboard.
+---
+
+The dashboard is served by the local daemon and is **local-only**. It binds to
+`127.0.0.1` (never `0.0.0.0`), prefers port `8757`, and falls back to the next
+available port (`8758`, `8759`, …) if that is busy. There is no account and no
+authentication because it is reachable only from your machine.
+
+Open it with:
+
+```bash
+trg dashboard
+```
+
+## Sections
+
+<CardGroup cols={2}>
+<Card title="Dashboard" icon="gauge">
+Recent runs across your projects, each with status, files changed, command and
+secret counts, cost, and check results.
+</Card>
+<Card title="Run Timeline" icon="timeline">
+Chronological events for a selected run: checkpoint created, commands, file
+changes, risks, secrets, build/test results, final diff, completion.
+</Card>
+<Card title="Patch Review" icon="code-compare">
+Files added / modified / deleted, with dependency, config, and environment
+highlights, derived from the actual Git diff.
+</Card>
+<Card title="Cost Center" icon="dollar-sign">
+Provider, model, token counts, and estimated cost — with honest "unavailable"
+labels when data is missing.
+</Card>
+<Card title="Risk Center" icon="shield-halved">
+Blocked / warned / approved commands, protected-file warnings, and redacted
+secret detections.
+</Card>
+<Card title="Rollback Center" icon="rotate-left">
+Checkpoints with their Git refs and a confirmed, Git-based rollback action.
+</Card>
+</CardGroup>
+
+## Development mode
+
+You can run the dashboard against a running daemon with Vite's dev server:
+
+```bash
+cd apps/web
+npm install
+npm run dev      # http://localhost:5173, proxies /api to the daemon
+```
+
+In production the daemon serves the built static files from `apps/web/dist`.

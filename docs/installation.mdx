@@ -1,0 +1,55 @@
+---
+title: Installation
+description: Install the trg CLI on macOS, Linux, or Windows.
+---
+
+TraceGuard ships a single binary, `trg`. The long alias `traceguard` is installed
+alongside it.
+
+## macOS / Linux
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TaxCollector23/TraceGuard/main/scripts/install.sh | sh
+```
+
+This downloads the correct binary for your OS and architecture, installs it to
+`~/.traceguard/bin/trg`, marks it executable, and prints PATH instructions if
+needed.
+
+## Windows
+
+```powershell
+irm https://raw.githubusercontent.com/TaxCollector23/TraceGuard/main/scripts/install.ps1 | iex
+```
+
+This installs `trg.exe` to `%USERPROFILE%\.traceguard\bin\trg.exe` and updates
+your user PATH. Open a new terminal afterwards.
+
+## Verify
+
+```bash
+trg --version
+trg --help
+```
+
+## Build from source
+
+You need Rust and Node.js.
+
+```bash
+git clone https://github.com/TaxCollector23/TraceGuard
+cd TraceGuard
+
+# Build the dashboard (embedded into the daemon in release builds)
+cd apps/web && npm install && npm run build && cd ../..
+
+# Build the CLI (the binary is named `trg`)
+cargo build --release -p trg-cli
+./target/release/trg --help
+```
+
+<Note>
+Future install options such as `brew install traceguard` and
+`npm install -g traceguard` are planned. The MVP installs through GitHub
+Releases and the scripts above.
+</Note>

@@ -1,0 +1,30 @@
+---
+title: Cursor
+description: An MCP server exposing TraceGuard tools to Cursor.
+---
+
+The Cursor integration (`integrations/cursor/`) is an **MCP server** that exposes
+TraceGuard operations as tools, backed by the local daemon.
+
+## Tools
+
+- `traceguard_start_run`
+- `traceguard_end_run`
+- `traceguard_record_event`
+- `traceguard_get_recent_runs`
+- `traceguard_get_patch_summary`
+- `traceguard_check_command`
+- `traceguard_get_rollback_options`
+
+## Configure
+
+Add the MCP server to your Cursor MCP settings (see
+`integrations/cursor/README.md`). It connects to `http://127.0.0.1:<port>` from
+`~/.traceguard/daemon.json`.
+
+## Honest limitation
+
+<Note>
+TraceGuard can observe project file changes and Git diffs. Full command blocking
+requires supported integration points or running commands through `trg`.
+</Note>

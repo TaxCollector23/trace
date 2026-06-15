@@ -1,0 +1,67 @@
+---
+title: CLI Commands
+description: The complete trg command reference.
+---
+
+The main command is `trg`. `traceguard` is a long alias for the same binary.
+
+## `trg init`
+
+Initialize TraceGuard in the current project. Creates `.traceguard/config.toml`,
+registers the project in `~/.traceguard/traceguard.db`, and warns if the folder
+is not a Git repository. TraceGuard never initializes Git for you.
+
+## `trg run <command>`
+
+Run a command under TraceGuard monitoring.
+
+```bash
+trg run claude
+trg run "claude fix the bug"
+trg run "npm test"
+trg run "cursor ."
+```
+
+| Flag | Description |
+| --- | --- |
+| `--no-checks` | Skip configured project checks for this run. |
+| `-y`, `--yes` | Auto-approve commands that would otherwise prompt. |
+
+The run lifecycle: detect project → create run → checkpoint Git → start file
+watcher → execute command (output is teed to the console and logs) → capture
+final Git diff → scan secrets → run configured checks → store everything.
+
+## `trg dashboard`
+
+Start the daemon if needed, find the active port, and open the dashboard in your
+browser at `http://127.0.0.1:<port>`.
+
+## `trg rollback`
+
+Restore the most recent checkpoint, or pick one if several exist. Rollback is
+Git-based and asks for confirmation. Use `-y`/`--yes` to skip the prompt.
+
+## `trg compress-prompt [text]`
+
+Compress a prompt locally before sending it to an agent. Omit the text to paste
+interactively. See [Prompt Compression](/prompt-compression).
+
+| Flag | Description |
+| --- | --- |
+| `--budget` | Append an output-budget guidance block. |
+| `--target <n>` | Soft output token target for the budget block. |
+| `-y`, `--yes` | Accept without prompting. |
+
+## `trg daemon start | stop | status`
+
+Manage the local daemon.
+
+```bash
+trg daemon start    # start the local server
+trg daemon stop     # stop it
+trg daemon status   # running?, port, database path, active projects
+```
+
+## `trg --help` / `trg --version`
+
+Standard help and version output.

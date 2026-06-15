@@ -1,0 +1,57 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "TraceGuard",
+  "colors": {
+    "primary": "#4493f8",
+    "light": "#4493f8",
+    "dark": "#0d1117"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": ["overview", "installation", "quickstart"]
+      },
+      {
+        "group": "Using TraceGuard",
+        "pages": [
+          "cli-commands",
+          "local-dashboard",
+          "agent-runs",
+          "command-guarding",
+          "secret-detection",
+          "cost-tracking",
+          "patch-review",
+          "rollback",
+          "prompt-compression"
+        ]
+      },
+      {
+        "group": "Integrations",
+        "pages": [
+          "integrations/overview",
+          "integrations/github",
+          "integrations/claude",
+          "integrations/codex",
+          "integrations/vscode",
+          "integrations/cursor"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "configuration",
+          "troubleshooting",
+          "limitations",
+          "security-model",
+          "release-notes"
+        ]
+      }
+    ]
+  },
+  "footerSocials": {
+    "github": "https://github.com/TaxCollector23/TraceGuard"
+  }
+}

@@ -1,0 +1,44 @@
+---
+title: Configuration
+description: The per-project .traceguard/config.toml file.
+---
+
+`trg init` creates `.traceguard/config.toml` in your project. Configuration is
+intentionally small.
+
+```toml
+# TraceGuard project configuration
+
+project_name = "My App"
+protected_files = [".env", ".env.local", "id_rsa", "secrets.json"]
+default_checks = ["npm run build", "npm test"]
+created_at = "2026-06-14T20:30:00Z"
+```
+
+| Field | Description |
+| --- | --- |
+| `project_name` | Display name shown in the dashboard. |
+| `protected_files` | File names/paths that raise a warning when changed during a run. Matched by file name or path suffix. |
+| `default_checks` | Commands run after a run completes (build/test). Results appear as test results and timeline events. |
+| `created_at` | When the project was initialized. |
+
+## Checks
+
+When `default_checks` is set, TraceGuard runs them after each `trg run` and
+records pass/fail results. Skip them for a single run with:
+
+```bash
+trg run "claude" --no-checks
+```
+
+## Storage locations
+
+| Path | Contents |
+| --- | --- |
+| `~/.traceguard/traceguard.db` | The global SQLite database. |
+| `~/.traceguard/daemon.json` | Daemon PID, port, and start time. |
+| `~/.traceguard/bin/trg` | Installed binary (via the install script). |
+| `<project>/.traceguard/config.toml` | Per-project config. |
+| `<project>/.traceguard/runs/<run_id>/` | Captured stdout/stderr logs. |
+
+All of this stays on your machine.
