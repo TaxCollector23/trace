@@ -1,0 +1,19 @@
+{
+  "name": "traceguard",
+  "version": "0.1.0",
+  "description": "TraceGuard CLI wrapper — installs the trg binary. Local black box recorder for AI coding agents.",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/TaxCollector23/TraceGuard" },
+  "homepage": "https://github.com/TaxCollector23/TraceGuard",
+  "bin": {
+    "trg": "./bin/trg.js",
+    "traceguard": "./bin/trg.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "files": ["bin", "scripts"],
+  "engines": { "node": ">=18" },
+  "os": ["darwin", "linux", "win32"],
+  "cpu": ["x64", "arm64"]
+}

@@ -1,0 +1,8 @@
+{
+  "//": "OPTIONAL public mirror / reserved identity only. Firebase Hosting must NOT host the real local dashboard and must NOT connect to the local daemon. No Auth, Firestore, Storage, or Functions in the MVP.",
+  "hosting": {
+    "public": "public",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "//": "Reserve the closest available site id. Preferred: traceguard.web.app / traceguard.firebaseapp.com. Fallbacks: traceguard-app, traceguard-dev, traceguard-cli. Update after creating the project.",
+  "projects": {
+    "default": "traceguard-app"
+  }
+}
