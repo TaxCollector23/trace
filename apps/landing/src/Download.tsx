@@ -70,9 +70,11 @@ export default function Download() {
     <section id="download" className="section">
       <div className="kicker">Install</div>
       <h2>Download the CLI</h2>
-      <p className="muted">
-        One binary, two commands: <code>trg</code> and <code>traceguard</code>.
-        Detected <b>{INSTALL[os].name}</b> — recommended below. All platforms shown.
+      <p className="lede">
+        Install TraceGuard, initialize your repo, run your agent through{" "}
+        <code>trg</code>, and open the local dashboard. One binary, two commands:{" "}
+        <code>trg</code> and <code>traceguard</code>. Detected{" "}
+        <b>{INSTALL[os].name}</b> — recommended below.
       </p>
 
       <div className="dl">
@@ -92,28 +94,31 @@ export default function Download() {
         </div>
 
         <div className="dl-body">
-          {active.options.map((opt) => (
-            <div className="dl-opt" key={opt.label}>
-              <div className="dl-opt-head">
-                <span className="dl-opt-label">{opt.label}</span>
-                {opt.recommended && <span className="dl-badge">Recommended</span>}
-              </div>
-              {opt.commands.map((c) => (
-                <Cmd key={c}>{c}</Cmd>
+          <div className="dl-grid">
+            <div>
+              {active.options.map((opt) => (
+                <div className="dl-opt" key={opt.label}>
+                  <div className="dl-opt-head">
+                    <span className="dl-opt-label">{opt.label}</span>
+                    {opt.recommended && <span className="dl-badge">Recommended</span>}
+                  </div>
+                  {opt.commands.map((c) => (
+                    <Cmd key={c}>{c}</Cmd>
+                  ))}
+                </div>
               ))}
             </div>
-          ))}
 
-          <div className="dl-after">
-            <div className="dl-after-title">Then verify and record your first run</div>
-            <Cmd>trg --help</Cmd>
-            <Cmd>trg init</Cmd>
-            <Cmd>trg run claude</Cmd>
-            <Cmd>trg dashboard</Cmd>
-            <p className="muted dl-after-note">
-              The dashboard opens at <code>http://127.0.0.1:&lt;port&gt;</code> —
-              local only.
-            </p>
+            <div className="dl-after">
+              <div className="dl-after-title">Then record your first run</div>
+              <Cmd>trg init</Cmd>
+              <Cmd>trg run claude</Cmd>
+              <Cmd>trg dashboard</Cmd>
+              <p className="muted dl-after-note">
+                The dashboard opens at <code>http://127.0.0.1:&lt;port&gt;</code>{" "}
+                — local only.
+              </p>
+            </div>
           </div>
         </div>
       </div>

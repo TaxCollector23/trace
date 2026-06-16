@@ -40,8 +40,8 @@ export default function Dashboard() {
 
       {runs.length === 0 ? (
         <div className="empty">
-          No runs yet. Run an agent through TraceGuard with{" "}
-          <span className="mono">trg run "claude"</span>.
+          Start your first monitored AI coding session with{" "}
+          <span className="mono">trg run claude</span>.
         </div>
       ) : (
         runs.map((r) => (

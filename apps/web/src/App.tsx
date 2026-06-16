@@ -3,13 +3,13 @@ import { NavLink, Outlet } from "react-router-dom";
 
 const links: [string, string][] = [
   ["/", "Dashboard"],
-  ["/timeline", "Run Timeline"],
+  ["/timeline", "Session Timeline"],
   ["/patch", "Patch Review"],
-  ["/cost", "Cost Center"],
-  ["/risk", "Risk Center"],
-  ["/rollback", "Rollback Center"],
+  ["/risk", "Command Risk"],
+  ["/cost", "Token Spend"],
+  ["/rollback", "Rollback Points"],
   ["/prompt-compressor", "Prompt Compressor"],
-  ["/github", "GitHub"],
+  ["/github", "Integration Status"],
 ];
 
 export default function App() {

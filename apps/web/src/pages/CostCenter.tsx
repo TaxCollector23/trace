@@ -16,7 +16,7 @@ export default function CostCenter() {
 
   return (
     <div>
-      <h1 className="page-title">Cost Center</h1>
+      <h1 className="page-title">Token Spend</h1>
       <p className="page-sub">
         AI/API usage and estimated cost. Partial data is shown honestly — cost is
         labelled "unavailable" when it cannot be computed.
@@ -34,8 +34,8 @@ export default function CostCenter() {
             <Loading error={costQ.error} />
           ) : !cost || cost.usage.length === 0 ? (
             <div className="empty">
-              No API usage recorded for this run. Route AI traffic through the
-              TraceGuard proxy or import usage logs to populate this page.
+              Cost data appears when the agent reports usage or traffic flows
+              through a TraceGuard adapter.
             </div>
           ) : (
             <>

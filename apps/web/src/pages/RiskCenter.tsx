@@ -29,7 +29,7 @@ export default function RiskCenter() {
 
   return (
     <div>
-      <h1 className="page-title">Risk Center</h1>
+      <h1 className="page-title">Command Risk</h1>
       <p className="page-sub">
         Command decisions, protected-file warnings, and detected secrets. Secret
         values are always redacted.

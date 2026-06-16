@@ -17,7 +17,7 @@ export default function RunTimeline() {
 
   return (
     <div>
-      <h1 className="page-title">Run Timeline</h1>
+      <h1 className="page-title">Session Timeline</h1>
       <p className="page-sub">Chronological events recorded for a run.</p>
 
       {runsQ.loading ? (

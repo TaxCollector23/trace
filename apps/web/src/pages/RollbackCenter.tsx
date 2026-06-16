@@ -47,7 +47,7 @@ export default function RollbackCenter() {
 
   return (
     <div>
-      <h1 className="page-title">Rollback Center</h1>
+      <h1 className="page-title">Rollback Points</h1>
       <p className="page-sub">
         Restore your working tree to a checkpoint. Rollback is Git-based and asks
         for confirmation before changing files.
@@ -59,7 +59,8 @@ export default function RollbackCenter() {
         <Loading error={runsQ.error ?? rowsQ.error} />
       ) : rows.length === 0 ? (
         <div className="empty">
-          No checkpoints with a Git reference yet. Checkpoints are created before
+          Rollback requires Git and a checkpoint created before a monitored run.
+          Checkpoints are created before
           each run in a Git repository.
         </div>
       ) : (
