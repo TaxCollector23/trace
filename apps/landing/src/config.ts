@@ -1,11 +1,12 @@
 // Public links used across the landing site.
 //
-// MINTLIFY_DOCS_URL must point at the deployed Mintlify docs. It is read from
-// the VITE_MINTLIFY_DOCS_URL environment variable at build time (set it in the
-// Vercel project settings). Until the real docs URL is known, it falls back to
-// the placeholder below — REPLACE THIS BEFORE PRODUCTION.
-export const MINTLIFY_DOCS_URL: string =
-  import.meta.env.VITE_MINTLIFY_DOCS_URL || "https://traceguard.mintlify.app";
+// Docs are hosted on GitHub Pages (built from /docs via apps/docs). Override
+// with VITE_DOCS_URL at build time if the docs move.
+export const DOCS_URL: string =
+  import.meta.env.VITE_DOCS_URL || "https://taxcollector23.github.io/TraceGuard/";
+
+// Back-compat alias (older imports referenced MINTLIFY_DOCS_URL).
+export const MINTLIFY_DOCS_URL = DOCS_URL;
 
 export const GITHUB_REPO = "https://github.com/TaxCollector23/TraceGuard";
 export const RAW_BASE =

@@ -8,6 +8,7 @@ const links: [string, string][] = [
   ["/risk", "Risk Center"],
   ["/rollback", "Rollback Center"],
   ["/prompt-compressor", "Prompt Compressor"],
+  ["/github", "GitHub"],
 ];
 
 export default function App() {

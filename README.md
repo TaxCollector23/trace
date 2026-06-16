@@ -8,8 +8,8 @@ mystery. It is **local-first**: the daemon and dashboard run only on
 `127.0.0.1`, there is no account, and your project data stays on your machine by
 default.
 
-- **Landing:** https://traceguardlanding.vercel.app *(deploy target; see [Deploying the public surfaces](#deploying-the-public-surfaces))*
-- **Docs:** Mintlify (set `MINTLIFY_DOCS_URL` / `VITE_MINTLIFY_DOCS_URL` to the deployed URL)
+- **Landing:** https://traceguardlanding.vercel.app
+- **Docs:** https://taxcollector23.github.io/TraceGuard/ (GitHub Pages, built from `/docs` via `apps/docs`)
 - **Repo:** https://github.com/TaxCollector23/TraceGuard
 
 ## Why it exists
@@ -66,6 +66,7 @@ only). Roll back a run's changes with `trg rollback`.
 | `trg rollback` | Restore a checkpoint (Git-based, confirmed; `-y`). |
 | `trg compress-prompt [text]` | TraceCompress a prompt (`--mode normal\|concise\|bare`, `--output-budget`). |
 | `trg run --compress <command>` | Compress the agent prompt before a run. |
+| `trg github <status\|commits\|pulls\|cat>` | Read directly from the repo (incl. private). |
 | `trg update` | Update the `trg` binary to the latest release. |
 | `trg daemon start \| stop \| status` | Manage the local daemon. |
 | `trg --help` / `trg --version` | Help and version. |
@@ -94,6 +95,8 @@ fake data in production.
   verbosity (Normal / Concise / Bare Mode) while preserving meaning and
   constraints; deterministic and local-first with conflict detection and output
   budgets
+- **GitHub repo reading** — reads commits, PRs, and file contents directly from
+  your repo (including private repos) via an authenticated, read-only token
 
 ## Integrations
 
@@ -125,14 +128,15 @@ requires supported hooks or running through `trg run`.
 ```
 TraceGuard
 ├─ README.md
-├─ docs/                  # Mintlify docs
+├─ docs/                  # Markdown docs (single source)
 ├─ crates/
 │  ├─ trg-cli/            # Rust CLI (binary: trg; hosts the daemon)
 │  ├─ traceguard-daemon/  # Rust local API + localhost GUI server
 │  └─ traceguard-core/    # shared logic
 ├─ apps/
 │  ├─ web/                # React + Vite local dashboard
-│  └─ landing/            # public landing site (Vercel)
+│  ├─ landing/            # public landing site (Vercel)
+│  └─ docs/               # docs site → GitHub Pages (renders /docs)
 ├─ integrations/
 │  ├─ github/             # GitHub App / Actions
 │  ├─ vscode/             # VS Code extension
@@ -176,7 +180,10 @@ daemon.
   README). Set `VITE_MINTLIFY_DOCS_URL` to the deployed docs URL.
 - **Firebase (optional mirror):** `firebase/` hosts a static reserved page only.
   Do not add Auth/Firestore/Storage/Functions for the MVP.
-- **Mintlify (docs):** deploy `docs/` and point `MINTLIFY_DOCS_URL` at it.
+- **GitHub Pages (docs):** `apps/docs` builds a fancy site from `/docs` and the
+  `docs-deploy.yml` workflow publishes it to
+  `https://taxcollector23.github.io/TraceGuard/`. Override the landing's docs
+  link with `VITE_DOCS_URL` if needed.
 - **Homebrew tap:** the formula lives in `homebrew-tap/Formula/traceguard.rb`,
   mirrored to `TaxCollector23/homebrew-traceguard`.
 

@@ -68,6 +68,20 @@ trg run --compress --mode bare "claude add tests for src/auth/login.ts"
 Update the `trg` binary to the latest GitHub release. Homebrew installs are
 directed to `brew upgrade traceguard` instead.
 
+## `trg github <status | commits | pulls | cat>`
+
+Read directly from the project's GitHub repo — **including private repos** —
+using a token from `GITHUB_TOKEN`/`GH_TOKEN`, the `gh` CLI, or
+`~/.traceguard/github.json`. Read-only.
+
+```bash
+trg github status                 # auth + repo connection
+trg github commits --limit 10     # recent commits from the remote
+trg github pulls                  # open pull requests
+trg github cat src/main.rs        # print a file from the remote repo
+trg github cat README.md --ref some-branch
+```
+
 ## `trg daemon start | stop | status`
 
 Manage the local daemon.

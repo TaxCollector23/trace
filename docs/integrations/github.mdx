@@ -40,10 +40,28 @@ The action:
 The sanitized summary surfaces as a PR check: counts of files changed,
 risky-command flags, redacted secret findings, and check pass/fail.
 
-## 4. Local CLI metadata import
+## 4. Read directly from the repo (including private)
 
-The CLI can associate a local run with the current commit SHA so dashboard runs
-line up with Git history.
+TraceGuard can read your project's GitHub repository directly — **even when it is
+private** — via the GitHub REST API. It is read-only and the token is only ever
+sent to `api.github.com`.
+
+Token resolution order:
+
+1. `GITHUB_TOKEN` / `GH_TOKEN` environment variables
+2. `gh auth token` (the GitHub CLI's stored credential)
+3. `~/.traceguard/github.json` → `{ "token": "ghp_..." }`
+
+```bash
+trg github status              # who am I, which repo, public/private
+trg github commits --limit 10  # commits from the remote
+trg github pulls               # open PRs
+trg github cat src/auth.ts     # file contents from the remote (private OK)
+```
+
+The dashboard's **GitHub** page shows the same data and includes a file reader.
+For private repos, ensure one of the token sources above is set (e.g.
+`gh auth login`).
 
 ## What is never uploaded
 

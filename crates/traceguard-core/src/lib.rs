@@ -8,6 +8,7 @@ pub mod cost;
 pub mod db;
 pub mod diagnose;
 pub mod git;
+pub mod github;
 pub mod guard;
 pub mod ids;
 pub mod models;

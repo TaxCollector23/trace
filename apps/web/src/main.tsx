@@ -9,6 +9,7 @@ import CostCenter from "./pages/CostCenter";
 import RiskCenter from "./pages/RiskCenter";
 import RollbackCenter from "./pages/RollbackCenter";
 import PromptCompressor from "./pages/PromptCompressor";
+import GitHub from "./pages/GitHub";
 import "./styles.css";
 
 // Hash routing keeps deep links working when served as static files by the
@@ -29,6 +30,7 @@ const router = createHashRouter([
       { path: "risk/:runId", element: <RiskCenter /> },
       { path: "rollback", element: <RollbackCenter /> },
       { path: "prompt-compressor", element: <PromptCompressor /> },
+      { path: "github", element: <GitHub /> },
     ],
   },
 ]);

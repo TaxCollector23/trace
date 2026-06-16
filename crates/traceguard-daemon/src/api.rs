@@ -46,6 +46,11 @@ pub fn router() -> Router<AppState> {
         )
         .route("/runs/:id/rollback", post(rollback))
         .route("/check-command", post(check_command))
+        // GitHub (reads directly from the repo, including private)
+        .route("/github/status", get(gh_status))
+        .route("/github/commits", get(gh_commits))
+        .route("/github/pulls", get(gh_pulls))
+        .route("/github/file", get(gh_file))
         // TraceCompress
         .route("/prompt-compressor/compress", post(pc_compress))
         .route("/prompt-compressor/record", post(pc_record))
@@ -437,6 +442,89 @@ async fn check_command(Json(body): Json<CheckCommandBody>) -> impl IntoResponse 
         "decision": result.decision.as_str(),
         "reason": result.reason,
     }))
+}
+
+// --- GitHub ---------------------------------------------------------------
+
+#[derive(Deserialize)]
+struct GhQuery {
+    project_id: String,
+    #[serde(default)]
+    limit: Option<usize>,
+    #[serde(default)]
+    path: Option<String>,
+    #[serde(default)]
+    r#ref: Option<String>,
+}
+
+/// Resolve a project's path + git RepoRef + token for GitHub calls.
+fn gh_repo_ref(
+    state: &AppState,
+    project_id: &str,
+) -> ApiResult<(
+    std::path::PathBuf,
+    traceguard_core::github::RepoRef,
+    Option<String>,
+)> {
+    let project = store(state)
+        .project_by_id(project_id)?
+        .ok_or_else(|| ApiError::not_found("project"))?;
+    let path = std::path::PathBuf::from(&project.path);
+    let repo_ref = traceguard_core::git::remote_url(&path)
+        .and_then(|u| traceguard_core::github::parse_remote(&u))
+        .ok_or_else(|| ApiError {
+            status: StatusCode::BAD_REQUEST,
+            message: "project has no GitHub origin remote".into(),
+        })?;
+    let (token, _) = traceguard_core::github::resolve_token();
+    Ok((path, repo_ref, token))
+}
+
+async fn gh_status(
+    State(state): State<AppState>,
+    Query(q): Query<GhQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let project = store(&state)
+        .project_by_id(&q.project_id)?
+        .ok_or_else(|| ApiError::not_found("project"))?;
+    let status = traceguard_core::github::status_for_path(std::path::Path::new(&project.path));
+    Ok(Json(status))
+}
+
+async fn gh_commits(
+    State(state): State<AppState>,
+    Query(q): Query<GhQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (_p, r, token) = gh_repo_ref(&state, &q.project_id)?;
+    let commits =
+        traceguard_core::github::list_commits(&r, token.as_deref(), q.limit.unwrap_or(20))
+            .map_err(ApiError::from)?;
+    Ok(Json(commits))
+}
+
+async fn gh_pulls(
+    State(state): State<AppState>,
+    Query(q): Query<GhQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let (_p, r, token) = gh_repo_ref(&state, &q.project_id)?;
+    let pulls =
+        traceguard_core::github::list_pulls(&r, token.as_deref()).map_err(ApiError::from)?;
+    Ok(Json(pulls))
+}
+
+async fn gh_file(
+    State(state): State<AppState>,
+    Query(q): Query<GhQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let path = q.path.clone().ok_or_else(|| ApiError {
+        status: StatusCode::BAD_REQUEST,
+        message: "missing ?path=".into(),
+    })?;
+    let (_p, r, token) = gh_repo_ref(&state, &q.project_id)?;
+    let content =
+        traceguard_core::github::get_file(&r, &path, q.r#ref.as_deref(), token.as_deref())
+            .map_err(ApiError::from)?;
+    Ok(Json(json!({ "path": path, "content": content })))
 }
 
 // --- TraceCompress (prompt compressor + output budget) -------------------

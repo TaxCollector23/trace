@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { Cmd, Section } from "../components";
-import { MINTLIFY_DOCS_URL, RAW_BASE } from "../config";
+import { Section } from "../components";
+import Download from "../Download";
+import { DOCS_URL } from "../config";
 
 const FEATURES: [string, string][] = [
   ["Run timeline", "Every checkpoint, command, file change, risk, and result in order."],
@@ -31,58 +32,12 @@ export default function Home() {
           what they cost, what looked risky, and how to roll back — before your
           project turns into a mystery.
         </p>
-        <a className="docs-btn" href={MINTLIFY_DOCS_URL} target="_blank" rel="noreferrer">
+        <a className="docs-btn" href={DOCS_URL} target="_blank" rel="noreferrer">
           Read the documentation
         </a>
       </section>
 
-      <Section id="download" kicker="Install" title="Download the CLI">
-        <div className="os-grid">
-          <div className="os-card">
-            <h3>macOS</h3>
-            <div className="label">Homebrew (recommended)</div>
-            <Cmd>brew install traceguard</Cmd>
-            <div className="label">Before Homebrew-core acceptance (tap)</div>
-            <Cmd>brew tap TaxCollector23/traceguard</Cmd>
-            <Cmd>brew install traceguard</Cmd>
-            <div className="label">curl fallback</div>
-            <Cmd>{`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`}</Cmd>
-          </div>
-
-          <div className="os-card">
-            <h3>Linux</h3>
-            <div className="label">Shell install (recommended)</div>
-            <Cmd>{`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`}</Cmd>
-            <div className="label">Homebrew on Linux</div>
-            <Cmd>brew tap TaxCollector23/traceguard</Cmd>
-            <Cmd>brew install traceguard</Cmd>
-            <div className="label">npm (optional)</div>
-            <Cmd>npm install -g traceguard</Cmd>
-          </div>
-
-          <div className="os-card">
-            <h3>Windows</h3>
-            <div className="label">PowerShell</div>
-            <Cmd>{`irm ${RAW_BASE}/scripts/install.ps1 | iex`}</Cmd>
-            <div className="label">npm (optional)</div>
-            <Cmd>npm install -g traceguard</Cmd>
-          </div>
-        </div>
-      </Section>
-
-      <Section kicker="Get started" title="The workflow">
-        <p className="muted">After install, confirm the CLI:</p>
-        <Cmd>trg --help</Cmd>
-        <p className="muted">Then record your first agent run:</p>
-        <Cmd>trg init</Cmd>
-        <Cmd>trg run claude</Cmd>
-        <Cmd>trg dashboard</Cmd>
-        <p className="muted">
-          The dashboard opens locally at{" "}
-          <code>http://127.0.0.1:&lt;port&gt;</code> (it binds to{" "}
-          <code>127.0.0.1</code> only).
-        </p>
-      </Section>
+      <Download />
 
       <Section kicker="What it is" title="About TraceGuard">
         <p>

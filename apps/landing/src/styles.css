@@ -91,6 +91,39 @@ code { font-family: var(--mono); }
 .tag { border: 1px solid var(--border); background: var(--bg-elev); border-radius: 999px; padding: 6px 14px; font-size: 14px; color: var(--text); }
 .tag .dot { color: var(--green); margin-right: 6px; }
 
+/* ---------- Download (tabbed) ---------- */
+.dl {
+  margin-top: 18px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0e1620 0%, var(--bg-elev) 100%);
+}
+.dl-tabs { display: flex; border-bottom: 1px solid var(--border); background: #0a0f15; }
+.dl-tab {
+  flex: 1; padding: 14px 16px; background: none; border: none; cursor: pointer;
+  color: var(--text-dim); font-size: 15px; font-weight: 600; position: relative;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.dl-tab:hover { color: var(--text); }
+.dl-tab.active { color: var(--text); background: var(--bg-elev); }
+.dl-tab.active::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--green);
+}
+.dl-ico { font-size: 16px; }
+.dl-body { padding: 22px; }
+.dl-opt { margin-bottom: 18px; }
+.dl-opt-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.dl-opt-label { font-weight: 700; font-size: 14px; }
+.dl-badge {
+  font-size: 11px; font-weight: 700; color: var(--green);
+  border: 1px solid var(--green-dim); border-radius: 999px; padding: 2px 9px;
+  background: rgba(63,185,80,0.08);
+}
+.dl-after { margin-top: 8px; padding-top: 18px; border-top: 1px dashed var(--border); }
+.dl-after-title { font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: 700; }
+.dl-after-note { margin-top: 10px; font-size: 14px; }
+
 .callout {
   background: rgba(63, 185, 80, 0.06); border: 1px solid var(--green-dim);
   border-radius: 12px; padding: 18px 20px; margin-top: 14px;

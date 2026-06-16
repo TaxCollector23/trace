@@ -1738,6 +1738,7 @@ name = "traceguard-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "chrono",
  "dirs",
  "once_cell",
@@ -1747,6 +1748,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "toml",
+ "ureq",
  "uuid",
 ]
 

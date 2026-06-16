@@ -83,6 +83,12 @@ enum Commands {
     /// Update the trg binary to the latest GitHub release.
     Update,
 
+    /// Read directly from the project's GitHub repo (supports private repos).
+    Github {
+        #[command(subcommand)]
+        action: GithubAction,
+    },
+
     /// Manage the local daemon.
     Daemon {
         #[command(subcommand)]
@@ -92,6 +98,27 @@ enum Commands {
     /// Internal: run the daemon server in the foreground (used by `daemon start`).
     #[command(name = "__serve", hide = true)]
     Serve,
+}
+
+#[derive(Subcommand)]
+enum GithubAction {
+    /// Show auth + repo connection status.
+    Status,
+    /// List recent commits from the remote repo.
+    Commits {
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+    },
+    /// List open pull requests.
+    Pulls,
+    /// Print a file's contents from the remote repo (works for private repos).
+    Cat {
+        /// Path within the repo, e.g. src/main.rs.
+        path: String,
+        /// Git ref (branch, tag, or SHA). Defaults to the default branch.
+        #[arg(long)]
+        r#ref: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -142,6 +169,12 @@ fn real_main() -> Result<()> {
             yes,
         }),
         Commands::Update => commands::update::run(),
+        Commands::Github { action } => commands::github::run(match action {
+            GithubAction::Status => commands::github::GithubCmd::Status,
+            GithubAction::Commits { limit } => commands::github::GithubCmd::Commits { limit },
+            GithubAction::Pulls => commands::github::GithubCmd::Pulls,
+            GithubAction::Cat { path, r#ref } => commands::github::GithubCmd::Cat { path, r#ref },
+        }),
         Commands::Daemon { action } => daemon_action(action),
         Commands::Serve => {
             // Foreground server inside the detached child process.

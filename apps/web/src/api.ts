@@ -122,6 +122,40 @@ export interface DashboardData {
   projects: Project[];
 }
 
+export interface GithubRepoInfo {
+  full_name: string;
+  private: boolean;
+  default_branch: string;
+  description: string | null;
+  html_url: string;
+  stargazers_count: number;
+  open_issues_count: number;
+}
+
+export interface GithubStatus {
+  authenticated: boolean;
+  token_source: string;
+  login: string | null;
+  repo: GithubRepoInfo | null;
+  repo_ref: { owner: string; repo: string } | null;
+  error: string | null;
+}
+
+export interface GithubCommit {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+}
+
+export interface GithubPull {
+  number: number;
+  title: string;
+  state: string;
+  user: string;
+  html_url: string;
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`/api${path}`);
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
@@ -177,6 +211,18 @@ export const api = {
     post<{ preset: string; instruction_block: string }>(
       "/prompt-compressor/output-budget",
       { preset }
+    ),
+  githubStatus: (projectId: string) =>
+    get<GithubStatus>(`/github/status?project_id=${projectId}`),
+  githubCommits: (projectId: string, limit = 20) =>
+    get<GithubCommit[]>(`/github/commits?project_id=${projectId}&limit=${limit}`),
+  githubPulls: (projectId: string) =>
+    get<GithubPull[]>(`/github/pulls?project_id=${projectId}`),
+  githubFile: (projectId: string, path: string, ref?: string) =>
+    get<{ path: string; content: string }>(
+      `/github/file?project_id=${projectId}&path=${encodeURIComponent(path)}${
+        ref ? `&ref=${encodeURIComponent(ref)}` : ""
+      }`
     ),
   compressionHistory: () =>
     get<CompressionRecord[]>("/prompt-compressor/history"),

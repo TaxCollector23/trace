@@ -46,6 +46,16 @@ pub fn is_git_repo(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// The `origin` remote URL, if the project has one.
+pub fn remote_url(path: &Path) -> Option<String> {
+    let url = git_stdout(path, &["remote", "get-url", "origin"]).ok()?;
+    if url.is_empty() {
+        None
+    } else {
+        Some(url)
+    }
+}
+
 /// Capture the current HEAD commit and whether the tree is dirty.
 pub fn capture_state(path: &Path) -> GitState {
     if !is_git_repo(path) {
