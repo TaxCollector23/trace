@@ -10,7 +10,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::MutexGuard;
-use traceguard_core::prompt::{self, OutputBudget};
+use traceguard_core::prompt::{self, CompressionMode, OutputBudgetPreset};
 use traceguard_core::{git, models::*, Store};
 
 use crate::state::AppState;
@@ -46,12 +46,12 @@ pub fn router() -> Router<AppState> {
         )
         .route("/runs/:id/rollback", post(rollback))
         .route("/check-command", post(check_command))
-        .route("/prompt-compress", post(prompt_compress))
-        .route("/output-budget", post(output_budget))
-        .route(
-            "/prompt-compressions",
-            get(list_compressions).post(add_compression),
-        )
+        // TraceCompress
+        .route("/prompt-compressor/compress", post(pc_compress))
+        .route("/prompt-compressor/record", post(pc_record))
+        .route("/prompt-compressor/output-budget", post(pc_output_budget))
+        .route("/prompt-compressor/history", get(pc_history))
+        .route("/prompt-compressor/:id", get(pc_get).delete(pc_delete))
 }
 
 // --- Error handling -------------------------------------------------------
@@ -439,30 +439,61 @@ async fn check_command(Json(body): Json<CheckCommandBody>) -> impl IntoResponse 
     }))
 }
 
-// --- Prompt Compressor / output budget -----------------------------------
+// --- TraceCompress (prompt compressor + output budget) -------------------
 
 #[derive(Deserialize)]
 struct CompressBody {
     prompt: String,
+    #[serde(default)]
+    mode: Option<String>,
 }
 
 /// Compute a deterministic compression. Does not store anything. Runs locally.
-async fn prompt_compress(Json(body): Json<CompressBody>) -> impl IntoResponse {
-    Json(prompt::compress(&body.prompt))
+async fn pc_compress(Json(body): Json<CompressBody>) -> impl IntoResponse {
+    let mode = CompressionMode::parse(body.mode.as_deref().unwrap_or("concise"));
+    Json(prompt::compress_with_mode(&body.prompt, mode))
 }
 
-/// Render an output-budget instruction block from selected options.
-async fn output_budget(Json(budget): Json<OutputBudget>) -> impl IntoResponse {
-    Json(json!({ "instruction_block": budget.to_instruction_block() }))
+#[derive(Deserialize)]
+struct OutputBudgetBody {
+    preset: String,
 }
 
-async fn list_compressions(State(state): State<AppState>) -> ApiResult<impl IntoResponse> {
-    Ok(Json(store(&state).list_prompt_compressions(100)?))
+/// Render an output-budget instruction block for a named preset.
+async fn pc_output_budget(Json(body): Json<OutputBudgetBody>) -> impl IntoResponse {
+    let preset = OutputBudgetPreset::parse(&body.preset);
+    Json(json!({
+        "preset": preset.as_str(),
+        "instruction_block": preset.to_instruction_block(),
+    }))
 }
 
-async fn add_compression(
+/// Store a compression record (honoring prompt-history settings on the caller).
+async fn pc_record(
     State(state): State<AppState>,
     Json(body): Json<NewPromptCompression>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(store(&state).add_prompt_compression(&body)?))
+}
+
+async fn pc_history(State(state): State<AppState>) -> ApiResult<impl IntoResponse> {
+    Ok(Json(store(&state).list_prompt_compressions(100)?))
+}
+
+async fn pc_get(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<impl IntoResponse> {
+    store(&state)
+        .prompt_compression_by_id(&id)?
+        .map(Json)
+        .ok_or_else(|| ApiError::not_found("compression"))
+}
+
+async fn pc_delete(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<impl IntoResponse> {
+    let deleted = store(&state).delete_prompt_compression(&id)?;
+    Ok(Json(json!({ "ok": deleted })))
 }
