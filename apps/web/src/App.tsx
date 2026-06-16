@@ -7,7 +7,7 @@ const links: [string, string][] = [
   ["/cost", "Cost Center"],
   ["/risk", "Risk Center"],
   ["/rollback", "Rollback Center"],
-  ["/utilities", "Utilities"],
+  ["/prompt-compressor", "Prompt Compressor"],
 ];
 
 export default function App() {

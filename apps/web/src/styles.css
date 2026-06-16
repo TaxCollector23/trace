@@ -149,3 +149,10 @@ td.mono, .mono { font-family: var(--mono); }
 .budget-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin-top: 6px; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); }
 .num { width: 90px; background: var(--bg-elev-2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; margin-left: 8px; }
+
+.mode-row { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.mode-card { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elev); cursor: pointer; font-size: 13px; }
+.mode-card.active { border-color: var(--accent); background: var(--bg-elev-2); }
+.btn-row { display: flex; gap: 10px; margin-top: 10px; }
+.check-list { list-style: none; padding-left: 0; margin: 6px 0; }
+.check-list li { padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--border); }

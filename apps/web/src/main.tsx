@@ -8,7 +8,7 @@ import PatchReview from "./pages/PatchReview";
 import CostCenter from "./pages/CostCenter";
 import RiskCenter from "./pages/RiskCenter";
 import RollbackCenter from "./pages/RollbackCenter";
-import Utilities from "./pages/Utilities";
+import PromptCompressor from "./pages/PromptCompressor";
 import "./styles.css";
 
 // Hash routing keeps deep links working when served as static files by the
@@ -28,7 +28,7 @@ const router = createHashRouter([
       { path: "risk", element: <RiskCenter /> },
       { path: "risk/:runId", element: <RiskCenter /> },
       { path: "rollback", element: <RollbackCenter /> },
-      { path: "utilities", element: <Utilities /> },
+      { path: "prompt-compressor", element: <PromptCompressor /> },
     ],
   },
 ]);

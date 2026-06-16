@@ -139,21 +139,51 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 }
 
 export interface CompressionResult {
+  mode: string;
   original: string;
   compressed: string;
   original_tokens: number;
   compressed_tokens: number;
   reduction_pct: number;
   estimated: boolean;
+  preserved_constraints: string[];
+  removed_redundancy: string[];
+  conflicts: string[];
+  response_rules: string;
+}
+
+export interface CompressionRecord {
+  id: string;
+  run_id: string | null;
+  project_id: string | null;
+  mode: string;
+  original_token_estimate: number;
+  compressed_token_estimate: number;
+  estimated_reduction_percent: number;
+  compressed_prompt_hash: string;
+  original_prompt_stored: boolean;
+  compressed_prompt_stored: boolean;
+  original_prompt: string | null;
+  compressed_prompt: string | null;
+  created_at: string;
 }
 
 export const api = {
   dashboard: () => get<DashboardData>("/dashboard"),
   diff: (id: string) => get<{ diff: string }>(`/runs/${id}/diff`),
-  compressPrompt: (prompt: string) =>
-    post<CompressionResult>("/prompt-compress", { prompt }),
-  outputBudget: (budget: Record<string, unknown>) =>
-    post<{ instruction_block: string }>("/output-budget", budget),
+  compressPrompt: (prompt: string, mode: string) =>
+    post<CompressionResult>("/prompt-compressor/compress", { prompt, mode }),
+  outputBudget: (preset: string) =>
+    post<{ preset: string; instruction_block: string }>(
+      "/prompt-compressor/output-budget",
+      { preset }
+    ),
+  compressionHistory: () =>
+    get<CompressionRecord[]>("/prompt-compressor/history"),
+  deleteCompression: (id: string) =>
+    fetch(`/api/prompt-compressor/${id}`, { method: "DELETE" }).then((r) =>
+      r.json()
+    ),
   state: () => get<Record<string, unknown>>("/state"),
   runs: () => get<RunSummary[]>("/runs"),
   run: (id: string) => get<RunSummary>(`/runs/${id}`),
