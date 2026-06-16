@@ -5,6 +5,7 @@
 # Node / Vite
 **/node_modules
 apps/landing/dist
+apps/docs/dist
 **/*.tsbuildinfo
 
 # Note: apps/web/dist IS committed. It is embedded into the daemon binary by
