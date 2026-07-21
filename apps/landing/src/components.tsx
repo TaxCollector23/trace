@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { motion } from "framer-motion";
 
 /** A copyable command block. Developer-tool look, no decoration. */
 export function Cmd({ children }: { children: string }) {
@@ -13,11 +14,16 @@ export function Cmd({ children }: { children: string }) {
     }
   };
   return (
-    <div className="cmd">
-      <code>
-        <span className="prompt">$</span> {children}
+    <div className="flex items-center justify-between gap-3 rounded border border-border bg-black/40 px-4 py-2.5">
+      <code className="overflow-x-auto text-sm text-text">
+        <span className="mr-2 select-none text-brand">$</span>
+        {children}
       </code>
-      <button onClick={copy} aria-label="Copy command">
+      <button
+        onClick={copy}
+        aria-label="Copy command"
+        className="shrink-0 rounded-sm border border-border bg-surface px-2.5 py-1 text-xs text-text-dim hover:text-text"
+      >
         {copied ? "copied" : "copy"}
       </button>
     </div>
@@ -27,19 +33,42 @@ export function Cmd({ children }: { children: string }) {
 export function Section({
   id,
   title,
-  kicker,
+  lede,
   children,
 }: {
   id?: string;
   title: string;
-  kicker?: string;
-  children: React.ReactNode;
+  lede?: ReactNode;
+  children: ReactNode;
 }) {
   return (
-    <section id={id} className="section">
-      {kicker && <div className="kicker">{kicker}</div>}
-      <h2>{title}</h2>
-      {children}
+    <section id={id} className="border-t border-border py-16">
+      <h2 className="text-2xl font-semibold">{title}</h2>
+      {lede && <p className="mt-1.5 max-w-[640px] text-text-dim">{lede}</p>}
+      <div className="mt-6">{children}</div>
     </section>
+  );
+}
+
+/** Fades a section's contents in as it enters the viewport. One pass, no loop. */
+export function Reveal({
+  children,
+  delay = 0,
+  className,
+}: {
+  children: ReactNode;
+  delay?: number;
+  className?: string;
+}) {
+  return (
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, y: 8 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-80px" }}
+      transition={{ duration: 0.4, delay, ease: [0.16, 1, 0.3, 1] }}
+    >
+      {children}
+    </motion.div>
   );
 }

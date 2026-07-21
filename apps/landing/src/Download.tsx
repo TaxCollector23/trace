@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Cmd } from "./components";
+import { Cmd, Section } from "./components";
 import { RAW_BASE } from "./config";
 
 type OS = "macos" | "linux" | "windows";
@@ -8,51 +8,34 @@ interface InstallOption {
   label: string;
   recommended?: boolean;
   commands: string[];
-  note?: string;
 }
 
-const INSTALL: Record<OS, { name: string; icon: string; options: InstallOption[] }> = {
+const INSTALL: Record<OS, { name: string; options: InstallOption[] }> = {
   macos: {
     name: "macOS",
-    icon: "",
     options: [
-      {
-        label: "Homebrew",
-        recommended: true,
-        commands: ["brew tap TaxCollector23/tap", "brew install trace"],
-      },
+      { label: "Homebrew", recommended: true, commands: ["brew tap TaxCollector23/tap", "brew install trace"] },
       { label: "curl", commands: [`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`] },
       { label: "npm", commands: ["npm install -g trace"] },
     ],
   },
   linux: {
     name: "Linux",
-    icon: "🐧",
     options: [
-      {
-        label: "curl",
-        recommended: true,
-        commands: [`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`],
-      },
+      { label: "curl", recommended: true, commands: [`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`] },
       { label: "Homebrew", commands: ["brew tap TaxCollector23/tap", "brew install trace"] },
       { label: "npm", commands: ["npm install -g trace"] },
     ],
   },
   windows: {
     name: "Windows",
-    icon: "⊞",
     options: [
-      {
-        label: "PowerShell",
-        recommended: true,
-        commands: [`irm ${RAW_BASE}/scripts/install.ps1 | iex`],
-      },
+      { label: "PowerShell", recommended: true, commands: [`irm ${RAW_BASE}/scripts/install.ps1 | iex`] },
       { label: "npm", commands: ["npm install -g trace"] },
     ],
   },
 };
 
-/** Best-effort OS detection from the browser, for the recommended tab. */
 function detectOS(): OS {
   if (typeof navigator === "undefined") return "macos";
   const s = `${navigator.userAgent} ${navigator.platform}`.toLowerCase();
@@ -67,61 +50,63 @@ export default function Download() {
   const active = INSTALL[os];
 
   return (
-    <section id="download" className="section">
-      <div className="kicker">Install</div>
-      <h2>Download the CLI</h2>
-      <p className="lede">
-        Install Trace, initialize your repo, run your agent through{" "}
-        <code>trace</code>, and open the local dashboard. One binary:{" "}
-        <code>trace</code>. Detected{" "}
-        <b>{INSTALL[os].name}</b> — recommended below.
-      </p>
+    <Section
+      id="download"
+      title="Download the CLI"
+      lede={
+        <>
+          Install Trace, initialize your repo, run your agent through{" "}
+          <code className="text-text">trace</code>, and open the local
+          dashboard. One binary: <code className="text-text">trace</code>.
+          Detected <span className="text-text">{active.name}</span> — recommended below.
+        </>
+      }
+    >
+      <div className="flex gap-6 border-b border-border">
+        {(Object.keys(INSTALL) as OS[]).map((key) => (
+          <button
+            key={key}
+            onClick={() => setOs(key)}
+            className={`-mb-px border-b-2 py-2.5 text-sm font-medium ${
+              os === key ? "border-brand text-text" : "border-transparent text-text-dim hover:text-text"
+            }`}
+          >
+            {INSTALL[key].name}
+          </button>
+        ))}
+      </div>
 
-      <div className="dl">
-        <div className="dl-tabs" role="tablist">
-          {(Object.keys(INSTALL) as OS[]).map((key) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={os === key}
-              className={`dl-tab ${os === key ? "active" : ""}`}
-              onClick={() => setOs(key)}
-            >
-              {INSTALL[key].icon && <span className="dl-ico">{INSTALL[key].icon}</span>}
-              {INSTALL[key].name}
-            </button>
+      <div className="grid grid-cols-1 gap-8 py-6 md:grid-cols-2">
+        <div className="space-y-5">
+          {active.options.map((opt) => (
+            <div key={opt.label}>
+              <div className="mb-1.5 flex items-center gap-2">
+                <span className="text-sm font-semibold">{opt.label}</span>
+                {opt.recommended && (
+                  <span className="rounded-sm border border-brand-dim px-1.5 py-0.5 text-[11px] font-medium text-brand">
+                    Recommended
+                  </span>
+                )}
+              </div>
+              {opt.commands.map((c) => (
+                <Cmd key={c}>{c}</Cmd>
+              ))}
+            </div>
           ))}
         </div>
 
-        <div className="dl-body">
-          <div className="dl-grid">
-            <div>
-              {active.options.map((opt) => (
-                <div className="dl-opt" key={opt.label}>
-                  <div className="dl-opt-head">
-                    <span className="dl-opt-label">{opt.label}</span>
-                    {opt.recommended && <span className="dl-badge">Recommended</span>}
-                  </div>
-                  {opt.commands.map((c) => (
-                    <Cmd key={c}>{c}</Cmd>
-                  ))}
-                </div>
-              ))}
-            </div>
-
-            <div className="dl-after">
-              <div className="dl-after-title">Then record your first run</div>
-              <Cmd>trace init</Cmd>
-              <Cmd>trace run claude</Cmd>
-              <Cmd>trace dashboard</Cmd>
-              <p className="muted dl-after-note">
-                The dashboard opens at <code>http://127.0.0.1:&lt;port&gt;</code>{" "}
-                — local only.
-              </p>
-            </div>
+        <div className="border-l border-border pl-6">
+          <div className="mb-2.5 text-xs uppercase tracking-wide text-text-dim">
+            Then record your first run
           </div>
+          <Cmd>trace init</Cmd>
+          <Cmd>trace run claude</Cmd>
+          <Cmd>trace dashboard</Cmd>
+          <p className="mt-2.5 text-sm text-text-dim">
+            The dashboard opens at <code className="text-text">http://127.0.0.1:&lt;port&gt;</code> — local only.
+          </p>
         </div>
       </div>
-    </section>
+    </Section>
   );
 }
