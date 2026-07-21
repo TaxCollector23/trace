@@ -1,6 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useNavigate } from "react-router-dom";
 import type { RunStatus, RunSummary } from "./api";
+
+/** Inline style for the `.enter` animation's stagger delay, capped so long
+ * lists don't take forever to finish revealing. */
+export function stagger(index: number, stepMs = 30, maxMs = 240): CSSProperties {
+  return { "--d": `${Math.min(index * stepMs, maxMs)}ms` } as CSSProperties;
+}
 
 /** Minimal data-fetching hook with loading + error states. */
 export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []): {
@@ -50,9 +56,57 @@ export function fmtNum(n: number | null): string {
   return n === null || n === undefined ? "—" : n.toLocaleString();
 }
 
-export function Loading({ error }: { error?: string | null }) {
+type LoadingVariant = "kpis" | "cards" | "timeline" | "table" | "text";
+
+/** Shape-matched skeleton for the content it's replacing, so the layout
+ * doesn't jump once real data arrives. Falls back to an error/empty state. */
+export function Loading({
+  error,
+  variant = "text",
+  rows = 3,
+}: {
+  error?: string | null;
+  variant?: LoadingVariant;
+  rows?: number;
+}) {
   if (error) return <div className="empty">Could not load data: {error}</div>;
-  return <div className="empty">Loading…</div>;
+
+  if (variant === "kpis") {
+    return (
+      <div className="skel-kpis" aria-busy="true" aria-label="Loading">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="skel skel-kpi" />
+        ))}
+      </div>
+    );
+  }
+  if (variant === "cards" || variant === "table") {
+    return (
+      <div aria-busy="true" aria-label="Loading">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="skel skel-card" />
+        ))}
+      </div>
+    );
+  }
+  if (variant === "timeline") {
+    return (
+      <div className="timeline" aria-busy="true" aria-label="Loading">
+        {Array.from({ length: rows }).map((_, i) => (
+          <div key={i} className="skel-tl-item">
+            <div className="skel skel-line" style={{ width: 140 }} />
+            <div className="skel skel-line" style={{ width: "70%" }} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div aria-busy="true" aria-label="Loading">
+      <div className="skel skel-line" style={{ width: "40%" }} />
+      <div className="skel skel-line" style={{ width: "70%" }} />
+    </div>
+  );
 }
 
 /** A select to choose which run a center page is showing. */

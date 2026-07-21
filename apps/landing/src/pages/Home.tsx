@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { Cmd, Reveal, Section } from "../components";
 import Download from "../Download";
+import HeroDemo from "../HeroDemo";
 import { DOCS_URL, GITHUB_REPO } from "../config";
 
 const FEATURES = [
@@ -108,7 +109,7 @@ export default function Home() {
         </div>
 
         <Reveal>
-          <DashboardMockup />
+          <HeroDemo />
         </Reveal>
       </section>
 
@@ -118,6 +119,16 @@ export default function Home() {
         <ProofItem title="Review every patch" desc="See the exact code delta before it ships, grounded in the real Git diff." />
         <ProofItem title="Roll back safely" desc="Git-backed checkpoints before each monitored run. Reject risky AI edits with one command." />
       </div>
+
+      {/* ---------- Dashboard preview ---------- */}
+      <Section
+        title="Everything lands in one dashboard"
+        lede="The same run, reviewable afterward — timeline, patch, risk, and cost in one place, served locally at 127.0.0.1."
+      >
+        <Reveal>
+          <DashboardMockup />
+        </Reveal>
+      </Section>
 
       {/* ---------- Feature grid ---------- */}
       <Section

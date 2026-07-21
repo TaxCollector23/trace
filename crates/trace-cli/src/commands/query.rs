@@ -6,6 +6,7 @@ use serde_json::Value;
 use trace_core::models::*;
 
 use crate::client::Client;
+use crate::colors;
 use crate::daemon_ctl;
 
 fn client() -> Result<Client> {
@@ -28,11 +29,15 @@ pub fn runs() -> Result<()> {
         println!("No runs yet. Try `trace run \"claude ...\"`.");
         return Ok(());
     }
-    println!("STATUS      PROJECT     FILES  SECRETS  COMMAND");
+    println!(
+        "{}",
+        colors::bold("STATUS      PROJECT     FILES  SECRETS  COMMAND")
+    );
     for r in runs {
+        let status = colors::status_padded(&r.run.status, 10);
         println!(
-            "{:<10}  {:<10}  {:>5}  {:>7}  {}  ({})",
-            r.run.status,
+            "{}  {:<10}  {:>5}  {:>7}  {}  ({})",
+            status,
             short(&r.project_name, 10),
             r.files_changed,
             r.secret_warnings,
@@ -47,10 +52,14 @@ pub fn runs() -> Result<()> {
 pub fn show(run_id: &str) -> Result<()> {
     let c = client()?;
     let r: RunSummary = c.get_json(&format!("/api/runs/{run_id}"))?;
-    println!("Run {}", r.run.id);
+    println!("{}", colors::bold(&format!("Run {}", r.run.id)));
     println!("  command:  {}", r.run.command);
     println!("  project:  {}", r.project_name);
-    println!("  status:   {} (exit {:?})", r.run.status, r.run.exit_code);
+    println!(
+        "  status:   {} (exit {:?})",
+        colors::status(&r.run.status),
+        r.run.exit_code
+    );
     println!("  started:  {}", r.run.started_at);
     println!(
         "  ended:    {}",
@@ -64,9 +73,14 @@ pub fn show(run_id: &str) -> Result<()> {
         println!("  cost:     ${cost:.4} (estimated)");
     }
     let events: Vec<Event> = c.get_json(&format!("/api/runs/{run_id}/timeline"))?;
-    println!("\nTimeline:");
+    println!("\n{}", colors::bold("Timeline:"));
     for e in events {
-        println!("  {}  [{}] {}", e.created_at, e.event_type, e.message);
+        println!(
+            "  {}  [{}] {}",
+            colors::dim(&e.created_at),
+            e.event_type,
+            e.message
+        );
     }
     Ok(())
 }
@@ -80,9 +94,14 @@ pub fn patch(run_id: &str) -> Result<()> {
         return Ok(());
     }
     for ch in changes {
+        let tone = match ch.change_type.as_str() {
+            "created" => colors::green(&format!("{:<9}", ch.change_type)),
+            "deleted" => colors::red(&format!("{:<9}", ch.change_type)),
+            _ => colors::yellow(&format!("{:<9}", ch.change_type)),
+        };
         println!(
-            "  {:<9} {}  {}",
-            ch.change_type,
+            "  {} {}  {}",
+            tone,
             ch.path,
             ch.diff_summary.unwrap_or_default()
         );
@@ -98,22 +117,25 @@ pub fn risks(run_id: &str) -> Result<()> {
         .into_iter()
         .filter(|c| matches!(c.decision.as_str(), "block" | "warn" | "require_approval"))
         .collect();
-    println!("Command decisions:");
+    println!("{}", colors::bold("Command decisions:"));
     if guarded.is_empty() {
-        println!("  (none)");
+        println!("  {}", colors::dim("(none)"));
     }
     for c in guarded {
-        println!("  [{}] {}", c.decision, c.command);
+        println!("  [{}] {}", colors::status(&c.decision), c.command);
     }
     let secrets: Vec<SecretRecord> = c.get_json(&format!("/api/runs/{run_id}/secrets"))?;
-    println!("\nSecret / protected-file warnings (redacted):");
+    println!(
+        "\n{}",
+        colors::bold("Secret / protected-file warnings (redacted):")
+    );
     if secrets.is_empty() {
-        println!("  (none)");
+        println!("  {}", colors::dim("(none)"));
     }
     for s in secrets {
         println!(
             "  {}  {}  {}",
-            s.secret_type,
+            colors::yellow(&s.secret_type),
             s.redacted_value,
             s.file_path.unwrap_or_else(|| "(output/diff)".into())
         );

@@ -4,6 +4,7 @@
 use anyhow::Result;
 use trace_core::github;
 
+use crate::colors;
 use crate::daemon_ctl;
 
 const INTEGRATIONS: &[(&str, &str, &str)] = &[
@@ -19,9 +20,9 @@ const INTEGRATIONS: &[(&str, &str, &str)] = &[
 ];
 
 pub fn list() -> Result<()> {
-    println!("Trace integrations:");
+    println!("{}", colors::bold("Trace integrations:"));
     for (name, kind, path) in INTEGRATIONS {
-        println!("  • {name} — {kind}  ({path})");
+        println!("  • {name} — {kind}  ({})", colors::dim(path));
     }
     println!("\nRun `trace integrations status` to check what is live now.");
     Ok(())
@@ -30,15 +31,28 @@ pub fn list() -> Result<()> {
 pub fn status() -> Result<()> {
     // Daemon
     match daemon_ctl::running_port() {
-        Some(port) => println!("daemon:   running on http://127.0.0.1:{port}"),
-        None => println!("daemon:   not running (start with `trace daemon start`)"),
+        Some(port) => println!(
+            "daemon:   {} on http://127.0.0.1:{port}",
+            colors::green("running")
+        ),
+        None => println!(
+            "daemon:   {} (start with `trace daemon start`)",
+            colors::red("not running")
+        ),
     }
 
     // GitHub token (enables private repo reading + MCP/CI flows)
     let (token, src) = github::resolve_token();
     match token {
-        Some(_) => println!("github:   token available (source: {})", src.as_str()),
-        None => println!("github:   no token (set GITHUB_TOKEN or run `gh auth login`)"),
+        Some(_) => println!(
+            "github:   {} (source: {})",
+            colors::green("token available"),
+            src.as_str()
+        ),
+        None => println!(
+            "github:   {} (set GITHUB_TOKEN or run `gh auth login`)",
+            colors::dim("no token")
+        ),
     }
 
     println!("\nAdapters are in the integrations/ folder. See the docs for setup.");

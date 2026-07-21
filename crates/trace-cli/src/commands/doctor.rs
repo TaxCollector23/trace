@@ -3,6 +3,7 @@
 use anyhow::Result;
 use trace_core::{agents, paths};
 
+use crate::colors;
 use crate::daemon_ctl;
 
 fn tool_version(bin: &str, args: &[&str]) -> Option<String> {
@@ -20,15 +21,31 @@ fn tool_version(bin: &str, args: &[&str]) -> Option<String> {
 }
 
 fn line(label: &str, ok: bool, detail: &str) {
-    let mark = if ok { "✓" } else { "✗" };
+    let mark = if ok {
+        colors::green("✓")
+    } else {
+        colors::red("✗")
+    };
+    let detail = if ok {
+        colors::dim(detail)
+    } else {
+        detail.to_string()
+    };
     println!("  {mark} {label:<16} {detail}");
 }
 
+fn heading(s: &str) {
+    println!("{}", colors::bold(s));
+}
+
 pub fn run() -> Result<()> {
-    println!("Trace doctor — v{}\n", trace_core::VERSION);
+    println!(
+        "{}\n",
+        colors::bold(&format!("Trace doctor — v{}", trace_core::VERSION))
+    );
 
     // Core toolchain.
-    println!("Toolchain:");
+    heading("Toolchain:");
     match tool_version("git", &["--version"]) {
         Some(v) => line("git", true, &v),
         None => line(
@@ -51,14 +68,14 @@ pub fn run() -> Result<()> {
     }
 
     // Clipboard.
-    println!("\nClipboard:");
+    heading("\nClipboard:");
     match agents::copy_to_clipboard("") {
         Ok(t) => line("clipboard", true, &format!("available ({t})")),
         Err(e) => line("clipboard", false, &e),
     }
 
     // Daemon.
-    println!("\nDaemon:");
+    heading("\nDaemon:");
     match daemon_ctl::running_port() {
         Some(port) => line(
             "daemon",
@@ -73,7 +90,7 @@ pub fn run() -> Result<()> {
     }
 
     // Paths.
-    println!("\nPaths:");
+    heading("\nPaths:");
     if let Ok(db) = paths::database_path() {
         line("database", db.exists(), &db.display().to_string());
     }
@@ -92,7 +109,7 @@ pub fn run() -> Result<()> {
     );
 
     // Installed AI tools.
-    println!("\nAI tools detected:");
+    heading("\nAI tools detected:");
     let all = agents::detect_all();
     let installed: Vec<_> = all.iter().filter(|a| a.installed).collect();
     let web: Vec<_> = all.iter().filter(|a| a.surface == "web").collect();

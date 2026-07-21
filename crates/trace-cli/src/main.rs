@@ -4,15 +4,35 @@
 //! tool for AI coding agents.
 
 mod client;
+mod colors;
 mod commands;
 mod daemon_ctl;
 mod project;
 mod watcher;
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::builder::styling::{AnsiColor, Color, RgbColor, Style, Styles};
+use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 
 use commands::run::RunOptions;
+
+/// Bold brand-indigo headers/usage, plain-bold flag names, dim placeholders —
+/// the same accent used across the landing page, dashboard, and CLI banner.
+fn help_styles() -> Styles {
+    let brand = Color::Rgb(RgbColor(124, 123, 251));
+    Styles::styled()
+        .header(Style::new().bold().fg_color(Some(brand)))
+        .usage(Style::new().bold().fg_color(Some(brand)))
+        .literal(Style::new().bold())
+        .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::BrightBlack))))
+        .valid(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green))))
+        .invalid(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Red))))
+        .error(
+            Style::new()
+                .bold()
+                .fg_color(Some(Color::Ansi(AnsiColor::Red))),
+        )
+}
 
 #[derive(Parser)]
 #[command(
@@ -21,7 +41,7 @@ use commands::run::RunOptions;
     // Version is handled manually (see `main`) so `--version` prints exactly
     // "Trace 1.1".
     disable_version_flag = true,
-    about = "Trace — the trust layer for autonomous software engineering.",
+    about = "Trace — the trust layer for AI software engineering.",
     long_about = "Trace records what AI coding agents change, run, cost, and break, \
                   and helps you roll back. It is local-first: all data stays on your machine."
 )]
@@ -177,13 +197,7 @@ fn print_banner() {
     if !std::io::stdout().is_terminal() {
         return;
     }
-    // Brand indigo (#7c7bfb), the same accent used across the landing page
-    // and dashboard. Skipped when NO_COLOR is set.
-    if std::env::var_os("NO_COLOR").is_some() {
-        println!("{BANNER}\n");
-    } else {
-        println!("\x1b[38;2;124;123;251m{BANNER}\x1b[0m\n");
-    }
+    println!("{}\n", colors::brand(BANNER));
 }
 
 fn main() {
@@ -204,7 +218,11 @@ fn main() {
 }
 
 fn real_main() -> Result<()> {
-    let cli = Cli::parse();
+    let matches = Cli::command().styles(help_styles()).get_matches();
+    let cli = match Cli::from_arg_matches(&matches) {
+        Ok(cli) => cli,
+        Err(e) => e.exit(),
+    };
     match cli.command {
         Commands::Init => commands::init::run(),
         Commands::Run {
