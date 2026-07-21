@@ -83,6 +83,18 @@ and the full event timeline.
 trace show <run_id>
 ```
 
+## `trace replay <run_id>`
+
+Replay a run's events, commands, and file changes in the order they actually
+happened, paced by their real recorded timestamps (clamped between 150ms and
+1.5s per step so a long run never drags). Reads the same data as `show`,
+`patch`, and `risks` — nothing is simulated.
+
+```bash
+trace replay <run_id>
+trace replay <run_id> --fast   # skip pacing, print immediately
+```
+
 ## `trace patch <run_id>`
 
 Show the changed files for a run, derived from the Git diff.

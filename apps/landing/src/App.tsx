@@ -8,7 +8,7 @@ export default function App() {
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-content items-center justify-between px-6 py-4">
           <Link to="/" className="flex items-center gap-2 text-[17px] font-semibold text-text">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-text text-bg">
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand text-white">
               <Path size={14} weight="bold" />
             </span>
             Trace
@@ -56,7 +56,7 @@ export default function App() {
         <div className="mx-auto grid max-w-content grid-cols-1 gap-8 px-6 py-10 sm:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <div className="flex items-center gap-2 text-[15px] font-semibold text-text">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-text text-bg">
+              <span className="flex h-5 w-5 items-center justify-center rounded bg-brand text-white">
                 <Path size={12} weight="bold" />
               </span>
               Trace

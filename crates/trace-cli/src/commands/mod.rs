@@ -7,6 +7,7 @@ pub mod github;
 pub mod init;
 pub mod integrations;
 pub mod query;
+pub mod replay;
 pub mod rollback;
 pub mod run;
 pub mod scan_cmd;

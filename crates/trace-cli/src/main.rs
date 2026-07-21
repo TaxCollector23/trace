@@ -83,6 +83,15 @@ enum Commands {
     /// Show a run's summary and timeline.
     Show { run_id: String },
 
+    /// Replay a run's events, commands, and file changes in the order they
+    /// happened, paced by their real recorded timestamps.
+    Replay {
+        run_id: String,
+        /// Skip pacing and print everything immediately.
+        #[arg(short = 'y', long)]
+        fast: bool,
+    },
+
     /// Show the changed files for a run.
     Patch { run_id: String },
 
@@ -239,6 +248,7 @@ fn real_main() -> Result<()> {
         Commands::Scan => commands::scan_cmd::run(),
         Commands::Runs => commands::query::runs(),
         Commands::Show { run_id } => commands::query::show(&run_id),
+        Commands::Replay { run_id, fast } => commands::replay::run(&run_id, fast),
         Commands::Patch { run_id } => commands::query::patch(&run_id),
         Commands::Risks { run_id } => commands::query::risks(&run_id),
         Commands::Costs { run_id } => commands::query::costs(&run_id),

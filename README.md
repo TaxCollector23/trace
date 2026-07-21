@@ -71,6 +71,7 @@ only). Roll back a run's changes with `trace rollback`.
 | `trace doctor` | System checks: toolchain, clipboard, daemon, agents, paths. |
 | `trace runs` | List recent runs. |
 | `trace show <run_id>` | Show a run's summary and timeline. |
+| `trace replay <run_id>` | Replay a run's events, commands, and file changes in order, paced by their real timestamps (`-y`/`--fast` to skip pacing). |
 | `trace patch <run_id>` | Show the changed files for a run. |
 | `trace risks <run_id>` | Show guarded commands and secret warnings for a run. |
 | `trace costs <run_id>` | Show API usage and estimated cost for a run. |

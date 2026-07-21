@@ -91,7 +91,7 @@ export default function Home() {
               href={DOCS_URL}
               target="_blank"
               rel="noreferrer"
-              className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-bg hover:bg-brand-dim"
+              className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dim"
             >
               Read the docs
             </a>
@@ -211,7 +211,7 @@ export default function Home() {
         <h2 className="text-2xl font-semibold">See every AI edit before it ships.</h2>
         <p className="mt-2 text-text-dim">Review the diff. Check the cost. Roll back safely.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <a href="#download" className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-bg hover:bg-brand-dim">
+          <a href="#download" className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dim">
             Install the CLI
           </a>
           <a href={GITHUB_REPO} target="_blank" rel="noreferrer" className="rounded border border-border px-5 py-2.5 text-sm font-medium text-text hover:border-brand-dim">

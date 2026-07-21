@@ -53,24 +53,22 @@ export default {
         content: "1160px",
       },
       colors: {
-        // Monochrome: black, white, and gray. The "brand color" is white
-        // itself — used sparingly, only for the primary action and the
-        // active/focus state. Red/green/yellow exist only where they carry
-        // real meaning (run status), and are deliberately muted so they
-        // never compete with the grayscale hierarchy.
-        bg: "#0a0a0a",
-        surface: "#131313",
-        "surface-2": "#1a1a1a",
-        border: "#272727",
-        "border-strong": "#3a3a3a",
-        text: "#f2f2f0",
-        "text-dim": "#8a8a86",
-        "text-dimmer": "#57564f",
-        brand: "#f2f2f0",
-        "brand-dim": "#a8a8a4",
-        good: "#7fae86",
-        warn: "#c2a25a",
-        bad: "#c07a72",
+        // Black, white, and one blue accent. Red/green/yellow exist only
+        // where they carry real meaning (run status) — full saturation,
+        // used sparingly, never decoratively.
+        bg: "#09090b",
+        surface: "#111113",
+        "surface-2": "#18181b",
+        border: "#27272a",
+        "border-strong": "#3a3a3e",
+        text: "#fafafa",
+        "text-dim": "#a1a1aa",
+        "text-dimmer": "#71717a",
+        brand: "#4fa3ff",
+        "brand-dim": "#74b7ff",
+        good: "#22c55e",
+        warn: "#f59e0b",
+        bad: "#ef4444",
       },
     },
   },
