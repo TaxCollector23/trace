@@ -53,19 +53,24 @@ export default {
         content: "1160px",
       },
       colors: {
-        // The palette already in production use across the dashboard, docs,
-        // and CLI — reused here rather than inventing a landing-only look.
-        bg: "#0a0a0d",
-        surface: "#121218",
-        "surface-2": "#17171f",
-        border: "#232330",
-        text: "#eeeef2",
-        "text-dim": "#8f8fa3",
-        brand: "#7c7bfb",
-        "brand-dim": "#6260e0",
-        good: "#3fb950",
-        warn: "#d29922",
-        bad: "#f85149",
+        // Monochrome: black, white, and gray. The "brand color" is white
+        // itself — used sparingly, only for the primary action and the
+        // active/focus state. Red/green/yellow exist only where they carry
+        // real meaning (run status), and are deliberately muted so they
+        // never compete with the grayscale hierarchy.
+        bg: "#0a0a0a",
+        surface: "#131313",
+        "surface-2": "#1a1a1a",
+        border: "#272727",
+        "border-strong": "#3a3a3a",
+        text: "#f2f2f0",
+        "text-dim": "#8a8a86",
+        "text-dimmer": "#57564f",
+        brand: "#f2f2f0",
+        "brand-dim": "#a8a8a4",
+        good: "#7fae86",
+        warn: "#c2a25a",
+        bad: "#c07a72",
       },
     },
   },

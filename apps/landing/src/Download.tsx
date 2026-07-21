@@ -10,28 +10,31 @@ interface InstallOption {
   commands: string[];
 }
 
+// npm is the default everywhere: it needs nothing pre-installed beyond
+// Node, which most developers already have — unlike Homebrew, which is
+// macOS/Linuxbrew-only and not something to assume.
 const INSTALL: Record<OS, { name: string; options: InstallOption[] }> = {
   macos: {
     name: "macOS",
     options: [
-      { label: "Homebrew", recommended: true, commands: ["brew tap TaxCollector23/tap", "brew install trace"] },
+      { label: "npm", recommended: true, commands: ["npm install -g trace"] },
+      { label: "Homebrew", commands: ["brew tap TaxCollector23/tap", "brew install trace"] },
       { label: "curl", commands: [`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`] },
-      { label: "npm", commands: ["npm install -g trace"] },
     ],
   },
   linux: {
     name: "Linux",
     options: [
-      { label: "curl", recommended: true, commands: [`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`] },
+      { label: "npm", recommended: true, commands: ["npm install -g trace"] },
+      { label: "curl", commands: [`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`] },
       { label: "Homebrew", commands: ["brew tap TaxCollector23/tap", "brew install trace"] },
-      { label: "npm", commands: ["npm install -g trace"] },
     ],
   },
   windows: {
     name: "Windows",
     options: [
-      { label: "PowerShell", recommended: true, commands: [`irm ${RAW_BASE}/scripts/install.ps1 | iex`] },
-      { label: "npm", commands: ["npm install -g trace"] },
+      { label: "npm", recommended: true, commands: ["npm install -g trace"] },
+      { label: "PowerShell", commands: [`irm ${RAW_BASE}/scripts/install.ps1 | iex`] },
     ],
   },
 };
