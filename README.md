@@ -10,7 +10,7 @@ answer instead of a guess.
 It is **local-first**: the daemon and dashboard bind only to `127.0.0.1`, there
 is no account, and your project data stays on your machine by default.
 
-- **Landing:** the Vercel project currently deployed from `apps/landing` (pending a rename off its old `traceguardlanding` project name — see [Deploying the public surfaces](#deploying-the-public-surfaces))
+- **Landing:** https://landing-one-hazel-88.vercel.app (Vercel project `landing`; a cleaner `trace`-branded domain can be aliased later — see [Deploying the public surfaces](#deploying-the-public-surfaces))
 - **Docs:** https://taxcollector23.github.io/trace/ (GitHub Pages, built from `/docs` via `apps/docs`)
 - **Repo:** https://github.com/TaxCollector23/trace
 
@@ -183,11 +183,11 @@ cargo run -p trace-cli -- --help
 The public surfaces are marketing/onboarding only and never touch the local
 daemon.
 
-- **Vercel (landing):** import the repo, set **Root Directory** to
-  `apps/landing`, build command `npm run build`, output `dist`. Set
-  `VITE_MINTLIFY_DOCS_URL` to the deployed docs URL. The existing Vercel
-  project still carries its old `traceguardlanding` name — rename it (or
-  create a fresh project) to match the `trace` brand when convenient.
+- **Vercel (landing):** deployed from `apps/landing` (Root Directory
+  `apps/landing`, build command `npm run build`, output `dist`) to the
+  `landing` project at https://landing-one-hazel-88.vercel.app. Set
+  `VITE_MINTLIFY_DOCS_URL` to the deployed docs URL. Alias a `trace`-branded
+  custom domain to this project when one is available.
 - **Firebase (optional mirror):** `firebase/` hosts a static reserved page only.
   Do not add Auth/Firestore/Storage/Functions for the MVP.
 - **GitHub Pages (docs):** `apps/docs` builds a fancy site from `/docs` and the
