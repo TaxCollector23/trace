@@ -8,7 +8,6 @@ import PatchReview from "./pages/PatchReview";
 import CostCenter from "./pages/CostCenter";
 import RiskCenter from "./pages/RiskCenter";
 import RollbackCenter from "./pages/RollbackCenter";
-import PromptCompressor from "./pages/PromptCompressor";
 import GitHub from "./pages/GitHub";
 import "./styles.css";
 
@@ -29,7 +28,6 @@ const router = createHashRouter([
       { path: "risk", element: <RiskCenter /> },
       { path: "risk/:runId", element: <RiskCenter /> },
       { path: "rollback", element: <RollbackCenter /> },
-      { path: "prompt-compressor", element: <PromptCompressor /> },
       { path: "github", element: <GitHub /> },
     ],
   },

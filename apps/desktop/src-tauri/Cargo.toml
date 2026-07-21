@@ -1,0 +1,23 @@
+[package]
+name = "trace-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Trace native desktop shell (Tauri) wrapping the local dashboard."
+build = "build.rs"
+
+[[bin]]
+name = "trace-desktop"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2" }
+trace-core = { path = "../../../crates/trace-core" }
+trace-daemon = { path = "../../../crates/trace-daemon" }
+anyhow = { workspace = true }
+ureq = { version = "2", features = ["json"] }

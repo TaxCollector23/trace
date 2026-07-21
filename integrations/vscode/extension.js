@@ -1,8 +1,8 @@
-// TraceGuard VS Code extension — a lightweight bridge to the local daemon.
+// Trace VS Code extension — a lightweight bridge to the local daemon.
 //
 // It does not duplicate the dashboard. It shows recent runs, opens the
-// dashboard, and runs the current command through `trg`. It only talks to
-// http://127.0.0.1:<port> using the port from ~/.traceguard/daemon.json.
+// dashboard, and runs the current command through `trace`. It only talks to
+// http://127.0.0.1:<port> using the port from ~/.trace/daemon.json.
 
 const vscode = require("vscode");
 const fs = require("fs");
@@ -11,7 +11,7 @@ const path = require("path");
 
 function daemonBaseUrl() {
   try {
-    const statePath = path.join(os.homedir(), ".traceguard", "daemon.json");
+    const statePath = path.join(os.homedir(), ".trace", "daemon.json");
     const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
     if (state && state.port) return `http://127.0.0.1:${state.port}`;
   } catch (_) {
@@ -49,7 +49,7 @@ class RunsProvider {
   }
   getChildren() {
     if (!daemonBaseUrl()) {
-      const item = new vscode.TreeItem("Daemon not running — run `trg dashboard`");
+      const item = new vscode.TreeItem("Daemon not running — run `trace dashboard`");
       item.iconPath = new vscode.ThemeIcon("debug-disconnect");
       return [item];
     }
@@ -73,27 +73,27 @@ function activate(context) {
   const provider = new RunsProvider();
   provider.refresh();
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider("traceguard.runs", provider),
-    vscode.commands.registerCommand("traceguard.refresh", () => provider.refresh()),
-    vscode.commands.registerCommand("traceguard.openDashboard", () => {
+    vscode.window.registerTreeDataProvider("trace.runs", provider),
+    vscode.commands.registerCommand("trace.refresh", () => provider.refresh()),
+    vscode.commands.registerCommand("trace.openDashboard", () => {
       const base = daemonBaseUrl();
       if (base) {
         vscode.env.openExternal(vscode.Uri.parse(base));
       } else {
-        const term = vscode.window.createTerminal("TraceGuard");
+        const term = vscode.window.createTerminal("Trace");
         term.show();
-        term.sendText("trg dashboard");
+        term.sendText("trace dashboard");
       }
     }),
-    vscode.commands.registerCommand("traceguard.runCommand", async () => {
+    vscode.commands.registerCommand("trace.runCommand", async () => {
       const command = await vscode.window.showInputBox({
-        prompt: "Command to run through TraceGuard",
+        prompt: "Command to run through Trace",
         placeHolder: 'e.g. claude "fix the login bug"',
       });
       if (!command) return;
-      const term = vscode.window.createTerminal("TraceGuard");
+      const term = vscode.window.createTerminal("Trace");
       term.show();
-      term.sendText(`trg run ${JSON.stringify(command)}`);
+      term.sendText(`trace run ${JSON.stringify(command)}`);
     })
   );
 }

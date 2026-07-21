@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// TraceGuard MCP server for Cursor (and any MCP client).
+// Trace MCP server for Cursor (and any MCP client).
 //
 // Dependency-free stdio JSON-RPC 2.0 server (newline-delimited messages). It
-// exposes TraceGuard operations as MCP tools, each backed by the local daemon at
-// http://127.0.0.1:<port> (port read from ~/.traceguard/daemon.json). It never
+// exposes Trace operations as MCP tools, each backed by the local daemon at
+// http://127.0.0.1:<port> (port read from ~/.trace/daemon.json). It never
 // connects to any remote service.
 
 import fs from "node:fs";
@@ -13,7 +13,7 @@ import readline from "node:readline";
 
 function daemonBase() {
   try {
-    const p = path.join(os.homedir(), ".traceguard", "daemon.json");
+    const p = path.join(os.homedir(), ".trace", "daemon.json");
     const s = JSON.parse(fs.readFileSync(p, "utf8"));
     if (s && s.port) return `http://127.0.0.1:${s.port}`;
   } catch {
@@ -24,7 +24,7 @@ function daemonBase() {
 
 async function api(method, route, body) {
   const base = daemonBase();
-  if (!base) throw new Error("TraceGuard daemon is not running. Run `trg dashboard`.");
+  if (!base) throw new Error("Trace daemon is not running. Run `trace dashboard`.");
   const res = await fetch(`${base}/api${route}`, {
     method,
     headers: body ? { "content-type": "application/json" } : undefined,
@@ -37,13 +37,13 @@ async function api(method, route, body) {
 async function projectIdForPath(projectPath) {
   const projects = await api("GET", "/projects");
   const match = projects.find((p) => p.path === projectPath);
-  if (!match) throw new Error(`No TraceGuard project at ${projectPath}. Run \`trg init\` there.`);
+  if (!match) throw new Error(`No Trace project at ${projectPath}. Run \`trace init\` there.`);
   return match.id;
 }
 
 const TOOLS = {
-  traceguard_check_command: {
-    description: "Classify a shell command with TraceGuard's guard rules (allow/warn/require_approval/block).",
+  trace_check_command: {
+    description: "Classify a shell command with Trace's guard rules (allow/warn/require_approval/block).",
     inputSchema: {
       type: "object",
       properties: { command: { type: "string" } },
@@ -51,13 +51,13 @@ const TOOLS = {
     },
     handler: (args) => api("POST", "/check-command", { command: args.command }),
   },
-  traceguard_get_recent_runs: {
+  trace_get_recent_runs: {
     description: "List recent monitored runs with status and counts.",
     inputSchema: { type: "object", properties: {} },
     handler: () => api("GET", "/runs?limit=25"),
   },
-  traceguard_start_run: {
-    description: "Start a TraceGuard run for a project path. Returns the run id.",
+  trace_start_run: {
+    description: "Start a Trace run for a project path. Returns the run id.",
     inputSchema: {
       type: "object",
       properties: {
@@ -79,7 +79,7 @@ const TOOLS = {
       });
     },
   },
-  traceguard_end_run: {
+  trace_end_run: {
     description: "Finalize a run with a status (completed/failed/blocked).",
     inputSchema: {
       type: "object",
@@ -97,7 +97,7 @@ const TOOLS = {
         ending_commit: null,
       }),
   },
-  traceguard_record_event: {
+  trace_record_event: {
     description: "Record a timeline event on a run.",
     inputSchema: {
       type: "object",
@@ -115,7 +115,7 @@ const TOOLS = {
         metadata_json: null,
       }),
   },
-  traceguard_get_patch_summary: {
+  trace_get_patch_summary: {
     description: "Get the list of file changes for a run.",
     inputSchema: {
       type: "object",
@@ -124,7 +124,7 @@ const TOOLS = {
     },
     handler: (args) => api("GET", `/runs/${args.run_id}/file-changes`),
   },
-  traceguard_get_rollback_options: {
+  trace_get_rollback_options: {
     description: "List runs that have a checkpoint available for rollback.",
     inputSchema: { type: "object", properties: {} },
     handler: async () => {
@@ -162,7 +162,7 @@ async function handle(msg) {
         result: {
           protocolVersion: "2024-11-05",
           capabilities: { tools: {} },
-          serverInfo: { name: "traceguard", version: "0.1.0" },
+          serverInfo: { name: "trace", version: "0.1.0" },
         },
       });
       break;

@@ -1,6 +1,6 @@
 name: release
 
-# Build cross-platform `trg` binaries (with the dashboard embedded) and publish
+# Build cross-platform `trace` binaries (with the dashboard embedded) and publish
 # them to a GitHub Release when a v* tag is pushed.
 on:
   push:
@@ -21,23 +21,23 @@ jobs:
         include:
           - os: macos-14
             target: aarch64-apple-darwin
-            artifact: trg-macos-arm64
+            artifact: trace-macos-arm64
             cross: false
           - os: macos-13
             target: x86_64-apple-darwin
-            artifact: trg-macos-x64
+            artifact: trace-macos-x64
             cross: false
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
-            artifact: trg-linux-x64
+            artifact: trace-linux-x64
             cross: false
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            artifact: trg-linux-arm64
+            artifact: trace-linux-arm64
             cross: true
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-            artifact: trg-windows-x64.exe
+            artifact: trace-windows-x64.exe
             cross: false
 
     steps:
@@ -65,23 +65,23 @@ jobs:
       # rust-embed embeds apps/web/dist in release builds.
       - name: Build (cargo)
         if: ${{ !matrix.cross }}
-        run: cargo build --release --target ${{ matrix.target }} -p trg-cli
+        run: cargo build --release --target ${{ matrix.target }} -p trace-cli
 
       - name: Build (cross)
         if: matrix.cross
-        run: cross build --release --target ${{ matrix.target }} -p trg-cli
+        run: cross build --release --target ${{ matrix.target }} -p trace-cli
 
       # --- Stage the artifact under its release name ---
       - name: Stage artifact (unix)
         if: runner.os != 'Windows'
         run: |
           mkdir -p dist
-          cp "target/${{ matrix.target }}/release/trg" "dist/${{ matrix.artifact }}"
+          cp "target/${{ matrix.target }}/release/trace" "dist/${{ matrix.artifact }}"
       - name: Stage artifact (windows)
         if: runner.os == 'Windows'
         run: |
           mkdir dist
-          copy "target\${{ matrix.target }}\release\trg.exe" "dist\${{ matrix.artifact }}"
+          copy "target\${{ matrix.target }}\release\trace.exe" "dist\${{ matrix.artifact }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -97,5 +97,56 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: dist/${{ matrix.artifact }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+
+  desktop-macos:
+    name: build desktop shell (macOS, aarch64)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # The desktop shell loads the daemon's own served dashboard at runtime,
+      # but Tauri still bundles frontendDist, so build it first.
+      - name: Build dashboard
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run build
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Install desktop npm deps
+        working-directory: apps/desktop
+        run: npm install
+
+      # Unsigned build — macOS will warn on first launch until
+      # notarization/signing is added (see README "Engineering decisions").
+      - name: Build desktop app bundle
+        working-directory: apps/desktop
+        run: npm run tauri build -- --target aarch64-apple-darwin
+
+      - name: Stage bundle
+        run: |
+          mkdir -p dist
+          cp apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg dist/trace-desktop-macos-arm64.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trace-desktop-macos-arm64
+          path: dist/trace-desktop-macos-arm64.dmg
+
+      - name: Publish asset to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: dist/trace-desktop-macos-arm64.dmg
           generate_release_notes: true
           fail_on_unmatched_files: true

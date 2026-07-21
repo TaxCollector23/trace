@@ -1,4 +1,4 @@
-// TraceGuard GitHub App — event handler skeleton.
+// Trace GitHub App — event handler skeleton.
 //
 // This is an intentionally minimal, dependency-free skeleton showing the event
 // surface. Wire it to a webhook receiver (e.g. a small Express/Lambda) and the
@@ -14,30 +14,30 @@ export async function handleEvent(event, payload, octokit) {
   switch (event) {
     case "pull_request":
       if (["opened", "synchronize"].includes(payload.action)) {
-        await createTraceGuardCheck(payload, octokit);
+        await createTraceCheck(payload, octokit);
       }
       break;
     case "push":
-      // Link the local TraceGuard run to the pushed commit SHA (out of band).
+      // Link the local Trace run to the pushed commit SHA (out of band).
       break;
     default:
       break;
   }
 }
 
-async function createTraceGuardCheck(payload, octokit) {
+async function createTraceCheck(payload, octokit) {
   const { repository, pull_request } = payload;
   const summary = await loadSanitizedSummary(); // from the CI artifact or local import
 
   await octokit.checks.create({
     owner: repository.owner.login,
     repo: repository.name,
-    name: "TraceGuard",
+    name: "Trace",
     head_sha: pull_request.head.sha,
     status: "completed",
     conclusion: summary.checks_status === "failed" ? "failure" : "neutral",
     output: {
-      title: "TraceGuard summary",
+      title: "Trace summary",
       summary: [
         `Files changed: ${summary.files_changed}`,
         `Risky file warnings: ${summary.risky_file_warnings}`,
@@ -48,7 +48,7 @@ async function createTraceGuardCheck(payload, octokit) {
   });
 }
 
-// Replace with reading the uploaded `traceguard-summary.json` artifact.
+// Replace with reading the uploaded `trace-summary.json` artifact.
 async function loadSanitizedSummary() {
   return {
     files_changed: 0,

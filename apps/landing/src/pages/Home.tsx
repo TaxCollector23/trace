@@ -12,7 +12,6 @@ function Icon({ name }: { name: string }) {
     secret: "M7 11V8a5 5 0 0110 0v3 M5 11h14v9H5z",
     cost: "M12 2v20 M17 6H9.5a3.5 3.5 0 100 7h5a3.5 3.5 0 110 7H6",
     rollback: "M3 12a9 9 0 109-9 M3 12V6 M3 12h6",
-    compress: "M9 4H5v4 M15 20h4v-4 M20 9V5h-4 M4 15v4h4 M9 15l-4 4 M20 5l-5 5",
   };
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -63,15 +62,15 @@ const FEATURES: { icon: string; title: string; desc: string; bullets: string[] }
 const INTEGRATIONS: { name: string; note: string; status: "live" | "ready" | "planned" }[] = [
   { name: "Claude Code", note: "wrapper + hooks adapter", status: "live" },
   { name: "Codex CLI", note: "wrapper", status: "live" },
-  { name: "Generic terminal agents", note: "trg run <command>", status: "live" },
+  { name: "Generic terminal agents", note: "trace run <command>", status: "live" },
   { name: "Cursor", note: "MCP server (load locally)", status: "ready" },
   { name: "VS Code", note: "extension (load unpacked)", status: "ready" },
-  { name: "Browser: ChatGPT / Claude / Gemini", note: "extension (load unpacked)", status: "ready" },
   { name: "GitHub Actions", note: "CI summary workflow", status: "ready" },
   { name: "GitHub App / PR checks", note: "skeleton", status: "planned" },
 ];
 
 const ROADMAP = [
+  "Native desktop app (macOS first)",
   "Shared policy rules",
   "Organization dashboards",
   "GitHub organization integration",
@@ -91,13 +90,12 @@ export default function Home() {
             <span className="pulse" /> Local-first · v1.1
           </span>
           <h1 className="hero-title">
-            The control layer for <span className="grad">AI coding agents.</span>
+            The trust layer for <span className="grad">AI software engineering.</span>
           </h1>
           <p className="hero-sub">
-            TraceGuard records every AI coding session — <b>file changes, shell
+            Trace records every AI coding session — <b>file changes, shell
             commands, risky actions, token cost, build results, and rollback
-            checkpoints</b> — from a local-first dashboard you control. Plus
-            TraceCompress for prompt-efficient, disciplined output.
+            checkpoints</b> — from a local-first dashboard you control.
           </p>
           <div className="hero-actions">
             <a className="btn-primary" href={DOCS_URL} target="_blank" rel="noreferrer">
@@ -109,7 +107,7 @@ export default function Home() {
           </div>
           <div className="hero-install">
             <div className="label">Get started</div>
-            <Cmd>brew install traceguard</Cmd>
+            <Cmd>brew install trace</Cmd>
           </div>
         </div>
 
@@ -134,10 +132,10 @@ export default function Home() {
 
       {/* ---------- Feature matrix ---------- */}
       <section className="section" id="features">
-        <div className="kicker">What TraceGuard records</div>
-        <h2>An audit trail for the AI-agent era</h2>
+        <div className="kicker">What Trace records</div>
+        <h2>An execution trace for the AI-agent era</h2>
         <p className="lede">
-          Stop treating agent runs like black boxes. TraceGuard captures the full
+          Stop treating agent runs like black boxes. Trace captures the full
           execution timeline, the patch, the risks, and the cost — locally.
         </p>
         <div className="matrix">
@@ -152,44 +150,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ---------- TraceCompress ---------- */}
-      <section className="section">
-        <div className="kicker">TraceCompress</div>
-        <h2>Precision prompts. Disciplined output.</h2>
-        <p className="lede">
-          TraceCompress rewrites messy prompts into shorter, sharper instructions
-          while preserving meaning, file names, commands, and must-not-do rules —
-          then attaches Bare Mode rules so models stop wasting words. Local and
-          deterministic by default.
-        </p>
-        <div className="tc-grid">
-          <div className="tc-card">
-            <div className="tc-head in">Input</div>
-            <div className="tc-body in">bro fix the auth thing but like dont rewrite the whole app and dont change the ui and dont add random packages and also dont say you fixed it unless tests pass</div>
-          </div>
-          <div className="tc-card">
-            <div className="tc-head out">Compressed</div>
-            <div className="tc-body">Fix the auth issue. Do not rewrite the app. Do not change the UI. Do not add new packages unless required. Do not claim completion unless tests pass.</div>
-          </div>
-        </div>
-        <div className="tc-rules">
-          <div className="r-t">Bare Mode rules attached</div>
-          <div className="r-b">Be direct. No filler. No fake completion claims. Show changed files, commands run, failures, and remaining work only.</div>
-        </div>
-        <div className="tc-meta">
-          <div className="m"><div className="v">~38</div><div className="k">tokens in (est.)</div></div>
-          <div className="m"><div className="v green">~30</div><div className="k">tokens out (est.)</div></div>
-          <div className="m"><div className="v green">meaning preserved</div><div className="k">constraints kept</div></div>
-        </div>
-      </section>
-
       {/* ---------- Integrations ---------- */}
       <section className="section">
         <div className="kicker">Integrations</div>
         <h2>Agent-aware, where you already work</h2>
         <p className="lede">
-          Terminal agents run through <code>trg run</code> today. Editor and
-          browser adapters are built and load locally. Status is labeled honestly.
+          Terminal agents run through <code>trace run</code> today. Editor
+          adapters are built and load locally. Status is labeled honestly.
         </p>
         <div className="intg">
           {INTEGRATIONS.map((i) => (
@@ -211,11 +178,11 @@ export default function Home() {
           <div className="callout">
             <h3>Your machine. Your data.</h3>
             <p style={{ margin: 0 }}>
-              TraceGuard's real dashboard runs locally at <code>127.0.0.1</code>.
-              Project history, Git diffs, prompt-compression metadata, and run
-              records stay on your machine by default. Raw secrets are never
-              stored — detections are redacted. Any cloud or GitHub integration
-              uses sanitized summaries only.
+              Trace's real dashboard runs locally at <code>127.0.0.1</code>.
+              Project history, Git diffs, and run records stay on your machine
+              by default. Raw secrets are never stored — detections are
+              redacted. Any cloud or GitHub integration uses sanitized
+              summaries only.
             </p>
           </div>
           <ul className="sec-points">
@@ -235,7 +202,7 @@ export default function Home() {
         <div className="kicker">Roadmap</div>
         <h2>Built for solo developers first. Teams next.</h2>
         <p className="lede">
-          TraceGuard is developer-controlled and local-first today. A future team
+          Trace is developer-controlled and local-first today. A future team
           tier is on the roadmap — not available now.
         </p>
         <div className="roadmap">
@@ -247,7 +214,7 @@ export default function Home() {
       {/* ---------- Closing band ---------- */}
       <section className="band">
         <h2>See every AI edit before it ships.</h2>
-        <p>Compress prompts. Control output. Roll back damage.</p>
+        <p>Review the diff. Check the cost. Roll back safely.</p>
         <div className="hero-actions" style={{ justifyContent: "center" }}>
           <a className="btn-primary" href="#download">Install the CLI</a>
           <a className="btn-ghost" href={GITHUB_REPO} target="_blank" rel="noreferrer">View on GitHub</a>
@@ -266,7 +233,7 @@ function DashboardMockup() {
         <span className="mockup-dot" style={{ background: "#f85149" }} />
         <span className="mockup-dot" style={{ background: "#d29922" }} />
         <span className="mockup-dot" style={{ background: "#3fb950" }} />
-        <span className="mb-title">127.0.0.1:8757 — TraceGuard</span>
+        <span className="mb-title">127.0.0.1:8757 — Trace</span>
       </div>
       <div className="mockup-body">
         <div className="mk-side">

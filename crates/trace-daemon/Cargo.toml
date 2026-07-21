@@ -1,0 +1,32 @@
+[package]
+name = "trace-daemon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+description = "Trace local API server and dashboard host (127.0.0.1 only)."
+
+[lib]
+name = "trace_daemon"
+path = "src/lib.rs"
+
+[[bin]]
+name = "trace-daemon"
+path = "src/main.rs"
+
+[dependencies]
+trace-core = { path = "../trace-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+dirs = { workspace = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "signal", "sync"] }
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "fs", "trace"] }
+rust-embed = { version = "8", features = ["mime-guess"] }
+mime_guess = "2"

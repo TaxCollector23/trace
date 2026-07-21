@@ -6,7 +6,7 @@ export default function App() {
     <div className="site">
       <header className="topbar">
         <Link to="/" className="logo">
-          Trace<span>Guard</span>
+          Trace
         </Link>
         <nav className="topnav">
           <NavLink to="/about">About</NavLink>
@@ -28,11 +28,9 @@ export default function App() {
 
       <footer className="footer">
         <div className="f-brand">
-          <div className="logo">
-            Trace<span>Guard</span>
-          </div>
+          <div className="logo">Trace</div>
           <p>
-            The local-first control layer for AI coding agents. The real
+            The trust layer for AI software engineering. The real
             dashboard runs only on <code>127.0.0.1</code>; this site is for
             installation and docs and never connects to your local daemon.
           </p>

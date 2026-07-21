@@ -1,10 +1,10 @@
 {
-  "name": "TraceGuard",
-  "url": "https://github.com/TaxCollector23/TraceGuard",
+  "name": "Trace",
+  "url": "https://github.com/TaxCollector23/trace",
   "hook_attributes": {
     "url": "https://example.invalid/replace-with-your-webhook"
   },
-  "redirect_url": "https://github.com/TaxCollector23/TraceGuard",
+  "redirect_url": "https://github.com/TaxCollector23/trace",
   "public": false,
   "default_permissions": {
     "checks": "write",
@@ -13,5 +13,5 @@
     "metadata": "read"
   },
   "default_events": ["pull_request", "push", "check_run"],
-  "description": "TraceGuard posts sanitized run summaries as PR checks. It never reads or uploads raw secrets or your local database."
+  "description": "Trace posts sanitized run summaries as PR checks. It never reads or uploads raw secrets or your local database."
 }

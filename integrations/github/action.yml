@@ -1,6 +1,6 @@
-name: "TraceGuard CI"
-description: "Run TraceGuard checks in CI and upload a sanitized summary. Never uploads raw files, secrets, or the local database."
-author: "TraceGuard"
+name: "Trace CI"
+description: "Run Trace checks in CI and upload a sanitized summary. Never uploads raw files, secrets, or the local database."
+author: "Trace"
 branding:
   icon: "shield"
   color: "green"
@@ -18,10 +18,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: TraceGuard scan
+    - name: Trace scan
       shell: bash
       run: |
-        echo "::group::TraceGuard"
+        echo "::group::Trace"
         bash "${{ github.action_path }}/scripts/ci-scan.sh" \
           --checks "${{ inputs.checks }}" \
           --fail-on-risky "${{ inputs.fail-on-risky }}"
@@ -31,6 +31,6 @@ runs:
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: traceguard-summary
-        path: traceguard-summary.json
+        name: trace-summary
+        path: trace-summary.json
         if-no-files-found: ignore

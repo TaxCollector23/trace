@@ -1,22 +1,30 @@
 ---
 title: Release Notes
-description: TraceGuard changelog.
+description: Trace changelog.
 ---
 
-## v1.1 — TraceCompress, GitHub reading, Pages docs
+## v1.1 — Rebrand to Trace, TraceCompress removed
 
-- Version is now **1.1** (`trg --version` / `traceguard --version` →
-  `TraceGuard 1.1`).
-- **TraceCompress** prompt compression + Bare Mode output discipline (CLI +
-  dashboard).
-- **GitHub**: read directly from the repo (including private) via `trg github`
-  and the dashboard GitHub page.
+- Renamed the project from **TraceGuard** to **Trace**. The binary is now
+  `trace` (previously `trg`, with `traceguard` as a long alias — both are
+  gone).
+- Removed **TraceCompress** (prompt compression, output-budget presets, and
+  the `compress-prompt` / `run --compress` commands) and the agent-launching
+  surface (`agents`, `use`, `launch`, `guard`, `rules`). Trace is scoped to
+  recording, guarding, and reviewing agent runs.
+- Global directory moved to `~/.trace` (database `trace.db`); per-project
+  directory moved to `<project>/.trace`.
+- GitHub repo, Docs Pages, Homebrew tap, and npm package all moved to the
+  `trace` name.
+- **GitHub**: read directly from the repo (including private) via `trace
+  github` and the dashboard GitHub page.
 - **Docs** moved to GitHub Pages; **landing** with OS-aware install.
-- Homebrew tap, install scripts, npm wrapper, `trg update`.
+- Homebrew tap, install scripts, npm wrapper, `trace update`.
 
-## Earlier — TraceCompress groundwork
+## Earlier — pre-rebrand groundwork (as TraceGuard)
 
-- **TraceCompress**: prompt compression + output discipline.
+- **TraceCompress**: prompt compression + output discipline (since removed —
+  see above).
   - Modes: Normal, Concise, Bare Mode (strict response rules).
   - Preserved-constraints checklist, removed-redundancy summary, conflict
     detection, response-rules block, output-budget presets (Tiny/Short/Normal/Detailed).
@@ -24,13 +32,13 @@ description: TraceGuard changelog.
     `trg run --compress`.
   - Dashboard: **Prompt Compressor** page.
   - Privacy: `[prompt_compression]` config; `prompt_history = false` stores only
-    estimates + metadata, never raw prompt text. External-LLM compression is
+    estimates + metadata, never raw prompt text. External-LLM compression was
     opt-in.
   - New endpoints under `/api/prompt-compressor/*`.
 - `trg update` self-update command.
 - MIT `LICENSE` added.
 
-## v0.1.0 — Local-first MVP
+## v0.1.0 — Local-first MVP (as TraceGuard)
 
 Initial release.
 

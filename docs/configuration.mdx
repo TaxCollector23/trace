@@ -1,13 +1,13 @@
 ---
 title: Configuration
-description: The per-project .traceguard/config.toml file.
+description: The per-project .trace/config.toml file.
 ---
 
-`trg init` creates `.traceguard/config.toml` in your project. Configuration is
+`trace init` creates `.trace/config.toml` in your project. Configuration is
 intentionally small.
 
 ```toml
-# TraceGuard project configuration
+# Trace project configuration
 
 project_name = "My App"
 protected_files = [".env", ".env.local", "id_rsa", "secrets.json"]
@@ -22,23 +22,26 @@ created_at = "2026-06-14T20:30:00Z"
 | `default_checks` | Commands run after a run completes (build/test). Results appear as test results and timeline events. |
 | `created_at` | When the project was initialized. |
 
+`project_name` is the only field settable via the CLI: `trace config set
+project_name "My App"`. See [CLI Commands](/cli-commands).
+
 ## Checks
 
-When `default_checks` is set, TraceGuard runs them after each `trg run` and
+When `default_checks` is set, Trace runs them after each `trace run` and
 records pass/fail results. Skip them for a single run with:
 
 ```bash
-trg run "claude" --no-checks
+trace run "claude" --no-checks
 ```
 
 ## Storage locations
 
 | Path | Contents |
 | --- | --- |
-| `~/.traceguard/traceguard.db` | The global SQLite database. |
-| `~/.traceguard/daemon.json` | Daemon PID, port, and start time. |
-| `~/.traceguard/bin/trg` | Installed binary (via the install script). |
-| `<project>/.traceguard/config.toml` | Per-project config. |
-| `<project>/.traceguard/runs/<run_id>/` | Captured stdout/stderr logs. |
+| `~/.trace/trace.db` | The global SQLite database. |
+| `~/.trace/daemon.json` | Daemon PID, port, and start time. |
+| `~/.trace/bin/trace` | Installed binary (via the install script). |
+| `<project>/.trace/config.toml` | Per-project config. |
+| `<project>/.trace/runs/<run_id>/` | Captured stdout/stderr logs. |
 
 All of this stays on your machine.

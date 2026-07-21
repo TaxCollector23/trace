@@ -1,15 +1,15 @@
-# homebrew-traceguard
+# homebrew-tap
 
-Homebrew tap for [TraceGuard](https://github.com/TaxCollector23/TraceGuard).
+Homebrew tap for [Trace](https://github.com/TaxCollector23/trace).
 
 ```bash
-brew tap TaxCollector23/traceguard
-brew install traceguard
+brew tap TaxCollector23/tap
+brew install trace
 ```
 
-This installs the `trg` binary and a `traceguard` alias.
+This installs the `trace` binary.
 
 > The formula's `sha256` values are updated for each tagged release. If you hit a
 > checksum error, the formula may be ahead of the latest published release —
-> install via the [shell script](https://github.com/TaxCollector23/TraceGuard#install)
+> install via the [shell script](https://github.com/TaxCollector23/trace#install)
 > in the meantime.

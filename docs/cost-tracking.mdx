@@ -3,7 +3,7 @@ title: Cost Tracking
 description: Track AI/API usage and cost, with honest partial-data support.
 ---
 
-TraceGuard tracks AI/API usage when the data is available, and is honest when it
+Trace tracks AI/API usage when the data is available, and is honest when it
 is not.
 
 ## What it records
@@ -22,7 +22,7 @@ Local models (Ollama, llama.cpp, LM Studio, …) are treated as zero cost.
 The preferred mechanism is a **local HTTP proxy**:
 
 ```text
-AI client / tool  ->  TraceGuard local proxy  ->  provider API
+AI client / tool  ->  Trace local proxy  ->  provider API
 ```
 
 The proxy observes request/response token counts and attributes them to the
@@ -40,14 +40,14 @@ POST /api/runs/<run_id>/cost
 }
 ```
 
-TraceGuard computes `estimated_cost` from published per-model pricing.
+Trace computes `estimated_cost` from published per-model pricing.
 
 ## Partial data
 
-If a tool does not route through the proxy and no usage is imported, TraceGuard
+If a tool does not route through the proxy and no usage is imported, Trace
 does not know the cost. Rather than guess, the dashboard shows:
 
 - **Cost unavailable** when there is no usage data, or
 - **Estimated cost** when token counts are known but pricing is approximate.
 
-TraceGuard does not lie about precision.
+Trace does not lie about precision.

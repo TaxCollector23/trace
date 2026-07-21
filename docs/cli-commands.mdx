@@ -1,25 +1,29 @@
 ---
 title: CLI Commands
-description: The complete trg command reference.
+description: The complete trace command reference.
 ---
 
-The main command is `trg`. `traceguard` is a long alias for the same binary.
+The binary is `trace`.
 
-## `trg init`
+## `trace init`
 
-Initialize TraceGuard in the current project. Creates `.traceguard/config.toml`,
-registers the project in `~/.traceguard/traceguard.db`, and warns if the folder
-is not a Git repository. TraceGuard never initializes Git for you.
-
-## `trg run <command>`
-
-Run a command under TraceGuard monitoring.
+Initialize Trace in the current project. Creates `.trace/config.toml`,
+registers the project via the daemon in `~/.trace/trace.db`, and warns if the
+folder is not a Git repository. Trace never initializes Git for you.
 
 ```bash
-trg run claude
-trg run "claude fix the bug"
-trg run "npm test"
-trg run "cursor ."
+trace init
+```
+
+## `trace run <command>`
+
+Run a command under Trace monitoring.
+
+```bash
+trace run claude
+trace run "claude fix the bug"
+trace run "npm test"
+trace run "cursor ."
 ```
 
 | Flag | Description |
@@ -31,67 +35,152 @@ The run lifecycle: detect project → create run → checkpoint Git → start fi
 watcher → execute command (output is teed to the console and logs) → capture
 final Git diff → scan secrets → run configured checks → store everything.
 
-## `trg dashboard`
+## `trace dashboard`
 
-Start the daemon if needed, find the active port, and open the dashboard in your
-browser at `http://127.0.0.1:<port>`.
+Start the daemon if needed, find the active port, and open the dashboard in
+your browser at `http://127.0.0.1:<port>`.
 
-## `trg rollback`
+```bash
+trace dashboard
+```
+
+## `trace doctor`
+
+Run system checks: toolchain (git, node, npm), clipboard availability, daemon
+status, key paths (database, install directory, whether it's on `PATH`), and
+which AI CLI tools are detected on your machine.
+
+```bash
+trace doctor
+```
+
+## `trace scan`
+
+Detect the current project's stack and print it: package manager, languages,
+frameworks, TypeScript usage, test framework, scripts, README presence, env
+files, deployment config, and Git branch/dirty status.
+
+```bash
+trace scan
+```
+
+## `trace runs`
+
+List recent runs across your projects (status, files changed, secret
+warnings, command, run id).
+
+```bash
+trace runs
+```
+
+## `trace show <run_id>`
+
+Show a run's summary and timeline: command, project, status, exit code,
+start/end time, files/commands/secrets counts, estimated cost (when known),
+and the full event timeline.
+
+```bash
+trace show <run_id>
+```
+
+## `trace patch <run_id>`
+
+Show the changed files for a run, derived from the Git diff.
+
+```bash
+trace patch <run_id>
+```
+
+## `trace risks <run_id>`
+
+Show guarded commands (warned/blocked/require-approval) and redacted secret
+warnings for a run.
+
+```bash
+trace risks <run_id>
+```
+
+## `trace costs <run_id>`
+
+Show API usage and estimated cost for a run (provider, model, input/output
+tokens, estimated cost, and a total).
+
+```bash
+trace costs <run_id>
+```
+
+## `trace checkpoints`
+
+List checkpoints with a Git ref across recent runs, for use with rollback.
+
+```bash
+trace checkpoints
+```
+
+## `trace config show` / `trace config set <key> <value>`
+
+Show or change the current project's configuration.
+
+```bash
+trace config show
+trace config set project_name "My App"
+```
+
+Currently the only settable key is `project_name`.
+
+## `trace integrations` / `trace integrations status`
+
+List integration surfaces (Claude Code, Codex CLI, Cursor, VS Code, GitHub),
+or check what is live right now (daemon running, GitHub token available).
+
+```bash
+trace integrations
+trace integrations status
+```
+
+## `trace rollback`
 
 Restore the most recent checkpoint, or pick one if several exist. Rollback is
 Git-based and asks for confirmation. Use `-y`/`--yes` to skip the prompt.
 
-## `trg compress-prompt [text]`
-
-Compress a prompt locally with TraceCompress. Omit the text to paste
-interactively. See [Prompt Compression](/prompt-compression).
-
-| Flag | Description |
-| --- | --- |
-| `--mode <m>` | `normal` \| `concise` \| `bare`. Defaults to project config. |
-| `--output-budget <p>` | Append a budget block: `tiny` \| `short` \| `normal` \| `detailed`. |
-| `-y`, `--yes` | Accept without prompting. |
-
-## `trg run --compress <command>`
-
-Compress the agent prompt before running. Shows before/after and estimates, asks
-for confirmation, then runs with the compressed prompt and stores the metadata
-with the run. Use `--mode` to pick the compression mode.
-
 ```bash
-trg run --compress "claude fix the login bug but do not rewrite the whole app"
-trg run --compress --mode bare "claude add tests for src/auth/login.ts"
+trace rollback
+trace rollback -y
 ```
 
-## `trg update`
+## `trace update`
 
-Update the `trg` binary to the latest GitHub release. Homebrew installs are
-directed to `brew upgrade traceguard` instead.
+Update the `trace` binary to the latest GitHub release. Homebrew installs are
+directed to `brew upgrade trace` instead.
 
-## `trg github <status | commits | pulls | cat>`
+```bash
+trace update
+```
+
+## `trace github <status | commits | pulls | cat>`
 
 Read directly from the project's GitHub repo — **including private repos** —
 using a token from `GITHUB_TOKEN`/`GH_TOKEN`, the `gh` CLI, or
-`~/.traceguard/github.json`. Read-only.
+`~/.trace/github.json`. Read-only.
 
 ```bash
-trg github status                 # auth + repo connection
-trg github commits --limit 10     # recent commits from the remote
-trg github pulls                  # open pull requests
-trg github cat src/main.rs        # print a file from the remote repo
-trg github cat README.md --ref some-branch
+trace github status                 # auth + repo connection
+trace github commits --limit 10     # recent commits from the remote
+trace github pulls                  # open pull requests
+trace github cat src/main.rs        # print a file from the remote repo
+trace github cat README.md --ref some-branch
 ```
 
-## `trg daemon start | stop | status`
+## `trace daemon start | stop | status`
 
 Manage the local daemon.
 
 ```bash
-trg daemon start    # start the local server
-trg daemon stop     # stop it
-trg daemon status   # running?, port, database path, active projects
+trace daemon start    # start the local server
+trace daemon stop     # stop it
+trace daemon status   # running?, port, database path, active projects
 ```
 
-## `trg --help` / `trg --version`
+## `trace --help` / `trace --version`
 
-Standard help and version output.
+Standard help and version output (`trace --version` prints `Trace 1.1`).

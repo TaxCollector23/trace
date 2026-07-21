@@ -1,4 +1,4 @@
-// Typed client for the local TraceGuard daemon API. All paths are relative so
+// Typed client for the local Trace daemon API. All paths are relative so
 // the same code works behind the Vite dev proxy and when served by the daemon.
 
 export type RunStatus =
@@ -172,71 +172,9 @@ async function post<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export interface CompressionResult {
-  mode: string;
-  original: string;
-  compressed: string;
-  original_tokens: number;
-  compressed_tokens: number;
-  reduction_pct: number;
-  estimated: boolean;
-  preserved_constraints: string[];
-  removed_redundancy: string[];
-  conflicts: string[];
-  response_rules: string;
-}
-
-export interface CompressionRecord {
-  id: string;
-  run_id: string | null;
-  project_id: string | null;
-  mode: string;
-  original_token_estimate: number;
-  compressed_token_estimate: number;
-  estimated_reduction_percent: number;
-  compressed_prompt_hash: string;
-  original_prompt_stored: boolean;
-  compressed_prompt_stored: boolean;
-  original_prompt: string | null;
-  compressed_prompt: string | null;
-  created_at: string;
-}
-
-export interface AgentStatus {
-  id: string;
-  name: string;
-  surface: string;
-  category: string;
-  installed: boolean;
-  version: string | null;
-  url: string | null;
-  install_hint: string | null;
-}
-
-export interface LaunchOutcome {
-  method: string;
-  agent?: string;
-  launched: boolean;
-  copied?: boolean;
-  url?: string | null;
-  command?: string | null;
-  message: string;
-  secrets?: string[];
-}
-
 export const api = {
   dashboard: () => get<DashboardData>("/dashboard"),
   diff: (id: string) => get<{ diff: string }>(`/runs/${id}/diff`),
-  agents: () => get<AgentStatus[]>("/agents"),
-  launch: (target: string, prompt: string) =>
-    post<LaunchOutcome>("/launch", { target, prompt }),
-  compressPrompt: (prompt: string, mode: string) =>
-    post<CompressionResult>("/prompt-compressor/compress", { prompt, mode }),
-  outputBudget: (preset: string) =>
-    post<{ preset: string; instruction_block: string }>(
-      "/prompt-compressor/output-budget",
-      { preset }
-    ),
   githubStatus: (projectId: string) =>
     get<GithubStatus>(`/github/status?project_id=${projectId}`),
   githubCommits: (projectId: string, limit = 20) =>
@@ -248,12 +186,6 @@ export const api = {
       `/github/file?project_id=${projectId}&path=${encodeURIComponent(path)}${
         ref ? `&ref=${encodeURIComponent(ref)}` : ""
       }`
-    ),
-  compressionHistory: () =>
-    get<CompressionRecord[]>("/prompt-compressor/history"),
-  deleteCompression: (id: string) =>
-    fetch(`/api/prompt-compressor/${id}`, { method: "DELETE" }).then((r) =>
-      r.json()
     ),
   state: () => get<Record<string, unknown>>("/state"),
   runs: () => get<RunSummary[]>("/runs"),

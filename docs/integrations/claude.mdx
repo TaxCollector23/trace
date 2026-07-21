@@ -8,11 +8,11 @@ The Claude Code integration prefers the wrapper and adds optional hooks.
 ## Wrapper (works everywhere)
 
 ```bash
-trg run claude
-trg run "claude fix the login bug"
+trace run claude
+trace run "claude fix the login bug"
 ```
 
-This maps the Claude session to a TraceGuard run, checkpoints Git, watches file
+This maps the Claude session to a Trace run, checkpoints Git, watches file
 changes, records output, and captures the final diff.
 
 ## Hooks adapter
@@ -20,11 +20,11 @@ changes, records output, and captures the final diff.
 When Claude Code hooks are configured, the adapter in `integrations/claude/`
 sends events to the local daemon for finer-grained monitoring:
 
-- session start → create/associate a TraceGuard run
+- session start → create/associate a Trace run
 - pre-tool / pre-command → risk check (and block where hooks allow)
 - post-edit / file change → observation events
-- map the Claude session id to a TraceGuard run id
+- map the Claude session id to a Trace run id
 
 Install the hooks by adding the provided entries to your Claude Code settings
 (see `integrations/claude/README.md`). If hooks are unavailable or not
-configured, TraceGuard falls back to wrapper-based monitoring automatically.
+configured, Trace falls back to wrapper-based monitoring automatically.

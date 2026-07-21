@@ -35,7 +35,7 @@ export default function CostCenter() {
           ) : !cost || cost.usage.length === 0 ? (
             <div className="empty">
               Cost data appears when the agent reports usage or traffic flows
-              through a TraceGuard adapter.
+              through a Trace adapter.
             </div>
           ) : (
             <>

@@ -1,31 +1,28 @@
 ---
 title: Versioning
-description: How TraceGuard versions are numbered and surfaced.
+description: How Trace versions are numbered and surfaced.
 ---
 
 The current version is **1.1**.
 
 ```bash
-trg --version
-# TraceGuard 1.1
-
-traceguard --version
-# TraceGuard 1.1
+trace --version
+# Trace 1.1
 ```
 
 ## Single source of truth
 
-The version lives in one place — `traceguard-core::VERSION` — and is surfaced by:
+The version lives in one place — `trace-core::VERSION` — and is surfaced by:
 
-- the `trg` / `traceguard` CLI (`--version`, `-V`)
+- the `trace` CLI (`--version`, `-V`)
 - the daemon API (`GET /api/health` → `version`, `GET /api/state` → `version`)
-- the local dashboard (sidebar footer: "TraceGuard v1.1")
+- the local dashboard (sidebar footer: "Trace v1.1")
 - this documentation and the README
 - the GitHub release tag (`v1.1.0`) and the Homebrew formula
 
 ## Scheme
 
-TraceGuard uses a simple subversion scheme (`1.1`, `1.2`, …). The Cargo crate
+Trace uses a simple subversion scheme (`1.1`, `1.2`, …). The Cargo crate
 version uses the matching semver (`1.1.0`) because Cargo requires `x.y.z`, but
 the product version shown to users is the short form.
 

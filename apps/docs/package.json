@@ -1,9 +1,9 @@
 {
-  "name": "traceguard-docs",
+  "name": "trace-docs",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "TraceGuard documentation site (GitHub Pages). Mintlify-style theme, single source from /docs.",
+  "description": "Trace documentation site (GitHub Pages). Mintlify-style theme, single source from /docs.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

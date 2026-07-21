@@ -1,9 +1,9 @@
 ---
 title: Integrations
-description: How TraceGuard connects to agents, editors, and CI.
+description: How Trace connects to agents, editors, and CI.
 ---
 
-TraceGuard has a clean adapter architecture. Each integration lives in its own
+Trace has a clean adapter architecture. Each integration lives in its own
 folder under `integrations/` and connects to the **local daemon** — none of them
 require the cloud.
 
@@ -13,11 +13,11 @@ require the cloud.
 | [Claude Code](/integrations/claude) | `integrations/claude` | Hooks adapter, wrapper fallback |
 | [Codex](/integrations/codex) | `integrations/codex` | CLI wrapper adapter |
 | [VS Code](/integrations/vscode) | `integrations/vscode` | Extension bridging to the daemon |
-| [Cursor](/integrations/cursor) | `integrations/cursor` | MCP server exposing TraceGuard tools |
+| [Cursor](/integrations/cursor) | `integrations/cursor` | MCP server exposing Trace tools |
 
 ## Honest boundaries
 
-- Terminal agents launched through `trg run` are wrapped directly and fully
+- Terminal agents launched through `trace run` are wrapped directly and fully
   attributed.
 - GUI tools are observed via file changes and Git diffs. **Full command
   guarding requires supported hooks/integration points or running through the

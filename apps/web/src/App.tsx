@@ -8,7 +8,6 @@ const links: [string, string][] = [
   ["/risk", "Command Risk"],
   ["/cost", "Token Spend"],
   ["/rollback", "Rollback Points"],
-  ["/prompt-compressor", "Prompt Compressor"],
   ["/github", "Integration Status"],
 ];
 
@@ -24,9 +23,7 @@ export default function App() {
   return (
     <div className="layout">
       <aside className="sidebar">
-        <div className="brand">
-          Trace<span>Guard</span>
-        </div>
+        <div className="brand">Trace</div>
         <nav className="nav">
           {links.map(([to, label]) => (
             <NavLink key={to} to={to} end={to === "/"}>
@@ -37,7 +34,7 @@ export default function App() {
         <div className="local-note">
           <span className="dot" /> Local only · 127.0.0.1
           <div className="local-sub">Your data never leaves this machine.</div>
-          {version && <div className="local-sub">TraceGuard v{version}</div>}
+          {version && <div className="local-sub">Trace v{version}</div>}
         </div>
       </aside>
       <main className="content">

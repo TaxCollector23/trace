@@ -1,9 +1,9 @@
 {
-  "name": "traceguard-vscode",
-  "displayName": "TraceGuard",
-  "description": "Lightweight bridge to your local TraceGuard daemon: recent runs, dashboard, and running the current command through trg.",
+  "name": "trace-vscode",
+  "displayName": "Trace",
+  "description": "Lightweight bridge to your local Trace daemon: recent runs, dashboard, and running the current command through trace.",
   "version": "0.1.0",
-  "publisher": "traceguard",
+  "publisher": "trace",
   "private": true,
   "engines": { "vscode": "^1.80.0" },
   "categories": ["Other"],
@@ -13,23 +13,23 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "traceguard",
-          "title": "TraceGuard",
+          "id": "trace",
+          "title": "Trace",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "traceguard": [{ "id": "traceguard.runs", "name": "Recent Runs" }]
+      "trace": [{ "id": "trace.runs", "name": "Recent Runs" }]
     },
     "commands": [
-      { "command": "traceguard.openDashboard", "title": "TraceGuard: Open Dashboard" },
-      { "command": "traceguard.runCommand", "title": "TraceGuard: Run Command through trg" },
-      { "command": "traceguard.refresh", "title": "TraceGuard: Refresh Runs", "icon": "$(refresh)" }
+      { "command": "trace.openDashboard", "title": "Trace: Open Dashboard" },
+      { "command": "trace.runCommand", "title": "Trace: Run Command through trace" },
+      { "command": "trace.refresh", "title": "Trace: Refresh Runs", "icon": "$(refresh)" }
     ],
     "menus": {
       "view/title": [
-        { "command": "traceguard.refresh", "when": "view == traceguard.runs", "group": "navigation" }
+        { "command": "trace.refresh", "when": "view == trace.runs", "group": "navigation" }
       ]
     }
   },

@@ -19,10 +19,10 @@ const INSTALL: Record<OS, { name: string; icon: string; options: InstallOption[]
       {
         label: "Homebrew",
         recommended: true,
-        commands: ["brew tap TaxCollector23/traceguard", "brew install traceguard"],
+        commands: ["brew tap TaxCollector23/tap", "brew install trace"],
       },
       { label: "curl", commands: [`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`] },
-      { label: "npm", commands: ["npm install -g traceguard"] },
+      { label: "npm", commands: ["npm install -g trace"] },
     ],
   },
   linux: {
@@ -34,8 +34,8 @@ const INSTALL: Record<OS, { name: string; icon: string; options: InstallOption[]
         recommended: true,
         commands: [`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`],
       },
-      { label: "Homebrew", commands: ["brew tap TaxCollector23/traceguard", "brew install traceguard"] },
-      { label: "npm", commands: ["npm install -g traceguard"] },
+      { label: "Homebrew", commands: ["brew tap TaxCollector23/tap", "brew install trace"] },
+      { label: "npm", commands: ["npm install -g trace"] },
     ],
   },
   windows: {
@@ -47,7 +47,7 @@ const INSTALL: Record<OS, { name: string; icon: string; options: InstallOption[]
         recommended: true,
         commands: [`irm ${RAW_BASE}/scripts/install.ps1 | iex`],
       },
-      { label: "npm", commands: ["npm install -g traceguard"] },
+      { label: "npm", commands: ["npm install -g trace"] },
     ],
   },
 };
@@ -71,9 +71,9 @@ export default function Download() {
       <div className="kicker">Install</div>
       <h2>Download the CLI</h2>
       <p className="lede">
-        Install TraceGuard, initialize your repo, run your agent through{" "}
-        <code>trg</code>, and open the local dashboard. One binary, two commands:{" "}
-        <code>trg</code> and <code>traceguard</code>. Detected{" "}
+        Install Trace, initialize your repo, run your agent through{" "}
+        <code>trace</code>, and open the local dashboard. One binary:{" "}
+        <code>trace</code>. Detected{" "}
         <b>{INSTALL[os].name}</b> — recommended below.
       </p>
 
@@ -111,9 +111,9 @@ export default function Download() {
 
             <div className="dl-after">
               <div className="dl-after-title">Then record your first run</div>
-              <Cmd>trg init</Cmd>
-              <Cmd>trg run claude</Cmd>
-              <Cmd>trg dashboard</Cmd>
+              <Cmd>trace init</Cmd>
+              <Cmd>trace run claude</Cmd>
+              <Cmd>trace dashboard</Cmd>
               <p className="muted dl-after-note">
                 The dashboard opens at <code>http://127.0.0.1:&lt;port&gt;</code>{" "}
                 — local only.

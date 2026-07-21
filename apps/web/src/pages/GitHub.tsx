@@ -48,17 +48,17 @@ export default function GitHub() {
     <div>
       <h1 className="page-title">GitHub</h1>
       <p className="page-sub">
-        TraceGuard reads directly from your project's GitHub repository —
+        Trace reads directly from your project's GitHub repository —
         including private repos — using a token from the environment, the{" "}
         <span className="mono">gh</span> CLI, or{" "}
-        <span className="mono">~/.traceguard/github.json</span>. Read-only; the
+        <span className="mono">~/.trace/github.json</span>. Read-only; the
         token only goes to api.github.com.
       </p>
 
       {projectsQ.loading ? (
         <Loading error={projectsQ.error} />
       ) : projects.length === 0 ? (
-        <div className="empty">No projects yet. Run `trg init` in a repo.</div>
+        <div className="empty">No projects yet. Run `trace init` in a repo.</div>
       ) : (
         <>
           {projects.length > 1 && (

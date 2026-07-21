@@ -1,9 +1,9 @@
 {
-  "name": "traceguard-landing",
+  "name": "trace-landing",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Public landing site for TraceGuard (deployed to Vercel). Marketing/onboarding only — not the product.",
+  "description": "Public landing site for Trace (deployed to Vercel). Marketing/onboarding only — not the product.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

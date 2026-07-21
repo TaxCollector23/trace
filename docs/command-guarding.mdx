@@ -3,7 +3,7 @@ title: Command Guarding
 description: Rule-based classification of risky commands.
 ---
 
-TraceGuard classifies the command you wrap into one of four decisions. It is
+Trace classifies the command you wrap into one of four decisions. It is
 **rule-based** — there is no trust score.
 
 | Decision | Behaviour |
@@ -36,7 +36,7 @@ Reading secrets (`cat .env`, `cat id_rsa`) and force-pushing are **warned**.
 When a command requires approval, you see:
 
 ```text
-TraceGuard warning:
+Trace warning:
   Recursive force-delete may remove many files.
 Allow this command to run? [y] allow once  [n] block:
 ```
@@ -45,6 +45,6 @@ Each command event stores the command text, the decision, the reason, the
 timestamp, and the run ID. You can review them later in the **Risk Center**.
 
 <Warning>
-The guard classifies the **top-level command** you pass to `trg run`. It cannot
+The guard classifies the **top-level command** you pass to `trace run`. It cannot
 see sub-commands that a GUI tool issues internally. See [Limitations](/limitations).
 </Warning>

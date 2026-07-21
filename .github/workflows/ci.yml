@@ -7,6 +7,9 @@ on:
 
 jobs:
   rust:
+    # trace-desktop (Tauri) is excluded here: it needs GTK/WebKit system libs
+    # not present on a bare ubuntu-latest runner. It gets its own macOS job
+    # below, matching the macOS-first desktop shell scope.
     name: Rust (fmt, clippy, test)
     runs-on: ubuntu-latest
     steps:
@@ -18,9 +21,27 @@ jobs:
       - name: rustfmt
         run: cargo fmt --all --check
       - name: clippy
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --workspace --exclude trace-desktop --all-targets -- -D warnings
       - name: test
-        run: cargo test --all
+        run: cargo test --workspace --exclude trace-desktop
+
+  desktop:
+    name: Desktop shell (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: build dashboard (frontend served by the desktop shell)
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run build
+      - name: build desktop shell
+        run: cargo build -p trace-desktop
 
   web:
     name: Dashboard build
@@ -59,9 +80,9 @@ jobs:
         run: |
           sh -n scripts/install.sh
           bash -n integrations/github/scripts/ci-scan.sh
-          bash -n integrations/claude/traceguard-hook.sh
+          bash -n integrations/claude/trace-hook.sh
       - name: node syntax checks
         run: |
           node --check integrations/vscode/extension.js
           node --check integrations/cursor/src/index.js
-          node --check packages/npm/bin/trg.js
+          node --check packages/npm/bin/trace.js

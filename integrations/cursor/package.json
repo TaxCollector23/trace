@@ -1,10 +1,10 @@
 {
-  "name": "traceguard-mcp",
+  "name": "trace-mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "MCP server exposing TraceGuard tools, backed by the local daemon (127.0.0.1).",
-  "bin": { "traceguard-mcp": "./src/index.js" },
+  "description": "MCP server exposing Trace tools, backed by the local daemon (127.0.0.1).",
+  "bin": { "trace-mcp": "./src/index.js" },
   "scripts": {
     "start": "node src/index.js"
   },

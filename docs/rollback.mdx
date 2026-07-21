@@ -3,12 +3,12 @@ title: Rollback
 description: Git-based checkpoints and careful rollback.
 ---
 
-TraceGuard creates a **checkpoint** before every monitored run and lets you
+Trace creates a **checkpoint** before every monitored run and lets you
 restore it later. Rollback is always Git-based.
 
 ## Checkpoints
 
-Before a run, in a Git repository, TraceGuard:
+Before a run, in a Git repository, Trace:
 
 - records the current commit hash
 - records whether the working tree is dirty
@@ -17,12 +17,12 @@ Before a run, in a Git repository, TraceGuard:
   tree is clean
 - captures the Git diff before and after the run
 
-Checkpoints are labelled by run, e.g. `traceguard/run-<run_id>-before`.
+Checkpoints are labelled by run, e.g. `trace/run-<run_id>-before`.
 
 ## Rolling back
 
 ```bash
-trg rollback
+trace rollback
 ```
 
 This restores the most recent checkpoint, or asks you to choose when several are
@@ -37,5 +37,5 @@ target before confirming.
 ## Requirements
 
 Rollback and checkpoints require Git. If your project is not a Git repository,
-`trg init` warns you, and runs are recorded without checkpoint/rollback support.
-TraceGuard will not run `git init` for you.
+`trace init` warns you, and runs are recorded without checkpoint/rollback support.
+Trace will not run `git init` for you.
