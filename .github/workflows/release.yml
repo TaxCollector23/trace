@@ -132,10 +132,13 @@ jobs:
         working-directory: apps/desktop
         run: npm run tauri build -- --target aarch64-apple-darwin
 
+      # apps/desktop/src-tauri is a Cargo workspace member, so the build
+      # output lands in the workspace-root target/ dir, not a nested
+      # apps/desktop/src-tauri/target/ — this bit us the first time.
       - name: Stage bundle
         run: |
           mkdir -p dist
-          cp apps/desktop/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg dist/trace-desktop-macos-arm64.dmg
+          cp target/aarch64-apple-darwin/release/bundle/dmg/*.dmg dist/trace-desktop-macos-arm64.dmg
 
       - uses: actions/upload-artifact@v4
         with:
