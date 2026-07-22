@@ -3,37 +3,31 @@
 # Installs the `trace` binary from GitHub Releases.
 # Homebrew only evaluates the block for the current platform, so each platform's
 # sha256 is independent.
-#
-# NOTE: the macOS Intel (x86_64) asset can lag the others when GitHub's macОS-13
-# runners are queued. Apple Silicon and Linux install immediately. Intel-mac
-# users can use the curl installer until the x64 sha is filled:
-#   curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh
 class Trace < Formula
   desc "The trust layer for autonomous software engineering"
   homepage "https://github.com/TaxCollector23/trace"
-  version "1.1.0"
+  version "1.2.0"
   license "MIT"
 
   on_macos do
     on_arm do
-      url "https://github.com/TaxCollector23/trace/releases/download/v1.1.0/trace-macos-arm64"
-      sha256 "75c091080d2fcb6f32530915460a9850f5238de2f05d662c4fa5d3b292b63153"
+      url "https://github.com/TaxCollector23/trace/releases/download/v1.2.0/trace-macos-arm64"
+      sha256 "986a6fa5f8ce69431b351cf11c9dda783c7727422fc238a37122238cb20353c6"
     end
     on_intel do
-      url "https://github.com/TaxCollector23/trace/releases/download/v1.1.0/trace-macos-x64"
-      # Pending: macOS Intel asset publishes after the macОS-13 runner dequeues.
-      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+      url "https://github.com/TaxCollector23/trace/releases/download/v1.2.0/trace-macos-x64"
+      sha256 "8f7689ba7a2e9dfc305d5731d686a27e32d5f3876d46dfdde4b4df2044fe9a89"
     end
   end
 
   on_linux do
     on_arm do
-      url "https://github.com/TaxCollector23/trace/releases/download/v1.1.0/trace-linux-arm64"
-      sha256 "4deeb2152877f918c107220ff37608e7a9ecf1f78941fb8cb2b02ba5a086f548"
+      url "https://github.com/TaxCollector23/trace/releases/download/v1.2.0/trace-linux-arm64"
+      sha256 "083d0a6dd6e7dbbc55c7622ed4c74dd456e9cd6f8def5c00805d1d0ab166380e"
     end
     on_intel do
-      url "https://github.com/TaxCollector23/trace/releases/download/v1.1.0/trace-linux-x64"
-      sha256 "23dd27e6314ddfcfd16727156f24290efb1bc3eaa6864a78f29a5d8d2ad17b4b"
+      url "https://github.com/TaxCollector23/trace/releases/download/v1.2.0/trace-linux-x64"
+      sha256 "ee96c975a7fb886a5901eeecdce4962e656aad412ccfb3c3c000c8d8f41c4e7b"
     end
   end
 
@@ -51,6 +45,6 @@ class Trace < Formula
   end
 
   test do
-    assert_match "Trace 1.1", shell_output("#{bin}/trace --version")
+    assert_match "Trace 1.2", shell_output("#{bin}/trace --version")
   end
 end
