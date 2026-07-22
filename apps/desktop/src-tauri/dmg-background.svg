@@ -1,0 +1,82 @@
+<svg width="660" height="400" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#151520"/>
+      <stop offset="100%" stop-color="#09090b"/>
+    </radialGradient>
+    <linearGradient id="arrow-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#4A8EF5" stop-opacity="0.4"/>
+      <stop offset="50%" stop-color="#4A8EF5"/>
+      <stop offset="100%" stop-color="#4A8EF5" stop-opacity="0.4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="660" height="400" fill="url(#glow)"/>
+
+  <!-- Subtle grid dots -->
+  <pattern id="dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+    <circle cx="12" cy="12" r="0.5" fill="#ffffff" opacity="0.05"/>
+  </pattern>
+  <rect width="660" height="400" fill="url(#dots)"/>
+
+  <!-- Top: Trace logo mark + name -->
+  <g transform="translate(270, 24)">
+    <rect width="30" height="30" rx="7" fill="#f5f5f6"/>
+    <rect x="7.3" y="7.5" width="15.5" height="3.5" rx="1" fill="#5b93f5"/>
+    <rect x="13.2" y="12.4" width="3.5" height="10.5" rx="1" fill="#5b93f5"/>
+    <text x="38" y="22" font-family="system-ui, -apple-system, sans-serif" font-size="19" font-weight="700" fill="#fafafa">Trace</text>
+  </g>
+
+  <!-- Tracey mascot (excited) — centered above the arrow zone -->
+  <g transform="translate(290, 68) scale(0.55)">
+    <!-- sparkles -->
+    <polygon points="10,20 12,14 14,20 12,26" fill="#fbbf24"/>
+    <polygon points="105,16 107,10 109,16 107,22" fill="#fbbf24"/>
+    <polygon points="16,44 18,38 20,44 18,50" fill="#4ade80"/>
+    <polygon points="100,40 102,34 104,40 102,46" fill="#60a5fa"/>
+    <polygon points="8,60 10,56 12,60 10,64" fill="#f472b6"/>
+    <polygon points="108,58 110,54 112,58 110,62" fill="#a78bfa"/>
+    <!-- antenna ring -->
+    <circle cx="60" cy="12" r="10" fill="#4A8EF5"/>
+    <circle cx="60" cy="12" r="5" fill="#151520"/>
+    <!-- stem -->
+    <rect x="57" y="18" width="6" height="16" rx="3" fill="#4A8EF5"/>
+    <!-- feet -->
+    <ellipse cx="44" cy="122" rx="10" ry="6" fill="#3D7AE0"/>
+    <ellipse cx="76" cy="122" rx="10" ry="6" fill="#3D7AE0"/>
+    <!-- arms up -->
+    <ellipse cx="16" cy="84" rx="9" ry="13" fill="#4A8EF5" transform="translate(4,-20) rotate(-60, 16, 84)"/>
+    <ellipse cx="104" cy="84" rx="9" ry="13" fill="#4A8EF5" transform="translate(-4,-20) rotate(60, 104, 84)"/>
+    <!-- body -->
+    <path d="M60 32 C88 32 100 54 100 76 C100 100 88 122 60 122 C32 122 20 100 20 76 C20 54 32 32 60 32 Z" fill="#4A8EF5"/>
+    <path d="M38 108 C46 120 74 120 82 108 C78 122 42 122 38 108 Z" fill="#3D7AE0" opacity="0.5"/>
+    <!-- eyes -->
+    <ellipse cx="44" cy="68" rx="12" ry="14" fill="#ffffff"/>
+    <ellipse cx="76" cy="68" rx="12" ry="14" fill="#ffffff"/>
+    <circle cx="44" cy="70" r="5.5" fill="#1a1a2e"/>
+    <circle cx="76" cy="70" r="5.5" fill="#1a1a2e"/>
+    <circle cx="47" cy="67" r="2" fill="#ffffff"/>
+    <circle cx="79" cy="67" r="2" fill="#ffffff"/>
+    <!-- mouth -->
+    <path d="M44 88 Q60 106 76 88" stroke="#1a1a2e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Arrow (centered between app icon and Applications folder positions) -->
+  <g transform="translate(270, 200)">
+    <line x1="0" y1="0" x2="110" y2="0" stroke="url(#arrow-grad)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="6 4"/>
+    <polygon points="108,-7 122,0 108,7" fill="#4A8EF5" opacity="0.8"/>
+  </g>
+
+  <!-- macOS will place icons at these positions:
+       App icon:            x=180, y=170 (centered)
+       Applications folder: x=480, y=170 (centered) -->
+
+  <!-- Instruction text -->
+  <text x="330" y="300" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#a1a1aa">
+    Drag Trace to Applications
+  </text>
+
+  <!-- Subtle accent line -->
+  <line x1="240" y1="330" x2="420" y2="330" stroke="#4A8EF5" stroke-width="1" opacity="0.1"/>
+</svg>
