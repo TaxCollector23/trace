@@ -1,6 +1,6 @@
 {
   "name": "trace",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Trace CLI wrapper — installs the trace binary. The trust layer for autonomous software engineering.",
   "license": "MIT",
   "repository": { "type": "git", "url": "https://github.com/TaxCollector23/trace" },
