@@ -111,6 +111,31 @@ pub enum EventType {
     RollbackCreated,
     RollbackCompleted,
     Note,
+
+    // --- Unified adapter event vocabulary (see core::adapter) ---
+    // Every adapter (Claude today; Cursor/Codex/etc. later) emits from this
+    // same set, so the replay engine and dashboard never special-case an
+    // agent. Some overlap with the events above is intentional: those
+    // predate the adapter system and are kept so existing runs/dashboards
+    // don't need a migration.
+    SessionStarted,
+    SessionEnded,
+    PromptSubmitted,
+    PromptFinished,
+    ToolCallStarted,
+    ToolCallFinished,
+    CommandOutput,
+    FileOpened,
+    DirectoryCreated,
+    DirectoryDeleted,
+    GitStatusChanged,
+    CommitDetected,
+    BranchChanged,
+    TestsStarted,
+    AgentIdle,
+    AgentThinking,
+    ReplayMarker,
+    RiskDetected,
 }
 
 impl EventType {
@@ -138,6 +163,24 @@ impl EventType {
             EventType::RollbackCreated => "rollback_created",
             EventType::RollbackCompleted => "rollback_completed",
             EventType::Note => "note",
+            EventType::SessionStarted => "session_started",
+            EventType::SessionEnded => "session_ended",
+            EventType::PromptSubmitted => "prompt_submitted",
+            EventType::PromptFinished => "prompt_finished",
+            EventType::ToolCallStarted => "tool_call_started",
+            EventType::ToolCallFinished => "tool_call_finished",
+            EventType::CommandOutput => "command_output",
+            EventType::FileOpened => "file_opened",
+            EventType::DirectoryCreated => "directory_created",
+            EventType::DirectoryDeleted => "directory_deleted",
+            EventType::GitStatusChanged => "git_status_changed",
+            EventType::CommitDetected => "commit_detected",
+            EventType::BranchChanged => "branch_changed",
+            EventType::TestsStarted => "tests_started",
+            EventType::AgentIdle => "agent_idle",
+            EventType::AgentThinking => "agent_thinking",
+            EventType::ReplayMarker => "replay_marker",
+            EventType::RiskDetected => "risk_detected",
         }
     }
 }

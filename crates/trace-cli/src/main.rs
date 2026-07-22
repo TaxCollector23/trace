@@ -3,6 +3,7 @@
 //! A local black box recorder, safety layer, cost tracker, and patch-review
 //! tool for AI coding agents.
 
+mod adapters;
 mod client;
 mod colors;
 mod commands;

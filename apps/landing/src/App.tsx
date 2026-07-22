@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { Path } from "@phosphor-icons/react";
+import Tracey from "./Tracey";
 import { DOCS_URL, GITHUB_REPO } from "./config";
 
 export default function App() {
@@ -7,11 +8,12 @@ export default function App() {
     <div className="flex min-h-screen flex-col">
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-content items-center justify-between px-6 py-4">
-          <Link to="/" className="flex items-center gap-2 text-[17px] font-semibold text-text">
+          <Link to="/" className="flex items-center gap-2.5 text-[17px] font-semibold text-text">
             <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand text-white">
               <Path size={14} weight="bold" />
             </span>
             Trace
+            <Tracey size={22} expression="happy" />
           </Link>
           <nav className="flex items-center gap-6">
             <NavLink

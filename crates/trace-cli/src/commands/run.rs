@@ -11,12 +11,14 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
+use trace_core::adapter::{Adapter, SessionContext};
 use trace_core::diagnose;
 use trace_core::git;
 use trace_core::guard::{self, Decision};
 use trace_core::models::*;
 use trace_core::{paths, secrets};
 
+use crate::adapters::terminal::TerminalAdapter;
 use crate::client::Client;
 use crate::daemon_ctl;
 use crate::project;
@@ -65,7 +67,7 @@ pub fn run(opts: RunOptions) -> Result<()> {
         &NewRun {
             project_id: project_id.clone(),
             command: command.clone(),
-            agent_name,
+            agent_name: agent_name.clone(),
             user_prompt,
             starting_commit: start_state.commit.clone(),
         },
@@ -77,6 +79,28 @@ pub fn run(opts: RunOptions) -> Result<()> {
         &run_id,
         EventType::RunCreated,
         &format!("Run created for `{command}`"),
+    );
+
+    // The Trace Adapter System: every coding agent — Claude Code today,
+    // others later — plugs in through the same Adapter trait and emits the
+    // same event vocabulary. `trace run "<agent> ..."` always uses the
+    // terminal adapter (see crates/trace-core/src/adapter.rs).
+    let mut adapter = TerminalAdapter::new(agent_name.clone());
+    adapter.initialize().ok();
+    adapter
+        .start_session(&SessionContext {
+            project_root: root.clone(),
+            run_id: run_id.clone(),
+            agent_name: agent_name.clone(),
+        })
+        .ok();
+    let _ = client.post(
+        &format!("/api/runs/{run_id}/events"),
+        &NewEvent {
+            event_type: EventType::SessionStarted.as_str().to_string(),
+            message: format!("Session started ({})", adapter.id()),
+            metadata_json: Some(adapter.capture_metadata().to_string()),
+        },
     );
 
     if start_state.dirty {
@@ -103,6 +127,8 @@ pub fn run(opts: RunOptions) -> Result<()> {
 
     // If the command was blocked or the user declined, finalize and stop.
     if !proceed {
+        adapter.stop_session().ok();
+        adapter.cleanup().ok();
         finish(
             &client,
             &run_id,
@@ -238,6 +264,15 @@ pub fn run(opts: RunOptions) -> Result<()> {
     }
 
     // 12. Finalize the run.
+    adapter.stop_session().ok();
+    adapter.cleanup().ok();
+    event(
+        &client,
+        &run_id,
+        EventType::SessionEnded,
+        &format!("Session ended ({})", adapter.id()),
+    );
+
     let end_state = git::capture_state(&root);
     let status = if exit_code == 0 && !checks_failed {
         RunStatus::Completed

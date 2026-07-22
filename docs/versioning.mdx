@@ -3,11 +3,11 @@ title: Versioning
 description: How Trace versions are numbered and surfaced.
 ---
 
-The current version is **1.1**.
+The current version is **1.2**.
 
 ```bash
 trace --version
-# Trace 1.1
+# Trace 1.2
 ```
 
 ## Single source of truth
@@ -16,14 +16,14 @@ The version lives in one place — `trace-core::VERSION` — and is surfaced by:
 
 - the `trace` CLI (`--version`, `-V`)
 - the daemon API (`GET /api/health` → `version`, `GET /api/state` → `version`)
-- the local dashboard (sidebar footer: "Trace v1.1")
+- the local dashboard (sidebar footer: "Trace v1.2")
 - this documentation and the README
-- the GitHub release tag (`v1.1.0`) and the Homebrew formula
+- the GitHub release tag (`v1.2.0`) and the Homebrew formula
 
 ## Scheme
 
 Trace uses a simple subversion scheme (`1.1`, `1.2`, …). The Cargo crate
-version uses the matching semver (`1.1.0`) because Cargo requires `x.y.z`, but
+version uses the matching semver (`1.2.0`) because Cargo requires `x.y.z`, but
 the product version shown to users is the short form.
 
 The version only advances when the project owner says so.

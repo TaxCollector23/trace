@@ -141,7 +141,7 @@ export default function Home() {
       >
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f, i) => (
-            <Reveal key={f.title} delay={i * 0.04} className="border-t border-border pt-5">
+            <Reveal key={f.title} delay={i * 0.04}>
               <f.icon size={20} className="text-brand" />
               <h3 className="mt-3 text-base font-semibold">{f.title}</h3>
               <p className="mt-1.5 text-sm text-text-dim">{f.desc}</p>
@@ -165,7 +165,7 @@ export default function Home() {
           </thead>
           <tbody>
             {INTEGRATIONS.map((i) => (
-              <tr key={i.name} className="border-b border-border/60">
+              <tr key={i.name} className="hover:bg-surface/60">
                 <td className="py-3 font-medium">{i.name}</td>
                 <td className="py-3 text-text-dim">{i.note}</td>
                 <td className={`py-3 ${statusColor[i.status]}`}>{i.status}</td>
@@ -185,11 +185,11 @@ export default function Home() {
             secrets are never stored — detections are redacted. Any cloud or
             GitHub integration uses sanitized summaries only.
           </p>
-          <ul className="space-y-2 text-sm text-text-dim">
-            <li className="border-b border-border/60 py-2"><span className="text-text">Local daemon</span> bound to 127.0.0.1 — never the network</li>
-            <li className="border-b border-border/60 py-2"><span className="text-text">No account</span>, no cloud sync, no telemetry by default</li>
-            <li className="border-b border-border/60 py-2"><span className="text-text">Redacted secrets</span> — raw values never persisted</li>
-            <li className="py-2"><span className="text-text">Sanitized summaries</span> for CI — never raw files or the database</li>
+          <ul className="space-y-3 text-sm text-text-dim">
+            <li><span className="text-text">Local daemon</span> bound to 127.0.0.1 — never the network</li>
+            <li><span className="text-text">No account</span>, no cloud sync, no telemetry by default</li>
+            <li><span className="text-text">Redacted secrets</span> — raw values never persisted</li>
+            <li><span className="text-text">Sanitized summaries</span> for CI — never raw files or the database</li>
           </ul>
         </div>
       </Section>
@@ -199,9 +199,9 @@ export default function Home() {
         title="Built for solo developers first. Teams next."
         lede="Trace is developer-controlled and local-first today. A future team tier is on the roadmap — not available now."
       >
-        <ul className="grid grid-cols-1 gap-x-8 gap-y-2 text-sm text-text-dim sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm text-text-dim sm:grid-cols-2">
           {ROADMAP.map((r) => (
-            <li key={r} className="border-b border-border/60 py-2">{r}</li>
+            <li key={r}>{r}</li>
           ))}
         </ul>
       </Section>
@@ -243,11 +243,9 @@ const NAV_ITEMS = ["Dashboard", "Session Timeline", "Patch Review", "Command Ris
 function DashboardMockup() {
   return (
     <div className="overflow-hidden rounded-md border border-border bg-surface" aria-hidden="true">
-      <div className="border-b border-border px-4 py-2.5 font-mono text-xs text-text-dim">
-        127.0.0.1:8757 — Trace
-      </div>
+      <div className="px-4 py-2.5 font-mono text-xs text-text-dim">127.0.0.1:8757 — Trace</div>
       <div className="grid grid-cols-[160px_1fr]">
-        <div className="border-r border-border p-3 text-sm">
+        <div className="bg-black/20 p-3 text-sm">
           {NAV_ITEMS.map((n, i) => (
             <div
               key={n}
@@ -258,12 +256,12 @@ function DashboardMockup() {
           ))}
         </div>
         <div className="p-4">
-          <div className="mb-4 grid grid-cols-3 gap-3">
+          <div className="mb-5 grid grid-cols-3 gap-3">
             <MockStat value="7" label="files changed" />
             <MockStat value="1" label="secret warning" />
             <MockStat value="$0.04" label="est. cost" />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <MockRow cmd={'claude "fix the login bug"'} status="completed" tone="good" />
             <MockRow cmd="npm test" status="passed" tone="good" />
             <MockRow cmd="rm -rf dist" status="approval" tone="warn" />
@@ -278,7 +276,7 @@ function DashboardMockup() {
 function MockRow({ cmd, status, tone }: { cmd: string; status: string; tone: "good" | "warn" | "bad" }) {
   const dotClass = { good: "bg-good", warn: "bg-warn", bad: "bg-bad" }[tone];
   return (
-    <div className="flex items-center justify-between rounded-sm border border-border px-3 py-2">
+    <div className="flex items-center justify-between rounded-sm px-3 py-2 hover:bg-black/20">
       <span className="font-mono text-xs text-text">{cmd}</span>
       <span className="flex items-center gap-1.5 text-[11px] font-medium text-text-dim">
         <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
@@ -290,7 +288,7 @@ function MockRow({ cmd, status, tone }: { cmd: string; status: string; tone: "go
 
 function MockStat({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-sm border border-border bg-black/20 px-2.5 py-2">
+    <div>
       <div className="text-base font-semibold">{value}</div>
       <div className="text-[10px] uppercase tracking-wide text-text-dim">{label}</div>
     </div>

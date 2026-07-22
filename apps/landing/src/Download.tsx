@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Cmd, Section } from "./components";
-import { RAW_BASE } from "./config";
+import { GITHUB_REPO, RAW_BASE } from "./config";
 
 type OS = "macos" | "linux" | "windows";
 
@@ -98,7 +98,7 @@ export default function Download() {
           ))}
         </div>
 
-        <div className="border-l border-border pl-6">
+        <div>
           <div className="mb-2.5 text-xs uppercase tracking-wide text-text-dim">
             Then record your first run
           </div>
@@ -110,6 +110,20 @@ export default function Download() {
           </p>
         </div>
       </div>
+
+      <p className="mt-2 text-sm text-text-dim">
+        Prefer a native window over a browser tab?{" "}
+        <a
+          href={`${GITHUB_REPO}/releases/latest`}
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-brand hover:text-brand-dim"
+        >
+          Download the desktop app for macOS
+        </a>{" "}
+        — same dashboard, same daemon, in its own window. Unsigned for now, so
+        macOS will ask you to confirm the first launch.
+      </p>
     </Section>
   );
 }

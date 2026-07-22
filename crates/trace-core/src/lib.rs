@@ -6,13 +6,14 @@
 /// The user-facing product version. Single source of truth for the CLI,
 /// daemon, dashboard, and docs. Bump this (and the workspace Cargo version)
 /// when the project owner advances to the next subversion.
-pub const VERSION: &str = "1.1";
+pub const VERSION: &str = "1.2";
 
 /// The exact string printed by `trace --version`.
 pub fn version_string() -> String {
     format!("Trace {VERSION}")
 }
 
+pub mod adapter;
 pub mod agents;
 pub mod config;
 pub mod cost;
