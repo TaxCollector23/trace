@@ -65,13 +65,13 @@ export default function Download() {
         </>
       }
     >
-      <div className="flex gap-6 border-b border-border">
+      <div className="flex gap-6">
         {(Object.keys(INSTALL) as OS[]).map((key) => (
           <button
             key={key}
             onClick={() => setOs(key)}
-            className={`-mb-px border-b-2 py-2.5 text-sm font-medium ${
-              os === key ? "border-brand text-text" : "border-transparent text-text-dim hover:text-text"
+            className={`py-2.5 text-sm font-medium ${
+              os === key ? "text-brand" : "text-text-dim hover:text-text"
             }`}
           >
             {INSTALL[key].name}
@@ -86,7 +86,7 @@ export default function Download() {
               <div className="mb-1.5 flex items-center gap-2">
                 <span className="text-sm font-semibold">{opt.label}</span>
                 {opt.recommended && (
-                  <span className="rounded-sm border border-brand-dim px-1.5 py-0.5 text-[11px] font-medium text-brand">
+                  <span className="rounded-sm bg-brand/15 px-1.5 py-0.5 text-[11px] font-medium text-brand">
                     Recommended
                   </span>
                 )}

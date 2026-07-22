@@ -30,8 +30,8 @@ export default function HeroDemo() {
   const { shown, state, reduceMotion, cursorOn } = useTypedTerminal(SCRIPT);
 
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-surface">
-      <div className="flex items-center gap-2 border-b border-border bg-black/30 px-3.5 py-2.5">
+    <div className="overflow-hidden rounded-md bg-surface">
+      <div className="flex items-center gap-2 bg-black/30 px-3.5 py-2.5">
         <span className="h-2.5 w-2.5 rounded-full bg-bad" />
         <span className="h-2.5 w-2.5 rounded-full bg-warn" />
         <span className="h-2.5 w-2.5 rounded-full bg-good" />

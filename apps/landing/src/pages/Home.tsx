@@ -7,13 +7,11 @@ import {
   LockKey,
   ShieldCheck,
 } from "@phosphor-icons/react";
-import { Cmd, Reveal, Section } from "../components";
+import { Reveal, Section, TraceyPeek } from "../components";
 import CliSection from "../CliSection";
 import Download from "../Download";
 import HeroDemo from "../HeroDemo";
-import HowItWorks from "../HowItWorks";
 import Insights from "../Insights";
-import ReplaySection from "../ReplaySection";
 import WorksEverywhere from "../WorksEverywhere";
 import { DOCS_URL, GITHUB_REPO } from "../config";
 
@@ -65,7 +63,7 @@ export default function Home() {
   return (
     <>
       {/* ---------- Hero ---------- */}
-      <section className="grid grid-cols-1 items-center gap-10 py-16 md:grid-cols-[1.05fr_1fr] md:py-24">
+      <section className="relative grid grid-cols-1 items-center gap-10 py-16 md:grid-cols-[1.05fr_1fr] md:py-24">
         <div>
           <h1 className="text-3xl font-semibold md:text-4xl">
             The trust layer for AI software engineering.
@@ -86,49 +84,31 @@ export default function Home() {
             </a>
             <a
               href="#download"
-              className="rounded border border-border px-5 py-2.5 text-sm font-medium text-text hover:border-brand-dim"
+              className="rounded bg-surface px-5 py-2.5 text-sm font-medium text-text hover:bg-surface-2"
             >
               Install the CLI
             </a>
           </div>
-          <div className="mt-8 max-w-[440px]">
-            <div className="mb-1.5 text-xs uppercase tracking-wide text-text-dim">Get started</div>
-            <Cmd>npm install -g trace</Cmd>
-          </div>
         </div>
 
-        <Reveal>
-          <HeroDemo />
-        </Reveal>
+        <div className="relative">
+          <TraceyPeek expression="happy" size={130} corner="bottom-right" />
+          <Reveal className="relative z-10">
+            <HeroDemo />
+          </Reveal>
+        </div>
       </section>
 
-      {/* ---------- Proof line ---------- */}
-      <div className="grid grid-cols-1 gap-6 border-t border-border py-8 sm:grid-cols-3">
-        <ProofItem title="Record every run" desc="A black box recorder for AI-generated code — commands, edits, costs, and checks in one timeline." />
-        <ProofItem title="Review every patch" desc="See the exact code delta before it ships, grounded in the real Git diff." />
-        <ProofItem title="Roll back safely" desc="Git-backed checkpoints before each monitored run. Reject risky AI edits with one command." />
-      </div>
-
-      {/* ---------- How it works ---------- */}
-      <Section
-        title="How Trace works"
-        lede="One wrapper around any agent invocation. No SDK to install, no code to change."
-      >
-        <HowItWorks />
-      </Section>
-
-      {/* ---------- Replay (interactive) ---------- */}
-      <ReplaySection />
-
-      {/* ---------- Download ---------- */}
+      {/* ---------- Download (moved up: install comes before the pitch) ---------- */}
       <Download />
 
       {/* ---------- Dashboard preview ---------- */}
       <Section
         title="Everything lands in one dashboard"
         lede="The same run, reviewable afterward — timeline, patch, risk, and cost in one place, served locally at 127.0.0.1."
+        tracey={{ expression: "detecting", corner: "top-left", size: 90 }}
       >
-        <Reveal>
+        <Reveal className="relative z-10">
           <DashboardMockup />
         </Reveal>
       </Section>
@@ -138,8 +118,9 @@ export default function Home() {
         id="features"
         title="An execution trace for the AI-agent era"
         lede="Stop treating agent runs like black boxes. Trace captures the full execution timeline, the patch, the risks, and the cost — locally."
+        tracey={{ expression: "thinking", corner: "top-right", size: 100 }}
       >
-        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="relative z-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f, i) => (
             <Reveal key={f.title} delay={i * 0.04}>
               <f.icon size={20} className="text-brand" />
@@ -155,28 +136,34 @@ export default function Home() {
         id="integrations"
         title="Works everywhere you already run agents"
         lede="Six adapters ship today. Every one implements the same interface, so a new tool is a small adapter, not a rewrite."
+        tracey={{ expression: "cool", corner: "bottom-left", size: 100 }}
       >
-        <WorksEverywhere />
+        <div className="relative z-10">
+          <WorksEverywhere />
+        </div>
       </Section>
 
       {/* ---------- CLI ---------- */}
       <Section
         title="A CLI that respects the terminal"
         lede="Five commands cover the whole loop: init, run, dashboard, risks, rollback. The rest is there when you need it."
+        tracey={{ expression: "focused", corner: "top-left", size: 90 }}
       >
-        <CliSection />
+        <div className="relative z-10">
+          <CliSection />
+        </div>
       </Section>
 
       {/* ---------- Insights ---------- */}
-      <Section
-        title="What a caught risk actually looks like"
-      >
-        <Insights />
+      <Section title="What a caught risk actually looks like">
+        <div className="relative z-10">
+          <Insights />
+        </div>
       </Section>
 
       {/* ---------- Local-first security ---------- */}
-      <Section title="Zero-cloud by default">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-[1.3fr_1fr]">
+      <Section title="Zero-cloud by default" tracey={{ expression: "concerned", corner: "bottom-right", size: 90 }}>
+        <div className="relative z-10 grid grid-cols-1 gap-8 md:grid-cols-[1.3fr_1fr]">
           <p className="text-text-dim">
             Trace's real dashboard runs locally at{" "}
             <code className="text-text">127.0.0.1</code>. Project history,
@@ -206,31 +193,23 @@ export default function Home() {
       </Section>
 
       {/* ---------- Closing ---------- */}
-      <section className="border-t border-border py-16 text-center">
-        <h2 className="text-2xl font-semibold">See every AI edit before it ships.</h2>
-        <p className="mt-2 text-text-dim">Review the diff. Check the cost. Roll back safely.</p>
-        <div className="mt-6 flex flex-wrap justify-center gap-3">
+      <section className="relative py-16 text-center">
+        <TraceyPeek expression="excited" size={130} corner="top-left" />
+        <h2 className="relative z-10 text-2xl font-semibold">See every AI edit before it ships.</h2>
+        <p className="relative z-10 mt-2 text-text-dim">Review the diff. Check the cost. Roll back safely.</p>
+        <div className="relative z-10 mt-6 flex flex-wrap justify-center gap-3">
           <a href="#download" className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dim">
             Install the CLI
           </a>
-          <a href={GITHUB_REPO} target="_blank" rel="noreferrer" className="rounded border border-border px-5 py-2.5 text-sm font-medium text-text hover:border-brand-dim">
+          <a href={GITHUB_REPO} target="_blank" rel="noreferrer" className="rounded bg-surface px-5 py-2.5 text-sm font-medium text-text hover:bg-surface-2">
             View on GitHub
           </a>
-          <Link to="/about" className="rounded border border-border px-5 py-2.5 text-sm font-medium text-text hover:border-brand-dim">
+          <Link to="/about" className="rounded bg-surface px-5 py-2.5 text-sm font-medium text-text hover:bg-surface-2">
             About
           </Link>
         </div>
       </section>
     </>
-  );
-}
-
-function ProofItem({ title, desc }: { title: string; desc: string }) {
-  return (
-    <div>
-      <div className="text-base font-semibold">{title}</div>
-      <div className="mt-1 text-sm text-text-dim">{desc}</div>
-    </div>
   );
 }
 
@@ -241,7 +220,7 @@ const NAV_ITEMS = ["Dashboard", "Session Timeline", "Patch Review", "Command Ris
  * chrome; the daemon URL is the only "window" cue, same as the real app. */
 function DashboardMockup() {
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-surface" aria-hidden="true">
+    <div className="overflow-hidden rounded-md bg-surface" aria-hidden="true">
       <div className="px-4 py-2.5 font-mono text-xs text-text-dim">127.0.0.1:8757 — Trace</div>
       <div className="grid grid-cols-[160px_1fr]">
         <div className="bg-black/20 p-3 text-sm">

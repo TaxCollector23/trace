@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { Mark } from "./Mark";
 import Tracey from "./Tracey";
 
 const links: [string, string][] = [
@@ -25,8 +26,9 @@ export default function App() {
     <div className="layout">
       <aside className="sidebar">
         <div className="brand">
+          <Mark size={20} />
           Trace
-          <Tracey size={22} expression="watching" />
+          <Tracey size={30} expression="detecting" />
         </div>
         <nav className="nav">
           {links.map(([to, label]) => (

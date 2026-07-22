@@ -1,19 +1,17 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { Path } from "@phosphor-icons/react";
 import Tracey from "./Tracey";
+import { Mark } from "./Mark";
 import { DOCS_URL, GITHUB_REPO } from "./config";
 
 export default function App() {
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b border-border">
+      <header>
         <div className="mx-auto flex max-w-content items-center justify-between px-6 py-4">
-          <Link to="/" className="flex items-center gap-2.5 text-[17px] font-semibold text-text">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-brand text-white">
-              <Path size={14} weight="bold" />
-            </span>
+          <Link to="/" className="flex items-center gap-2 text-[17px] font-semibold text-text">
+            <Mark size={26} />
             Trace
-            <Tracey size={22} expression="happy" />
+            <Tracey size={32} expression="happy" />
           </Link>
           <nav className="flex items-center gap-6">
             <NavLink
@@ -40,7 +38,7 @@ export default function App() {
             </a>
             <a
               href="#download"
-              className="rounded border border-border bg-surface px-3 py-1.5 text-sm text-text hover:border-brand-dim"
+              className="rounded bg-surface px-3 py-1.5 text-sm text-text hover:bg-surface-2"
             >
               Install
             </a>
@@ -54,13 +52,12 @@ export default function App() {
         </div>
       </main>
 
-      <footer className="border-t border-border">
+      <footer className="relative">
+        <Tracey size={64} expression="peek" className="pointer-events-none absolute -top-6 right-8 opacity-90" />
         <div className="mx-auto grid max-w-content grid-cols-1 gap-8 px-6 py-10 sm:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <div className="flex items-center gap-2 text-[15px] font-semibold text-text">
-              <span className="flex h-5 w-5 items-center justify-center rounded bg-brand text-white">
-                <Path size={12} weight="bold" />
-              </span>
+              <Mark size={20} />
               Trace
             </div>
             <p className="mt-2 max-w-[320px] text-sm text-text-dim">

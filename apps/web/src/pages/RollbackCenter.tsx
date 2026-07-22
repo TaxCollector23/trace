@@ -59,7 +59,7 @@ export default function RollbackCenter() {
 
       {message && (
         <div className="note" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {succeeded && <Tracey size={22} expression="celebrate" />}
+          {succeeded && <Tracey size={22} expression="success" />}
           {message}
         </div>
       )}

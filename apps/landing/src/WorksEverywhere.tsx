@@ -18,23 +18,23 @@ const CONNECTORS: { name: string; note: string; status: Status; icon: Icon }[] =
 ];
 
 const statusStyle: Record<Status, string> = {
-  Available: "border-good/30 bg-good/10 text-good",
-  "Adapter-ready": "border-brand/30 bg-brand/10 text-brand",
-  Planned: "border-border-strong bg-surface-2 text-text-dimmer",
+  Available: "bg-good/10 text-good",
+  "Adapter-ready": "bg-brand/10 text-brand",
+  Planned: "bg-surface-2 text-text-dimmer",
 };
 
 export default function WorksEverywhere() {
   return (
     <div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {CONNECTORS.map((c, i) => (
           <Reveal key={c.name} delay={i * 0.03}>
-            <div className="flex h-full flex-col justify-between gap-4 rounded-md border border-border bg-surface p-4">
+            <div className="flex h-full flex-col justify-between gap-4 rounded-md bg-surface p-4">
               <div className="flex items-start justify-between gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-surface-2 text-text-dim">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-surface-2 text-text-dim">
                   <c.icon size={17} weight="bold" />
                 </div>
-                <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium ${statusStyle[c.status]}`}>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${statusStyle[c.status]}`}>
                   {c.status}
                 </span>
               </div>

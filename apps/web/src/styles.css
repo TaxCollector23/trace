@@ -61,12 +61,6 @@ a:hover { text-decoration: underline; }
   align-items: center;
   gap: 8px;
 }
-.brand::before {
-  content: "";
-  width: 9px; height: 9px; border-radius: 50%;
-  background: var(--brand);
-  box-shadow: 0 0 10px rgba(124, 123, 251, 0.6);
-}
 .nav a {
   display: flex;
   align-items: center;

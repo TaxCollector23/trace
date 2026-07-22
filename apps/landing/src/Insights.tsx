@@ -18,7 +18,7 @@ const EXAMPLE = [
 export default function Insights() {
   return (
     <div>
-      <div className="mb-6 flex items-start gap-2 rounded-md border border-border bg-surface px-4 py-3 text-xs text-text-dim">
+      <div className="mb-6 flex items-start gap-2 rounded-md bg-surface px-4 py-3 text-xs text-text-dim">
         <Info size={14} className="mt-0.5 shrink-0 text-text-dimmer" />
         <span>
           Illustrative example, not aggregated usage data — Trace collects no

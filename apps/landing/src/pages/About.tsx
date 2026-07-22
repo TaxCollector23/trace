@@ -78,7 +78,7 @@ export default function About() {
 
 function Prose({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mt-10 border-t border-border pt-6">
+    <section className="mt-10 pt-6">
       <h2 className="text-xl font-semibold">{title}</h2>
       <div className="mt-2.5 text-text-dim [&_code]:text-text [&_li]:list-disc [&_li]:ml-5">
         {children}
