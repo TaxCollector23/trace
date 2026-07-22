@@ -23,7 +23,10 @@ jobs:
             target: aarch64-apple-darwin
             artifact: trace-macos-arm64
             cross: false
-          - os: macos-13
+          # Cross-compiled from an Apple Silicon host: Xcode's macOS SDK
+          # supports x86_64-apple-darwin natively (no QEMU/cross needed),
+          # and Intel-hosted (macos-13) runners have been badly congested.
+          - os: macos-14
             target: x86_64-apple-darwin
             artifact: trace-macos-x64
             cross: false
