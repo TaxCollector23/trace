@@ -5,6 +5,7 @@
 use anyhow::{anyhow, Result};
 use trace_core::github;
 
+use crate::colors;
 use crate::project;
 
 pub enum GithubCmd {
@@ -21,15 +22,20 @@ pub fn run(cmd: GithubCmd) -> Result<()> {
     match cmd {
         GithubCmd::Status => {
             let s = github::status_for_path(&root);
-            println!("GitHub status");
+            println!("{}", colors::bold("GitHub status"));
             println!("  token source: {}", s.token_source);
-            println!("  authenticated: {}", s.authenticated);
+            let auth = if s.authenticated {
+                colors::green("true")
+            } else {
+                colors::dim("false")
+            };
+            println!("  authenticated: {auth}");
             if let Some(login) = s.login {
                 println!("  user: {login}");
             }
             match s.repo_ref {
                 Some(r) => println!("  repo: {}/{}", r.owner, r.repo),
-                None => println!("  repo: (no GitHub origin remote)"),
+                None => println!("  repo: {}", colors::dim("(no GitHub origin remote)")),
             }
             if let Some(repo) = s.repo {
                 println!(
@@ -43,24 +49,41 @@ pub fn run(cmd: GithubCmd) -> Result<()> {
             if let Some(err) = s.error {
                 println!("  note: {err}");
                 if !err.is_empty() {
-                    println!("  (set GITHUB_TOKEN or run `gh auth login` to read private repos)");
+                    println!(
+                        "  {}",
+                        colors::dim(
+                            "(set GITHUB_TOKEN or run `gh auth login` to read private repos)"
+                        )
+                    );
                 }
             }
         }
         GithubCmd::Commits { limit } => {
             let (r, token) = resolve(&root)?;
             for c in github::list_commits(&r, token.as_deref(), limit)? {
-                println!("{}  {}  ({}, {})", c.sha, c.message, c.author, c.date);
+                println!(
+                    "{}  {}  ({}, {})",
+                    colors::brand(&c.sha[..8.min(c.sha.len())]),
+                    c.message,
+                    c.author,
+                    colors::dim(&c.date)
+                );
             }
         }
         GithubCmd::Pulls => {
             let (r, token) = resolve(&root)?;
             let pulls = github::list_pulls(&r, token.as_deref())?;
             if pulls.is_empty() {
-                println!("No open pull requests.");
+                println!("{}", colors::dim("No open pull requests."));
             }
             for p in pulls {
-                println!("#{} [{}] {} — @{}", p.number, p.state, p.title, p.user);
+                println!(
+                    "#{} [{}] {} — @{}",
+                    p.number,
+                    colors::green(&p.state),
+                    p.title,
+                    p.user
+                );
             }
         }
         GithubCmd::Cat { path, r#ref } => {

@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { api } from "../api";
-import { Loading, RunPicker, useAsync } from "../components";
+import { Loading, RunPicker, stagger, useAsync } from "../components";
 
 export default function RiskCenter() {
   const { runId } = useParams();
@@ -36,7 +36,7 @@ export default function RiskCenter() {
       </p>
 
       {runsQ.loading ? (
-        <Loading error={runsQ.error} />
+        <Loading error={runsQ.error} variant="cards" rows={1} />
       ) : runs.length === 0 ? (
         <div className="empty">No runs recorded yet.</div>
       ) : (
@@ -45,7 +45,7 @@ export default function RiskCenter() {
 
           <div className="section-title">Command decisions</div>
           {cmdsQ.loading ? (
-            <Loading error={cmdsQ.error} />
+            <Loading error={cmdsQ.error} variant="table" rows={3} />
           ) : guarded.length === 0 ? (
             <div className="empty">No guarded commands recorded.</div>
           ) : (
@@ -58,8 +58,8 @@ export default function RiskCenter() {
                 </tr>
               </thead>
               <tbody>
-                {guarded.map((c) => (
-                  <tr key={c.id}>
+                {guarded.map((c, i) => (
+                  <tr key={c.id} className="enter" style={stagger(i, 20, 160)}>
                     <td>
                       <span className={`pill ${c.decision}`}>
                         {c.decision.replace("_", " ")}
@@ -94,7 +94,7 @@ export default function RiskCenter() {
 
           <div className="section-title">Secret detection warnings</div>
           {secretsQ.loading ? (
-            <Loading error={secretsQ.error} />
+            <Loading error={secretsQ.error} variant="table" rows={2} />
           ) : realSecrets.length === 0 ? (
             <div className="empty">No secrets detected.</div>
           ) : (
@@ -108,8 +108,8 @@ export default function RiskCenter() {
                 </tr>
               </thead>
               <tbody>
-                {realSecrets.map((s) => (
-                  <tr key={s.id}>
+                {realSecrets.map((s, i) => (
+                  <tr key={s.id} className="enter" style={stagger(i, 20, 160)}>
                     <td>{s.secret_type}</td>
                     <td className="mono">{s.redacted_value}</td>
                     <td className="mono">{s.file_path ?? "(output/diff)"}</td>

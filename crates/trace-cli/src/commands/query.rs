@@ -153,21 +153,35 @@ pub fn costs(run_id: &str) -> Result<()> {
         .cloned()
         .unwrap_or_default();
     if usage.is_empty() {
-        println!("No API usage recorded for this run (cost unavailable).");
+        println!(
+            "{}",
+            colors::dim("No API usage recorded for this run (cost unavailable).")
+        );
         return Ok(());
     }
-    for u in usage {
+    println!(
+        "{}",
+        colors::bold("PROVIDER    MODEL                IN     OUT    COST")
+    );
+    for u in &usage {
         println!(
-            "  {} {}  in={} out={} cost={}",
+            "{:<10}  {:<18}  {:>5}  {:>5}  {}",
             u["provider"].as_str().unwrap_or("?"),
             u["model"].as_str().unwrap_or("?"),
             u["input_tokens"],
             u["output_tokens"],
-            u["estimated_cost"],
+            colors::green(&format!(
+                "${:.4}",
+                u["estimated_cost"].as_f64().unwrap_or(0.0)
+            )),
         );
     }
     if let Some(total) = resp.get("total_estimated").and_then(|t| t.as_f64()) {
-        println!("  total estimated: ${total:.4}");
+        println!(
+            "\n{} {}",
+            colors::bold("total estimated:"),
+            colors::green(&format!("${total:.4}"))
+        );
     }
     Ok(())
 }
@@ -183,15 +197,15 @@ pub fn checkpoints() -> Result<()> {
             found = true;
             println!(
                 "  {}  {}  {}  ({})",
-                cp.created_at,
+                colors::dim(&cp.created_at),
                 cp.checkpoint_type,
-                short(cp.git_ref.as_deref().unwrap_or(""), 12),
+                colors::brand(&short(cp.git_ref.as_deref().unwrap_or(""), 12)),
                 short(&r.run.command, 40),
             );
         }
     }
     if !found {
-        println!("No checkpoints with a Git ref yet.");
+        println!("{}", colors::dim("No checkpoints with a Git ref yet."));
     }
     Ok(())
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Project } from "../api";
 import { api } from "../api";
-import { Loading, useAsync } from "../components";
+import { Loading, stagger, useAsync } from "../components";
 
 export default function GitHub() {
   const projectsQ = useAsync(() => api.dashboard());
@@ -56,7 +56,7 @@ export default function GitHub() {
       </p>
 
       {projectsQ.loading ? (
-        <Loading error={projectsQ.error} />
+        <Loading error={projectsQ.error} variant="cards" rows={1} />
       ) : projects.length === 0 ? (
         <div className="empty">No projects yet. Run `trace init` in a repo.</div>
       ) : (
@@ -78,7 +78,7 @@ export default function GitHub() {
 
           {/* Status */}
           {statusQ.loading ? (
-            <Loading error={statusQ.error} />
+            <Loading error={statusQ.error} variant="cards" rows={1} />
           ) : status ? (
             <div className="card">
               <div className="run-meta" style={{ marginTop: 0 }}>
@@ -119,14 +119,14 @@ export default function GitHub() {
           {/* Commits */}
           <div className="section-title">Recent commits</div>
           {commitsQ.loading ? (
-            <Loading error={commitsQ.error} />
+            <Loading error={commitsQ.error} variant="table" rows={4} />
           ) : (commitsQ.data ?? []).length === 0 ? (
             <div className="empty">No commits (or not authorized).</div>
           ) : (
             <table>
               <tbody>
-                {(commitsQ.data ?? []).map((c) => (
-                  <tr key={c.sha}>
+                {(commitsQ.data ?? []).map((c, i) => (
+                  <tr key={c.sha} className="enter" style={stagger(i, 20, 160)}>
                     <td className="mono">{c.sha}</td>
                     <td>{c.message}</td>
                     <td className="muted">{c.author}</td>
@@ -139,14 +139,14 @@ export default function GitHub() {
           {/* Pull requests */}
           <div className="section-title">Open pull requests</div>
           {pullsQ.loading ? (
-            <Loading error={pullsQ.error} />
+            <Loading error={pullsQ.error} variant="table" rows={2} />
           ) : (pullsQ.data ?? []).length === 0 ? (
             <div className="empty">No open pull requests.</div>
           ) : (
             <table>
               <tbody>
-                {(pullsQ.data ?? []).map((p) => (
-                  <tr key={p.number}>
+                {(pullsQ.data ?? []).map((p, i) => (
+                  <tr key={p.number} className="enter" style={stagger(i, 20, 160)}>
                     <td className="mono">#{p.number}</td>
                     <td>
                       <a href={p.html_url} target="_blank" rel="noreferrer">

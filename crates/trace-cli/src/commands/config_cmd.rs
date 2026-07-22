@@ -3,6 +3,7 @@
 use anyhow::{anyhow, Result};
 use trace_core::paths;
 
+use crate::colors;
 use crate::project;
 
 /// Print the current project's config TOML.
@@ -28,6 +29,6 @@ pub fn set(key: &str, value: &str) -> Result<()> {
 
     let path = paths::project_config_path(&p.root);
     cfg.save(&path)?;
-    println!("Set {key} = {value}");
+    println!("{} {key} = {value}", colors::green("Set"));
     Ok(())
 }

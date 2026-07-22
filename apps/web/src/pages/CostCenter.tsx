@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { api } from "../api";
-import { Loading, RunPicker, fmtCost, fmtNum, useAsync } from "../components";
+import { Loading, RunPicker, fmtCost, fmtNum, stagger, useAsync } from "../components";
 
 export default function CostCenter() {
   const { runId } = useParams();
@@ -23,7 +23,7 @@ export default function CostCenter() {
       </p>
 
       {runsQ.loading ? (
-        <Loading error={runsQ.error} />
+        <Loading error={runsQ.error} variant="cards" rows={1} />
       ) : runs.length === 0 ? (
         <div className="empty">No runs recorded yet.</div>
       ) : (
@@ -31,7 +31,7 @@ export default function CostCenter() {
           <RunPicker runs={runs} current={current} base="/cost" />
 
           {costQ.loading ? (
-            <Loading error={costQ.error} />
+            <Loading error={costQ.error} variant="table" rows={3} />
           ) : !cost || cost.usage.length === 0 ? (
             <div className="empty">
               Cost data appears when the agent reports usage or traffic flows
@@ -57,8 +57,8 @@ export default function CostCenter() {
                   </tr>
                 </thead>
                 <tbody>
-                  {cost.usage.map((u) => (
-                    <tr key={u.id}>
+                  {cost.usage.map((u, i) => (
+                    <tr key={u.id} className="enter" style={stagger(i, 20, 160)}>
                       <td>{u.provider}</td>
                       <td className="mono">{u.model}</td>
                       <td>{fmtNum(u.input_tokens)}</td>

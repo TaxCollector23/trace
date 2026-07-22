@@ -8,9 +8,13 @@ import {
   ShieldCheck,
 } from "@phosphor-icons/react";
 import { Cmd, Reveal, Section } from "../components";
+import CliSection from "../CliSection";
 import Download from "../Download";
 import HeroDemo from "../HeroDemo";
+import HowItWorks from "../HowItWorks";
+import Insights from "../Insights";
 import ReplaySection from "../ReplaySection";
+import WorksEverywhere from "../WorksEverywhere";
 import { DOCS_URL, GITHUB_REPO } from "../config";
 
 const FEATURES = [
@@ -46,16 +50,6 @@ const FEATURES = [
   },
 ];
 
-const INTEGRATIONS: { name: string; note: string; status: "Available" | "Adapter-ready" | "Planned" }[] = [
-  { name: "Claude Code", note: "wrapper + hooks adapter", status: "Available" },
-  { name: "Codex CLI", note: "wrapper", status: "Available" },
-  { name: "Generic terminal agents", note: "trace run <command>", status: "Available" },
-  { name: "Cursor", note: "MCP server", status: "Adapter-ready" },
-  { name: "VS Code", note: "extension", status: "Adapter-ready" },
-  { name: "GitHub Actions", note: "CI summary workflow", status: "Adapter-ready" },
-  { name: "GitHub App / PR checks", note: "skeleton", status: "Planned" },
-];
-
 const ROADMAP = [
   "Native desktop app (macOS first)",
   "Transparent local cost proxy",
@@ -66,12 +60,6 @@ const ROADMAP = [
   "Role-based access",
   "Centralized reporting",
 ];
-
-const statusColor: Record<string, string> = {
-  Available: "text-good",
-  "Adapter-ready": "text-brand",
-  Planned: "text-text-dim",
-};
 
 export default function Home() {
   return (
@@ -121,6 +109,14 @@ export default function Home() {
         <ProofItem title="Roll back safely" desc="Git-backed checkpoints before each monitored run. Reject risky AI edits with one command." />
       </div>
 
+      {/* ---------- How it works ---------- */}
+      <Section
+        title="How Trace works"
+        lede="One wrapper around any agent invocation. No SDK to install, no code to change."
+      >
+        <HowItWorks />
+      </Section>
+
       {/* ---------- Replay (interactive) ---------- */}
       <ReplaySection />
 
@@ -154,29 +150,28 @@ export default function Home() {
         </div>
       </Section>
 
-      {/* ---------- Integrations ---------- */}
+      {/* ---------- Works everywhere ---------- */}
       <Section
-        title="Agent-aware, where you already work"
-        lede="Terminal agents run through trace run today. Editor adapters are built and load locally. Status is labeled honestly."
+        id="integrations"
+        title="Works everywhere you already run agents"
+        lede="Six adapters ship today. Every one implements the same interface, so a new tool is a small adapter, not a rewrite."
       >
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-text-dim">
-              <th className="py-2 font-medium">Integration</th>
-              <th className="py-2 font-medium">Type</th>
-              <th className="py-2 font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {INTEGRATIONS.map((i) => (
-              <tr key={i.name} className="hover:bg-surface/60">
-                <td className="py-3 font-medium">{i.name}</td>
-                <td className="py-3 text-text-dim">{i.note}</td>
-                <td className={`py-3 ${statusColor[i.status]}`}>{i.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <WorksEverywhere />
+      </Section>
+
+      {/* ---------- CLI ---------- */}
+      <Section
+        title="A CLI that respects the terminal"
+        lede="Five commands cover the whole loop: init, run, dashboard, risks, rollback. The rest is there when you need it."
+      >
+        <CliSection />
+      </Section>
+
+      {/* ---------- Insights ---------- */}
+      <Section
+        title="What a caught risk actually looks like"
+      >
+        <Insights />
       </Section>
 
       {/* ---------- Local-first security ---------- */}

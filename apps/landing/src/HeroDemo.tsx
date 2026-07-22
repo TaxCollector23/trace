@@ -1,5 +1,5 @@
-import { useEffect, useReducer, useRef } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { toneClass, useTypedTerminal, type TermLine } from "./useTypedTerminal";
 
 /**
  * A scripted terminal session, typed and streamed line by line, then looped.
@@ -8,16 +8,7 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
  * block, the checkpoint/check lines, and `trace patch`'s diff format) rather
  * than invented marketing copy.
  */
-
-type Line =
-  | { kind: "input"; text: string }
-  | { kind: "out"; text: string }
-  | { kind: "add"; text: string }
-  | { kind: "del"; text: string }
-  | { kind: "dim"; text: string }
-  | { kind: "gap" };
-
-const SCRIPT: Line[] = [
+const SCRIPT: TermLine[] = [
   { kind: "input", text: 'trace run "claude fix the login bug"' },
   { kind: "out", text: "Checkpoint created at a3f9c21" },
   { kind: "out", text: "Watching file changes…" },
@@ -35,68 +26,8 @@ const SCRIPT: Line[] = [
   { kind: "out", text: "  cost:      $0.02" },
 ];
 
-const TYPE_MS = 22;
-const LINE_GAP_MS = 260;
-const HOLD_MS = 2600;
-
-type State = { visible: number; typed: number; phase: "typing" | "line-pause" | "hold" | "reset" };
-type Action = { type: "tick" } | { type: "reset" };
-
-function reducer(state: State, action: Action): State {
-  if (action.type === "reset") return { visible: 0, typed: 0, phase: "typing" };
-
-  const current = SCRIPT[state.visible];
-  if (!current) return { ...state, phase: "hold" };
-
-  if (current.kind === "input" && state.phase === "typing") {
-    if (state.typed < current.text.length) {
-      return { ...state, typed: state.typed + 1 };
-    }
-    return { ...state, phase: "line-pause" };
-  }
-
-  // Non-input lines (or an input line that finished typing) just advance.
-  const next = state.visible + 1;
-  if (next >= SCRIPT.length) return { ...state, phase: "hold" };
-  return { visible: next, typed: 0, phase: SCRIPT[next].kind === "input" ? "typing" : "line-pause" };
-}
-
-function lineDelay(state: State): number {
-  if (state.phase === "hold") return HOLD_MS;
-  const current = SCRIPT[state.visible];
-  if (!current) return HOLD_MS;
-  if (current.kind === "input" && state.phase === "typing") return TYPE_MS;
-  if (current.kind === "gap") return 120;
-  return LINE_GAP_MS;
-}
-
-const toneClass: Record<Line["kind"], string> = {
-  input: "text-text",
-  out: "text-text-dim",
-  add: "text-good",
-  del: "text-bad",
-  dim: "text-text-dim",
-  gap: "",
-};
-
 export default function HeroDemo() {
-  const reduceMotion = useReducedMotion();
-  const [state, dispatch] = useReducer(reducer, { visible: 0, typed: 0, phase: "typing" });
-  const timer = useRef<ReturnType<typeof setTimeout>>();
-
-  useEffect(() => {
-    if (reduceMotion) return; // static final frame, no timers
-    if (state.phase === "hold") {
-      timer.current = setTimeout(() => dispatch({ type: "reset" }), HOLD_MS);
-      return () => clearTimeout(timer.current);
-    }
-    timer.current = setTimeout(() => dispatch({ type: "tick" }), lineDelay(state));
-    return () => clearTimeout(timer.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, reduceMotion]);
-
-  const shown = reduceMotion ? SCRIPT : SCRIPT.slice(0, state.visible + 1);
-  const cursorOn = !reduceMotion && state.phase === "typing";
+  const { shown, state, reduceMotion, cursorOn } = useTypedTerminal(SCRIPT);
 
   return (
     <div className="overflow-hidden rounded-md border border-border bg-surface">
