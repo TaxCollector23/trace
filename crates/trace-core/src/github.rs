@@ -88,10 +88,9 @@ pub fn parse_remote(url: &str) -> Option<RepoRef> {
         r.to_string()
     } else if let Some(r) = u.strip_prefix("http://github.com/") {
         r.to_string()
-    } else if let Some(idx) = u.find("github.com/") {
-        u[idx + "github.com/".len()..].to_string()
     } else {
-        return None;
+        let idx = u.find("github.com/")?;
+        u[idx + "github.com/".len()..].to_string()
     };
     let rest = rest.trim_end_matches('/').trim_end_matches(".git");
     let mut parts = rest.splitn(2, '/');
