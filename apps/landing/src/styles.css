@@ -25,3 +25,36 @@ code,
 pre {
   @apply font-mono;
 }
+
+/* Replay timeline scrubber — a real <input type="range"> for native drag,
+   keyboard, and accessibility support, restyled to look like a timeline. */
+.trace-scrubber {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 2px;
+  background: #27272a;
+  cursor: pointer;
+}
+.trace-scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #4fa3ff;
+  border: 2px solid #fafafa;
+  margin-top: -5px;
+}
+.trace-scrubber::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #4fa3ff;
+  border: 2px solid #fafafa;
+}
+.trace-scrubber::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: #27272a;
+}

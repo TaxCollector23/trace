@@ -11,14 +11,14 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
-use trace_core::adapter::{Adapter, SessionContext};
+use trace_core::adapter::SessionContext;
 use trace_core::diagnose;
 use trace_core::git;
 use trace_core::guard::{self, Decision};
 use trace_core::models::*;
 use trace_core::{paths, secrets};
 
-use crate::adapters::terminal::TerminalAdapter;
+use crate::adapters;
 use crate::client::Client;
 use crate::daemon_ctl;
 use crate::project;
@@ -85,7 +85,7 @@ pub fn run(opts: RunOptions) -> Result<()> {
     // others later — plugs in through the same Adapter trait and emits the
     // same event vocabulary. `trace run "<agent> ..."` always uses the
     // terminal adapter (see crates/trace-core/src/adapter.rs).
-    let mut adapter = TerminalAdapter::new(agent_name.clone());
+    let mut adapter = adapters::for_agent(agent_name.as_deref());
     adapter.initialize().ok();
     adapter
         .start_session(&SessionContext {

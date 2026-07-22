@@ -159,7 +159,7 @@ pub fn classify(command: &str) -> GuardResult {
 pub fn detect_agent(command: &str) -> Option<String> {
     let first = command.split_whitespace().next()?.to_lowercase();
     let known = [
-        "claude", "cursor", "copilot", "aider", "codex", "gemini", "cody", "continue",
+        "claude", "cursor", "copilot", "aider", "codex", "gemini", "opencode", "cody", "continue",
     ];
     if known.contains(&first.as_str()) {
         Some(first)

@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Checkpoint, RunSummary } from "../api";
 import { api } from "../api";
 import { Loading, StatusBadge, fmtTime, useAsync } from "../components";
+import Tracey from "../Tracey";
 
 interface Row {
   run: RunSummary;
@@ -23,6 +24,7 @@ export default function RollbackCenter() {
 
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [succeeded, setSucceeded] = useState(false);
 
   async function doRollback(run: RunSummary) {
     const ok = window.confirm(
@@ -31,9 +33,11 @@ export default function RollbackCenter() {
     if (!ok) return;
     setBusy(run.id);
     setMessage(null);
+    setSucceeded(false);
     try {
       const res = await api.rollback(run.id);
       setMessage(`Rollback completed (ref ${res.git_ref.slice(0, 10)}).`);
+      setSucceeded(true);
       runsQ.reload();
       rowsQ.reload();
     } catch (e) {
@@ -53,7 +57,12 @@ export default function RollbackCenter() {
         for confirmation before changing files.
       </p>
 
-      {message && <div className="note">{message}</div>}
+      {message && (
+        <div className="note" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {succeeded && <Tracey size={22} expression="celebrate" />}
+          {message}
+        </div>
+      )}
 
       {runsQ.loading || rowsQ.loading ? (
         <Loading error={runsQ.error ?? rowsQ.error} />

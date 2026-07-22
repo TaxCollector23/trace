@@ -10,6 +10,7 @@ import {
 import { Cmd, Reveal, Section } from "../components";
 import Download from "../Download";
 import HeroDemo from "../HeroDemo";
+import ReplaySection from "../ReplaySection";
 import { DOCS_URL, GITHUB_REPO } from "../config";
 
 const FEATURES = [
@@ -119,6 +120,9 @@ export default function Home() {
         <ProofItem title="Review every patch" desc="See the exact code delta before it ships, grounded in the real Git diff." />
         <ProofItem title="Roll back safely" desc="Git-backed checkpoints before each monitored run. Reject risky AI edits with one command." />
       </div>
+
+      {/* ---------- Replay (interactive) ---------- */}
+      <ReplaySection />
 
       {/* ---------- Download ---------- */}
       <Download />
