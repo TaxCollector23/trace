@@ -1,62 +1,68 @@
 import { Link } from "react-router-dom";
-import {
-  ArrowCounterClockwise,
-  ChartLine,
-  GitDiff,
-  ListBullets,
-  LockKey,
-  ShieldCheck,
-} from "@phosphor-icons/react";
 import { Reveal, Section, TraceyPeek } from "../components";
-import CliSection from "../CliSection";
 import Download from "../Download";
 import HeroDemo from "../HeroDemo";
-import Insights from "../Insights";
 import WorksEverywhere from "../WorksEverywhere";
-import { DOCS_URL, GITHUB_REPO } from "../config";
+import { GITHUB_REPO } from "../config";
 
 const FEATURES = [
   {
-    icon: ListBullets,
-    title: "Agent run recorder",
-    desc: "Every AI coding session becomes a readable execution timeline — prompts, commands, edits, checks, and results, in the exact order they happened.",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M3 4h14M3 8h10M3 12h14M3 16h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    ),
+    title: "Session recording",
+    desc: "Every AI coding session becomes a readable execution timeline — prompts, commands, edits, checks, and results.",
   },
   {
-    icon: GitDiff,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M4 6l4 4-4 4M10 14h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
     title: "Patch review",
-    desc: "The real Git diff for an AI run in one place: added, modified, and deleted files, plus dependency and config changes. Nothing invented.",
+    desc: "The real Git diff for an AI run: added, modified, and deleted files, plus dependency and config changes.",
   },
   {
-    icon: ShieldCheck,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M10 2v6l4 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.8" fill="none" />
+      </svg>
+    ),
     title: "Command guard",
-    desc: "Rule-based checks against destructive deletes, hard resets, unsafe permissions, and piped install scripts. Warn, block, or require approval.",
+    desc: "Rule-based checks against destructive deletes, hard resets, unsafe permissions, and piped install scripts.",
   },
   {
-    icon: LockKey,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <rect x="4" y="8" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.8" fill="none" />
+        <path d="M7 8V5a3 3 0 016 0v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    ),
     title: "Secret detection",
-    desc: "Scans diffs, output, and changed files for exposed API keys, tokens, and credentials. Redacted before anything is stored.",
+    desc: "Scans diffs and output for exposed API keys, tokens, and credentials. Redacted before anything is stored.",
   },
   {
-    icon: ChartLine,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M3 16l4-5 3 3 4-6 3 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
     title: "Cost tracking",
-    desc: "Provider, model, tokens, and estimated cost per run when adapter data is available — an honest \"unavailable\" when it isn't.",
+    desc: "Provider, model, tokens, and estimated cost per run — an honest \"unavailable\" when it isn't available.",
   },
   {
-    icon: ArrowCounterClockwise,
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M4 10a6 6 0 0110.5-4M16 10a6 6 0 01-10.5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M15 3v4h-4M5 17v-4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
     title: "Rollback",
-    desc: "Git-backed checkpoints created before every monitored run. Review, reject, or roll back — never destructive without confirmation.",
+    desc: "Git-backed checkpoints before every monitored run. Review, reject, or roll back with one command.",
   },
-];
-
-const ROADMAP = [
-  "Native desktop app (macOS first)",
-  "Transparent local cost proxy",
-  "Shared policy rules",
-  "Organization dashboards",
-  "GitHub organization integration",
-  "AI activity audit logs",
-  "Role-based access",
-  "Centralized reporting",
 ];
 
 export default function Home() {
@@ -66,66 +72,49 @@ export default function Home() {
       <section className="relative grid grid-cols-1 items-center gap-10 py-16 md:grid-cols-[1.05fr_1fr] md:py-24">
         <div>
           <h1 className="text-3xl font-semibold md:text-4xl">
-            The trust layer for AI software engineering.
+            Know what your AI agent did before you ship it.
           </h1>
           <p className="mt-4 max-w-[520px] text-lg text-text-dim">
-            Trace records every AI coding session — file changes, shell
-            commands, risky actions, token cost, build results, and rollback
-            checkpoints — from a local-first dashboard you control.
+            Trace records file changes, shell commands, risky actions, token cost,
+            and rollback checkpoints — all from a local dashboard on your machine.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <a
-              href={DOCS_URL}
-              target="_blank"
-              rel="noreferrer"
+              href="#download"
               className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dim"
             >
-              Read the docs
+              Install the CLI
             </a>
             <a
-              href="#download"
+              href={`${GITHUB_REPO}`}
+              target="_blank"
+              rel="noreferrer"
               className="rounded bg-surface px-5 py-2.5 text-sm font-medium text-text hover:bg-surface-2"
             >
-              Install the CLI
+              View on GitHub
             </a>
           </div>
         </div>
 
         <div className="relative">
-          <TraceyPeek expression="happy" size={130} corner="bottom-right" />
+          <TraceyPeek expression="happy" size={80} corner="bottom-right" />
           <Reveal className="relative z-10">
             <HeroDemo />
           </Reveal>
         </div>
       </section>
 
-      {/* ---------- Download (moved up: install comes before the pitch) ---------- */}
+      {/* ---------- Download ---------- */}
       <Download />
 
-      {/* ---------- Dashboard preview ---------- */}
-      <Section
-        title="Everything lands in one dashboard"
-        lede="The same run, reviewable afterward — timeline, patch, risk, and cost in one place, served locally at 127.0.0.1."
-        tracey={{ expression: "detecting", corner: "top-left", size: 90 }}
-      >
-        <Reveal className="relative z-10">
-          <DashboardMockup />
-        </Reveal>
-      </Section>
-
-      {/* ---------- Feature grid ---------- */}
-      <Section
-        id="features"
-        title="An execution trace for the AI-agent era"
-        lede="Stop treating agent runs like black boxes. Trace captures the full execution timeline, the patch, the risks, and the cost — locally."
-        tracey={{ expression: "thinking", corner: "top-right", size: 100 }}
-      >
-        <div className="relative z-10 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      {/* ---------- Features ---------- */}
+      <Section id="features">
+        <div className="relative z-10 grid grid-cols-1 gap-x-12 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f, i) => (
             <Reveal key={f.title} delay={i * 0.04}>
-              <f.icon size={20} className="text-brand" />
-              <h3 className="mt-3 text-base font-semibold">{f.title}</h3>
-              <p className="mt-1.5 text-sm text-text-dim">{f.desc}</p>
+              <div className="text-brand">{f.icon}</div>
+              <h3 className="mt-2 text-base font-semibold">{f.title}</h3>
+              <p className="mt-1 text-sm text-text-dim">{f.desc}</p>
             </Reveal>
           ))}
         </div>
@@ -135,67 +124,28 @@ export default function Home() {
       <Section
         id="integrations"
         title="Works everywhere you already run agents"
-        lede="Six adapters ship today. Every one implements the same interface, so a new tool is a small adapter, not a rewrite."
-        tracey={{ expression: "cool", corner: "bottom-left", size: 100 }}
       >
+        <TraceyPeek expression="cool" size={72} corner="bottom-left" />
         <div className="relative z-10">
           <WorksEverywhere />
         </div>
       </Section>
 
-      {/* ---------- CLI ---------- */}
+      {/* ---------- Dashboard preview ---------- */}
       <Section
-        title="A CLI that respects the terminal"
-        lede="Five commands cover the whole loop: init, run, dashboard, risks, rollback. The rest is there when you need it."
-        tracey={{ expression: "focused", corner: "top-left", size: 90 }}
+        title="Everything lands in one dashboard"
+        lede="Timeline, patch, risk, and cost in one place — served locally at 127.0.0.1."
+        tracey={{ expression: "detecting", corner: "top-left", size: 72 }}
       >
-        <div className="relative z-10">
-          <CliSection />
-        </div>
-      </Section>
-
-      {/* ---------- Insights ---------- */}
-      <Section title="What a caught risk actually looks like">
-        <div className="relative z-10">
-          <Insights />
-        </div>
-      </Section>
-
-      {/* ---------- Local-first security ---------- */}
-      <Section title="Zero-cloud by default" tracey={{ expression: "concerned", corner: "bottom-right", size: 90 }}>
-        <div className="relative z-10 grid grid-cols-1 gap-8 md:grid-cols-[1.3fr_1fr]">
-          <p className="text-text-dim">
-            Trace's real dashboard runs locally at{" "}
-            <code className="text-text">127.0.0.1</code>. Project history,
-            Git diffs, and run records stay on your machine by default. Raw
-            secrets are never stored — detections are redacted. Any cloud or
-            GitHub integration uses sanitized summaries only.
-          </p>
-          <ul className="space-y-3 text-sm text-text-dim">
-            <li><span className="text-text">Local daemon</span> bound to 127.0.0.1 — never the network</li>
-            <li><span className="text-text">No account</span>, no cloud sync, no telemetry by default</li>
-            <li><span className="text-text">Redacted secrets</span> — raw values never persisted</li>
-            <li><span className="text-text">Sanitized summaries</span> for CI — never raw files or the database</li>
-          </ul>
-        </div>
-      </Section>
-
-      {/* ---------- Roadmap ---------- */}
-      <Section
-        title="Built for solo developers first. Teams next."
-        lede="Trace is developer-controlled and local-first today. A future team tier is on the roadmap — not available now."
-      >
-        <ul className="grid grid-cols-1 gap-x-8 gap-y-3 text-sm text-text-dim sm:grid-cols-2">
-          {ROADMAP.map((r) => (
-            <li key={r}>{r}</li>
-          ))}
-        </ul>
+        <Reveal className="relative z-10">
+          <DashboardMockup />
+        </Reveal>
       </Section>
 
       {/* ---------- Closing ---------- */}
       <section className="relative py-16 text-center">
-        <TraceyPeek expression="excited" size={130} corner="top-left" />
-        <h2 className="relative z-10 text-2xl font-semibold">See every AI edit before it ships.</h2>
+        <TraceyPeek expression="peek" size={90} corner="top-left" />
+        <h2 className="relative z-10 text-2xl font-semibold">See every AI edit for yourself.</h2>
         <p className="relative z-10 mt-2 text-text-dim">Review the diff. Check the cost. Roll back safely.</p>
         <div className="relative z-10 mt-6 flex flex-wrap justify-center gap-3">
           <a href="#download" className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dim">
@@ -208,6 +158,7 @@ export default function Home() {
             About
           </Link>
         </div>
+        <TraceyPeek expression="excited" size={90} corner="bottom-right" />
       </section>
     </>
   );
@@ -215,9 +166,6 @@ export default function Home() {
 
 const NAV_ITEMS = ["Dashboard", "Session Timeline", "Patch Review", "Command Risk", "Token Spend", "Rollback"];
 
-/** Static dashboard mockup — mirrors the real dashboard's own layout and
- * type scale (see apps/web), not a stylized "hero graphic". No fake browser
- * chrome; the daemon URL is the only "window" cue, same as the real app. */
 function DashboardMockup() {
   return (
     <div className="overflow-hidden rounded-md bg-surface" aria-hidden="true">

@@ -40,7 +40,7 @@ export function Section({
   tracey,
 }: {
   id?: string;
-  title: string;
+  title?: string;
   lede?: ReactNode;
   children: ReactNode;
   /** Renders Tracey peeking from a corner of this section. */
@@ -49,7 +49,7 @@ export function Section({
   return (
     <section id={id} className="relative py-16">
       {tracey && <TraceyPeek {...tracey} />}
-      <h2 className="text-2xl font-semibold">{title}</h2>
+      {title && <h2 className="text-2xl font-semibold">{title}</h2>}
       {lede && <p className="mt-1.5 max-w-[640px] text-text-dim">{lede}</p>}
       <div className="relative mt-6">{children}</div>
     </section>
