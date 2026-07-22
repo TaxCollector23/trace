@@ -18,7 +18,7 @@ const INSTALL: Record<OS, { name: string; options: InstallOption[] }> = {
     name: "macOS",
     options: [
       { label: "npm", recommended: true, commands: ["npm install -g trace"] },
-      { label: "Homebrew", commands: ["brew tap TaxCollector23/tap", "brew install trace"] },
+      { label: "Homebrew", commands: ["brew tap TaxCollector23/trace", "brew install trace"] },
       { label: "curl", commands: [`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`] },
     ],
   },
@@ -27,7 +27,7 @@ const INSTALL: Record<OS, { name: string; options: InstallOption[] }> = {
     options: [
       { label: "npm", recommended: true, commands: ["npm install -g trace"] },
       { label: "curl", commands: [`curl -fsSL ${RAW_BASE}/scripts/install.sh | sh`] },
-      { label: "Homebrew", commands: ["brew tap TaxCollector23/tap", "brew install trace"] },
+      { label: "Homebrew", commands: ["brew tap TaxCollector23/trace", "brew install trace"] },
     ],
   },
   windows: {

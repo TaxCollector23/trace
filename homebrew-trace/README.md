@@ -1,9 +1,9 @@
-# homebrew-tap
+# homebrew-trace
 
 Homebrew tap for [Trace](https://github.com/TaxCollector23/trace).
 
 ```bash
-brew tap TaxCollector23/tap
+brew tap TaxCollector23/trace
 brew install trace
 ```
 

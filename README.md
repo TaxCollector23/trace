@@ -27,7 +27,7 @@ is the record of what the agent did.
 
 **macOS (Homebrew, recommended)**
 ```bash
-brew tap TaxCollector23/tap
+brew tap TaxCollector23/trace
 brew install trace
 ```
 
@@ -155,7 +155,7 @@ trace
 │  └─ codex/              # Codex CLI adapter
 ├─ packages/
 │  └─ npm/                # optional npm wrapper package
-├─ homebrew-tap/          # Homebrew formula (mirrors the tap repo)
+├─ homebrew-trace/        # Homebrew formula (mirrors the tap repo)
 ├─ firebase/              # optional static mirror / reserved identity
 ├─ scripts/               # install.sh, install.ps1
 └─ .github/workflows/     # release.yml, landing-deploy.yml, ci.yml
@@ -195,8 +195,9 @@ daemon.
   `docs-deploy.yml` workflow publishes it to
   `https://taxcollector23.github.io/trace/`. Override the landing's docs
   link with `VITE_DOCS_URL` if needed.
-- **Homebrew tap:** the formula lives in `homebrew-tap/Formula/trace.rb`,
-  mirrored to `TaxCollector23/homebrew-tap`.
+- **Homebrew tap:** the formula lives in `homebrew-trace/Formula/trace.rb`,
+  mirrored to `TaxCollector23/homebrew-trace` (tapped as
+  `TaxCollector23/trace`, Homebrew's `homebrew-` prefix is implicit).
 
 ## Security model
 
