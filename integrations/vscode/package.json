@@ -1,7 +1,7 @@
 {
   "name": "trace-vscode",
   "displayName": "Trace",
-  "description": "Lightweight bridge to your local Trace daemon: recent runs, dashboard, and running the current command through trace.",
+  "description": "Lightweight bridge to your local Trace daemon: recent runs, dashboard, running commands through trace, and recording GitHub Copilot editing sessions as real Trace runs.",
   "version": "0.1.0",
   "publisher": "trace",
   "private": true,
@@ -25,7 +25,9 @@
     "commands": [
       { "command": "trace.openDashboard", "title": "Trace: Open Dashboard" },
       { "command": "trace.runCommand", "title": "Trace: Run Command through trace" },
-      { "command": "trace.refresh", "title": "Trace: Refresh Runs", "icon": "$(refresh)" }
+      { "command": "trace.refresh", "title": "Trace: Refresh Runs", "icon": "$(refresh)" },
+      { "command": "trace.startCopilotSession", "title": "Trace: Start Copilot Session" },
+      { "command": "trace.endCopilotSession", "title": "Trace: End Copilot Session" }
     ],
     "menus": {
       "view/title": [

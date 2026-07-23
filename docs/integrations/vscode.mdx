@@ -8,13 +8,22 @@ to the local Trace daemon — it does **not** duplicate the full dashboard.
 
 It provides:
 
-- a Trace sidebar panel
-- current project status
-- recent runs
+- a Trace sidebar panel with recent runs
 - a button to open the dashboard
 - a button to run the current terminal command through `trace`
-- warnings for risky modified files
-- links to Patch Review and the Rollback Center
+- **Copilot session recording**: `Trace: Start Copilot Session` creates a real
+  run and records every file you save while it's active as a file-change
+  event, scanning saved files for obvious secret patterns (AWS keys, private
+  key blocks, generic API tokens, Slack tokens) and warning inline. Run
+  `Trace: End Copilot Session` to finish it. The session then shows up in
+  Patch Review, Risk Center, and the timeline exactly like a CLI-wrapped run.
+
+<Note>
+There's no Copilot API to hook directly, so this attributes activity by time
+window — every save while a session is active is attributed to it, whether
+or not that specific edit came from Copilot. The secret scan is a small
+client-side pattern set, not the daemon's full scanner.
+</Note>
 
 ## Install (development)
 

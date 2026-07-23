@@ -17,10 +17,10 @@ use clap::{CommandFactory, FromArgMatches, Parser, Subcommand};
 
 use commands::run::RunOptions;
 
-/// Bold brand-indigo headers/usage, plain-bold flag names, dim placeholders —
+/// Bold brand-blue headers/usage, plain-bold flag names, dim placeholders —
 /// the same accent used across the landing page, dashboard, and CLI banner.
 fn help_styles() -> Styles {
-    let brand = Color::Rgb(RgbColor(124, 123, 251));
+    let brand = Color::Rgb(RgbColor(79, 163, 255));
     Styles::styled()
         .header(Style::new().bold().fg_color(Some(brand)))
         .usage(Style::new().bold().fg_color(Some(brand)))

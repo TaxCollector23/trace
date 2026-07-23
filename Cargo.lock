@@ -4195,7 +4195,7 @@ checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 
 [[package]]
 name = "trace-cli"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -4213,7 +4213,7 @@ dependencies = [
 
 [[package]]
 name = "trace-core"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -4232,7 +4232,7 @@ dependencies = [
 
 [[package]]
 name = "trace-daemon"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "axum",
@@ -4252,7 +4252,7 @@ dependencies = [
 
 [[package]]
 name = "trace-desktop"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "tauri",
