@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Reveal, Section, TraceyPeek } from "../components";
+import { Reveal, Section } from "../components";
 import Download from "../Download";
 import HeroDemo from "../HeroDemo";
 import WorksEverywhere from "../WorksEverywhere";
@@ -96,12 +96,9 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="relative">
-          <TraceyPeek expression="happy" size={80} corner="bottom-right" />
-          <Reveal className="relative z-10">
-            <HeroDemo />
-          </Reveal>
-        </div>
+        <Reveal>
+          <HeroDemo />
+        </Reveal>
       </section>
 
       {/* ---------- Download ---------- */}
@@ -125,17 +122,13 @@ export default function Home() {
         id="integrations"
         title="Works everywhere you already run agents"
       >
-        <TraceyPeek expression="cool" size={72} corner="bottom-left" />
-        <div className="relative z-10">
-          <WorksEverywhere />
-        </div>
+        <WorksEverywhere />
       </Section>
 
       {/* ---------- Dashboard preview ---------- */}
       <Section
         title="Everything lands in one dashboard"
         lede="Timeline, patch, risk, and cost in one place — served locally at 127.0.0.1."
-        tracey={{ expression: "detecting", corner: "top-left", size: 72 }}
       >
         <Reveal className="relative z-10">
           <DashboardMockup />
@@ -143,11 +136,10 @@ export default function Home() {
       </Section>
 
       {/* ---------- Closing ---------- */}
-      <section className="relative py-16 text-center">
-        <TraceyPeek expression="peek" size={90} corner="top-left" />
-        <h2 className="relative z-10 text-2xl font-semibold">See every AI edit for yourself.</h2>
-        <p className="relative z-10 mt-2 text-text-dim">Review the diff. Check the cost. Roll back safely.</p>
-        <div className="relative z-10 mt-6 flex flex-wrap justify-center gap-3">
+      <section className="py-16 text-center">
+        <h2 className="text-2xl font-semibold">See every AI edit for yourself.</h2>
+        <p className="mt-2 text-text-dim">Review the diff. Check the cost. Roll back safely.</p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
           <a href="#download" className="rounded bg-brand px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-dim">
             Install the CLI
           </a>
@@ -158,7 +150,6 @@ export default function Home() {
             About
           </Link>
         </div>
-        <TraceyPeek expression="excited" size={90} corner="bottom-right" />
       </section>
     </>
   );

@@ -9,6 +9,10 @@
       <stop offset="50%" stop-color="#4A8EF5"/>
       <stop offset="100%" stop-color="#4A8EF5" stop-opacity="0.4"/>
     </linearGradient>
+    <linearGradient id="tBody" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5EA0FF"/>
+      <stop offset="100%" stop-color="#3870D4"/>
+    </linearGradient>
   </defs>
 
   <!-- Background -->
@@ -38,28 +42,27 @@
     <polygon points="8,60 10,56 12,60 10,64" fill="#f472b6"/>
     <polygon points="108,58 110,54 112,58 110,62" fill="#a78bfa"/>
     <!-- antenna ring -->
-    <circle cx="60" cy="12" r="10" fill="#4A8EF5"/>
-    <circle cx="60" cy="12" r="5" fill="#151520"/>
+    <circle cx="60" cy="10" r="10" fill="#4A8EF5"/>
+    <circle cx="60" cy="10" r="5" fill="#151520"/>
     <!-- stem -->
-    <rect x="57" y="18" width="6" height="16" rx="3" fill="#4A8EF5"/>
+    <rect x="57" y="16" width="6" height="14" rx="3" fill="#4A8EF5"/>
     <!-- feet -->
-    <ellipse cx="44" cy="122" rx="10" ry="6" fill="#3D7AE0"/>
-    <ellipse cx="76" cy="122" rx="10" ry="6" fill="#3D7AE0"/>
+    <ellipse cx="44" cy="124" rx="9" ry="5" fill="#3870D4"/>
+    <ellipse cx="76" cy="124" rx="9" ry="5" fill="#3870D4"/>
     <!-- arms up -->
-    <ellipse cx="16" cy="84" rx="9" ry="13" fill="#4A8EF5" transform="translate(4,-20) rotate(-60, 16, 84)"/>
-    <ellipse cx="104" cy="84" rx="9" ry="13" fill="#4A8EF5" transform="translate(-4,-20) rotate(60, 104, 84)"/>
-    <!-- body -->
-    <path d="M60 32 C88 32 100 54 100 76 C100 100 88 122 60 122 C32 122 20 100 20 76 C20 54 32 32 60 32 Z" fill="#4A8EF5"/>
-    <path d="M38 108 C46 120 74 120 82 108 C78 122 42 122 38 108 Z" fill="#3D7AE0" opacity="0.5"/>
+    <ellipse cx="18" cy="86" rx="7" ry="11" fill="#4A8EF5" transform="translate(4,-18) rotate(-55, 18, 86)"/>
+    <ellipse cx="102" cy="86" rx="7" ry="11" fill="#4A8EF5" transform="translate(-4,-18) rotate(55, 102, 86)"/>
+    <!-- body — tapered bell -->
+    <path d="M60 28 C74 28 88 40 94 60 C100 80 96 104 84 118 C76 126 44 126 36 118 C24 104 20 80 26 60 C32 40 46 28 60 28 Z" fill="url(#tBody)"/>
     <!-- eyes -->
-    <ellipse cx="44" cy="68" rx="12" ry="14" fill="#ffffff"/>
-    <ellipse cx="76" cy="68" rx="12" ry="14" fill="#ffffff"/>
-    <circle cx="44" cy="70" r="5.5" fill="#1a1a2e"/>
-    <circle cx="76" cy="70" r="5.5" fill="#1a1a2e"/>
-    <circle cx="47" cy="67" r="2" fill="#ffffff"/>
-    <circle cx="79" cy="67" r="2" fill="#ffffff"/>
+    <ellipse cx="44" cy="68" rx="13" ry="15" fill="#ffffff"/>
+    <ellipse cx="76" cy="68" rx="13" ry="15" fill="#ffffff"/>
+    <circle cx="44" cy="70" r="6" fill="#1a1a2e"/>
+    <circle cx="76" cy="70" r="6" fill="#1a1a2e"/>
+    <circle cx="47" cy="67" r="2.5" fill="#ffffff"/>
+    <circle cx="79" cy="67" r="2.5" fill="#ffffff"/>
     <!-- mouth -->
-    <path d="M44 88 Q60 106 76 88" stroke="#1a1a2e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <path d="M44 88 Q60 108 76 88" stroke="#1a1a2e" stroke-width="3.5" fill="none" stroke-linecap="round"/>
   </g>
 
   <!-- Arrow (centered between app icon and Applications folder positions) -->
@@ -67,10 +70,6 @@
     <line x1="0" y1="0" x2="110" y2="0" stroke="url(#arrow-grad)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="6 4"/>
     <polygon points="108,-7 122,0 108,7" fill="#4A8EF5" opacity="0.8"/>
   </g>
-
-  <!-- macOS will place icons at these positions:
-       App icon:            x=180, y=170 (centered)
-       Applications folder: x=480, y=170 (centered) -->
 
   <!-- Instruction text -->
   <text x="330" y="300" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#a1a1aa">

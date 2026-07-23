@@ -1,5 +1,4 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
-import Tracey from "./Tracey";
 import { Mark } from "./Mark";
 import { DOCS_URL, GITHUB_REPO } from "./config";
 
@@ -11,7 +10,6 @@ export default function App() {
           <Link to="/" className="flex items-center gap-2 text-[17px] font-semibold text-text">
             <Mark size={26} />
             Trace
-            <Tracey size={24} expression="happy" />
           </Link>
           <nav className="flex items-center gap-6">
             <NavLink
@@ -52,8 +50,7 @@ export default function App() {
         </div>
       </main>
 
-      <footer className="relative">
-        <Tracey size={48} expression="peek" className="pointer-events-none absolute -top-6 right-8 opacity-90" />
+      <footer>
         <div className="mx-auto grid max-w-content grid-cols-1 gap-8 px-6 py-10 sm:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <div className="flex items-center gap-2 text-[15px] font-semibold text-text">
