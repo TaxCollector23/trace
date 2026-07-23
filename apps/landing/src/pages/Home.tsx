@@ -3,6 +3,7 @@ import { Reveal, Section } from "../components";
 import Download from "../Download";
 import HeroDemo from "../HeroDemo";
 import WorksEverywhere from "../WorksEverywhere";
+import HowToUse from "../HowToUse";
 import { GITHUB_REPO } from "../config";
 
 export default function Home() {
@@ -50,6 +51,15 @@ export default function Home() {
         title="Works everywhere you already run agents"
       >
         <WorksEverywhere />
+      </Section>
+
+      {/* ---------- How to use each integration ---------- */}
+      <Section
+        id="how-to-use"
+        title="How to connect each one"
+        lede="CLI agents are wrapped directly. GUI tools connect through MCP or a bridge extension instead."
+      >
+        <HowToUse />
       </Section>
 
       {/* ---------- Dashboard ---------- */}
