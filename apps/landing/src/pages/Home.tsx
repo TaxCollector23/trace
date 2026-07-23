@@ -5,66 +5,6 @@ import HeroDemo from "../HeroDemo";
 import WorksEverywhere from "../WorksEverywhere";
 import { GITHUB_REPO } from "../config";
 
-const FEATURES = [
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M3 4h14M3 8h10M3 12h14M3 16h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    ),
-    title: "Session recording",
-    desc: "Every AI coding session becomes a readable execution timeline — prompts, commands, edits, checks, and results.",
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M4 6l4 4-4 4M10 14h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-    title: "Patch review",
-    desc: "The real Git diff for an AI run: added, modified, and deleted files, plus dependency and config changes.",
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M10 2v6l4 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="10" cy="10" r="8" stroke="currentColor" strokeWidth="1.8" fill="none" />
-      </svg>
-    ),
-    title: "Command guard",
-    desc: "Rule-based checks against destructive deletes, hard resets, unsafe permissions, and piped install scripts.",
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <rect x="4" y="8" width="12" height="9" rx="2" stroke="currentColor" strokeWidth="1.8" fill="none" />
-        <path d="M7 8V5a3 3 0 016 0v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
-    ),
-    title: "Secret detection",
-    desc: "Scans diffs and output for exposed API keys, tokens, and credentials. Redacted before anything is stored.",
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M3 16l4-5 3 3 4-6 3 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-    title: "Cost tracking",
-    desc: "Provider, model, tokens, and estimated cost per run — an honest \"unavailable\" when it isn't available.",
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M4 10a6 6 0 0110.5-4M16 10a6 6 0 01-10.5 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        <path d="M15 3v4h-4M5 17v-4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    ),
-    title: "Rollback",
-    desc: "Git-backed checkpoints before every monitored run. Review, reject, or roll back with one command.",
-  },
-];
-
 export default function Home() {
   return (
     <>
@@ -104,19 +44,6 @@ export default function Home() {
       {/* ---------- Download ---------- */}
       <Download />
 
-      {/* ---------- Features ---------- */}
-      <Section id="features">
-        <div className="relative z-10 grid grid-cols-1 gap-x-12 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((f, i) => (
-            <Reveal key={f.title} delay={i * 0.04}>
-              <div className="text-brand">{f.icon}</div>
-              <h3 className="mt-2 text-base font-semibold">{f.title}</h3>
-              <p className="mt-1 text-sm text-text-dim">{f.desc}</p>
-            </Reveal>
-          ))}
-        </div>
-      </Section>
-
       {/* ---------- Works everywhere ---------- */}
       <Section
         id="integrations"
@@ -125,13 +52,10 @@ export default function Home() {
         <WorksEverywhere />
       </Section>
 
-      {/* ---------- Dashboard preview ---------- */}
-      <Section
-        title="Everything lands in one dashboard"
-        lede="Timeline, patch, risk, and cost in one place — served locally at 127.0.0.1."
-      >
-        <Reveal className="relative z-10">
-          <DashboardMockup />
+      {/* ---------- Dashboard ---------- */}
+      <Section id="dashboard">
+        <Reveal>
+          <DashboardPreview />
         </Reveal>
       </Section>
 
@@ -155,34 +79,97 @@ export default function Home() {
   );
 }
 
-const NAV_ITEMS = ["Dashboard", "Session Timeline", "Patch Review", "Command Risk", "Token Spend", "Rollback"];
+/* ── Realistic dashboard mockup ── */
 
-function DashboardMockup() {
+const SIDEBAR = [
+  { name: "Dashboard", active: true },
+  { name: "Session Timeline", active: false },
+  { name: "Patch Review", active: false },
+  { name: "Command Risk", active: false },
+  { name: "Token Spend", active: false },
+  { name: "Rollback Center", active: false },
+  { name: "GitHub", active: false },
+];
+
+const SESSIONS = [
+  { agent: "claude", prompt: "fix the login bug and add tests", files: 7, risk: "low", cost: "$0.04", status: "completed", time: "2m ago" },
+  { agent: "codex", prompt: "refactor auth middleware to use JWT", files: 3, risk: "medium", cost: "$0.12", status: "completed", time: "18m ago" },
+  { agent: "cursor", prompt: "add pagination to /api/users endpoint", files: 5, risk: "low", cost: "$0.08", status: "completed", time: "1h ago" },
+  { agent: "claude", prompt: "rm -rf node_modules && npm install", files: 0, risk: "high", cost: "—", status: "blocked", time: "1h ago" },
+];
+
+function DashboardPreview() {
   return (
-    <div className="overflow-hidden rounded-md bg-surface" aria-hidden="true">
-      <div className="px-4 py-2.5 font-mono text-xs text-text-dim">127.0.0.1:8757 — Trace</div>
-      <div className="grid grid-cols-[160px_1fr]">
-        <div className="bg-black/20 p-3 text-sm">
-          {NAV_ITEMS.map((n, i) => (
+    <div className="overflow-hidden rounded-lg border border-white/[0.06] bg-[#0c0c10]" aria-hidden="true">
+      {/* title bar */}
+      <div className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2">
+        <div className="flex gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+        </div>
+        <span className="ml-2 font-mono text-[11px] text-text-dimmer">127.0.0.1:8757 — Trace Dashboard</span>
+      </div>
+
+      <div className="grid grid-cols-[180px_1fr]">
+        {/* sidebar */}
+        <div className="border-r border-white/[0.06] bg-[#0a0a0e] p-3">
+          <div className="mb-3 flex items-center gap-2 px-2 text-[13px] font-semibold text-text">
+            <svg width="14" height="14" viewBox="0 0 194 200" fill="none">
+              <rect x="31" y="32" width="132" height="30" rx="8" fill="#5b93f5" />
+              <rect x="82" y="74" width="30" height="90" rx="8" fill="#5b93f5" />
+            </svg>
+            Trace
+          </div>
+          {SIDEBAR.map((item) => (
             <div
-              key={n}
-              className={`mb-1 rounded-sm px-2.5 py-1.5 ${i === 0 ? "bg-surface-2 text-text" : "text-text-dim"}`}
+              key={item.name}
+              className={`mb-0.5 rounded px-2.5 py-1.5 text-[12px] ${
+                item.active
+                  ? "bg-white/[0.06] font-medium text-text"
+                  : "text-text-dimmer hover:text-text-dim"
+              }`}
             >
-              {n}
+              {item.name}
             </div>
           ))}
         </div>
-        <div className="p-4">
-          <div className="mb-5 grid grid-cols-3 gap-3">
-            <MockStat value="7" label="files changed" />
-            <MockStat value="1" label="secret warning" />
-            <MockStat value="$0.04" label="est. cost" />
+
+        {/* main content */}
+        <div className="p-5">
+          {/* KPI row */}
+          <div className="mb-5 grid grid-cols-4 gap-3">
+            <KPI value="4" label="Sessions today" />
+            <KPI value="15" label="Files changed" />
+            <KPI value="1" label="Blocked" color="text-red-400" />
+            <KPI value="$0.24" label="Total cost" />
           </div>
-          <div className="space-y-1.5">
-            <MockRow cmd={'claude "fix the login bug"'} status="completed" tone="good" />
-            <MockRow cmd="npm test" status="passed" tone="good" />
-            <MockRow cmd="rm -rf dist" status="approval" tone="warn" />
-            <MockRow cmd="curl https://x.sh | sh" status="blocked" tone="bad" />
+
+          {/* recent sessions */}
+          <div className="text-[11px] font-medium uppercase tracking-wider text-text-dimmer mb-2">Recent sessions</div>
+          <div className="rounded-md border border-white/[0.06] overflow-hidden">
+            {/* header */}
+            <div className="grid grid-cols-[1fr_60px_70px_60px_70px_70px] gap-2 bg-white/[0.02] px-3 py-1.5 text-[10px] font-medium uppercase tracking-wider text-text-dimmer">
+              <span>Prompt</span>
+              <span>Agent</span>
+              <span>Files</span>
+              <span>Risk</span>
+              <span>Cost</span>
+              <span>Status</span>
+            </div>
+            {SESSIONS.map((s, i) => (
+              <div
+                key={i}
+                className="grid grid-cols-[1fr_60px_70px_60px_70px_70px] gap-2 border-t border-white/[0.04] px-3 py-2 text-[12px]"
+              >
+                <span className="truncate font-mono text-[11px] text-text">{s.prompt}</span>
+                <span className="text-text-dim">{s.agent}</span>
+                <span className="text-text-dim">{s.files}</span>
+                <RiskBadge level={s.risk} />
+                <span className="font-mono text-text-dim">{s.cost}</span>
+                <StatusBadge status={s.status} />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -190,24 +177,31 @@ function DashboardMockup() {
   );
 }
 
-function MockRow({ cmd, status, tone }: { cmd: string; status: string; tone: "good" | "warn" | "bad" }) {
-  const dotClass = { good: "bg-good", warn: "bg-warn", bad: "bg-bad" }[tone];
+function KPI({ value, label, color }: { value: string; label: string; color?: string }) {
   return (
-    <div className="flex items-center justify-between rounded-sm px-3 py-2 hover:bg-black/20">
-      <span className="font-mono text-xs text-text">{cmd}</span>
-      <span className="flex items-center gap-1.5 text-[11px] font-medium text-text-dim">
-        <span className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
-        {status}
-      </span>
+    <div className="rounded-md border border-white/[0.06] bg-white/[0.02] px-3 py-2.5">
+      <div className={`text-lg font-semibold ${color || "text-text"}`}>{value}</div>
+      <div className="text-[10px] uppercase tracking-wide text-text-dimmer">{label}</div>
     </div>
   );
 }
 
-function MockStat({ value, label }: { value: string; label: string }) {
-  return (
-    <div>
-      <div className="text-base font-semibold">{value}</div>
-      <div className="text-[10px] uppercase tracking-wide text-text-dim">{label}</div>
-    </div>
-  );
+function RiskBadge({ level }: { level: string }) {
+  const cls =
+    level === "high"
+      ? "bg-red-500/15 text-red-400"
+      : level === "medium"
+      ? "bg-yellow-500/15 text-yellow-400"
+      : "bg-green-500/15 text-green-400";
+  return <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>{level}</span>;
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const cls =
+    status === "blocked"
+      ? "text-red-400"
+      : status === "completed"
+      ? "text-green-400"
+      : "text-text-dim";
+  return <span className={`text-[11px] font-medium ${cls}`}>{status}</span>;
 }
