@@ -37,7 +37,7 @@ pub fn red(s: &str) -> String {
 }
 pub fn brand(s: &str) -> String {
     if enabled() {
-        format!("\x1b[38;2;124;123;251m{s}\x1b[0m")
+        format!("\x1b[38;2;79;163;255m{s}\x1b[0m")
     } else {
         s.to_string()
     }

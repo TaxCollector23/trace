@@ -1,10 +1,10 @@
 import { Link } from "react-router-dom";
-import Tracey from "../Tracey";
+import { Mark } from "../Mark";
 
 export default function NotFound() {
   return (
     <div style={{ textAlign: "center", padding: "60px 0" }}>
-      <Tracey size={72} expression="thinking" />
+      <Mark size={48} />
       <h1 className="page-title" style={{ marginTop: 16 }}>
         Nothing here.
       </h1>

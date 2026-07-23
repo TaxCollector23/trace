@@ -7,6 +7,13 @@
       "runtimeArgs": ["run", "dev", "--", "--port", "5183"],
       "port": 5183,
       "cwd": "apps/landing"
+    },
+    {
+      "name": "docs",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5184"],
+      "port": 5184,
+      "cwd": "apps/docs"
     }
   ]
 }

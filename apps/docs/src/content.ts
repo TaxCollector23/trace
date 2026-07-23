@@ -53,16 +53,18 @@ function transform(md: string): string {
 
   // Card groups: drop the wrapper, keep inner cards.
   out = out.replace(/<\/?CardGroup[^>]*>/g, "");
-  // <Card title="X" icon="..."> ... </Card>  ->  ### X \n ...
+  // <Card title="X" icon="..."> ... </Card>  ->  #### X \n ...
+  // Uses h4 (like Tab below), not h2/h3, so these don't pollute the
+  // heading-derived right-hand "on this page" TOC in Doc.tsx.
   out = out.replace(
     /<Card\s+title="([^"]*)"[^>]*>([\s\S]*?)<\/Card>/g,
-    (_m, title, inner) => `\n### ${title}\n${inner.trim()}\n`
+    (_m, title, inner) => `\n#### ${title}\n${inner.trim()}\n`
   );
   // Steps / Step
   out = out.replace(/<\/?Steps[^>]*>/g, "");
   out = out.replace(
     /<Step\s+title="([^"]*)"[^>]*>([\s\S]*?)<\/Step>/g,
-    (_m, title, inner) => `\n### ${title}\n${inner.trim()}\n`
+    (_m, title, inner) => `\n#### ${title}\n${inner.trim()}\n`
   );
   // Tabs / Tab
   out = out.replace(/<\/?Tabs[^>]*>/g, "");

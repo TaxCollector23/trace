@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import Tracey from "../Tracey";
 import { Mark } from "../Mark";
 import { GITHUB_REPO } from "../config";
 
@@ -9,13 +8,12 @@ const DMG_URL = `${GITHUB_REPO}/releases/latest/download/trace-desktop-macos-arm
 export default function DesktopDownload() {
   return (
     <div className="mx-auto max-w-[560px] py-20 text-center">
-      <div className="flex items-center justify-center gap-3">
-        <Mark size={36} />
-        <span className="text-2xl font-semibold">Trace Desktop</span>
+      <div className="mt-8 flex justify-center">
+        <Mark size={96} />
       </div>
 
-      <div className="mt-8 flex justify-center">
-        <Tracey expression="excited" size={96} />
+      <div className="mt-6 flex items-center justify-center gap-3">
+        <span className="text-2xl font-semibold">Trace Desktop</span>
       </div>
 
       <p className="mt-6 text-text-dim">
