@@ -5,9 +5,9 @@ import { Cmd, Section } from "./components";
 type OS = "macos" | "windows" | "linux";
 
 const INSTALL: Record<OS, { name: string; command: string }> = {
-  macos: { name: "macOS", command: "npm install -g trace" },
-  windows: { name: "Windows", command: "npm install -g trace" },
-  linux: { name: "Linux", command: "brew tap TaxCollector23/trace && brew install trace" },
+  macos: { name: "macOS", command: "curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh" },
+  windows: { name: "Windows", command: "npm install -g tracedev" },
+  linux: { name: "Linux", command: "curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh" },
 };
 
 function detectOS(): OS {

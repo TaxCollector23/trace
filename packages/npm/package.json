@@ -1,5 +1,5 @@
 {
-  "name": "trace",
+  "name": "tracedev",
   "version": "1.2.0",
   "description": "Trace CLI wrapper — installs the trace binary. The trust layer for autonomous software engineering.",
   "license": "MIT",

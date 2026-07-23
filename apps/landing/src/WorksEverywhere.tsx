@@ -6,61 +6,60 @@ interface Connector {
 }
 
 /* ── Claude Code ──
-   Anthropic starburst mark — 11 elongated petals radiating from center */
+   Anthropic starburst — elongated rounded petals radiating from center */
 const ClaudeLogo = (
   <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
     <g fill="#D97757">
-      <rect x="46" y="6"  width="8" height="38" rx="4" transform="rotate(0 50 50)" />
+      <rect x="46" y="4"  width="8" height="40" rx="4" transform="rotate(0 50 50)" />
       <rect x="46" y="8"  width="8" height="34" rx="4" transform="rotate(33 50 50)" />
-      <rect x="46" y="6"  width="8" height="38" rx="4" transform="rotate(65 50 50)" />
+      <rect x="46" y="4"  width="8" height="40" rx="4" transform="rotate(65 50 50)" />
       <rect x="46" y="10" width="8" height="32" rx="4" transform="rotate(98 50 50)" />
-      <rect x="46" y="6"  width="8" height="38" rx="4" transform="rotate(130 50 50)" />
+      <rect x="46" y="4"  width="8" height="40" rx="4" transform="rotate(130 50 50)" />
       <rect x="46" y="8"  width="8" height="34" rx="4" transform="rotate(163 50 50)" />
-      <rect x="46" y="6"  width="8" height="38" rx="4" transform="rotate(196 50 50)" />
+      <rect x="46" y="4"  width="8" height="40" rx="4" transform="rotate(196 50 50)" />
       <rect x="46" y="10" width="8" height="32" rx="4" transform="rotate(228 50 50)" />
-      <rect x="46" y="6"  width="8" height="38" rx="4" transform="rotate(260 50 50)" />
+      <rect x="46" y="4"  width="8" height="40" rx="4" transform="rotate(260 50 50)" />
       <rect x="46" y="8"  width="8" height="34" rx="4" transform="rotate(293 50 50)" />
-      <rect x="46" y="6"  width="8" height="38" rx="4" transform="rotate(325 50 50)" />
+      <rect x="46" y="4"  width="8" height="40" rx="4" transform="rotate(325 50 50)" />
     </g>
   </svg>
 );
 
 /* ── Codex CLI ──
-   OpenAI geometric hexagonal knot — simplified from official mark */
+   Purple gradient cloud/blob with white >_ terminal prompt */
 const CodexLogo = (
   <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
-    <circle cx="50" cy="50" r="44" fill="#ffffff" />
+    <defs>
+      <linearGradient id="codex-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#B8A9FF" />
+        <stop offset="100%" stopColor="#7367F0" />
+      </linearGradient>
+    </defs>
     <path
-      d="M50 18 L72 30 V54 L50 66 L28 54 V30 Z"
-      fill="none" stroke="#171717" strokeWidth="5"
+      d="M50 8 C60 8 68 14 73 22 C80 18 90 24 92 36 C94 46 88 54 80 56
+         C82 64 78 74 68 78 C60 80 54 76 50 72
+         C46 76 40 80 32 78 C22 74 18 64 20 56
+         C12 54 6 46 8 36 C10 24 20 18 27 22
+         C32 14 40 8 50 8 Z"
+      fill="url(#codex-grad)"
     />
-    <path d="M50 18 V42 L28 30 Z" fill="#171717" />
-    <path d="M50 42 L72 30 V54 L50 66 Z" fill="#171717" opacity="0.7" />
-    <path d="M50 42 V66 L28 54 V30 Z" fill="#171717" opacity="0.4" />
+    <path d="M35 48 L26 56 L35 64" stroke="#fff" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    <line x1="54" y1="64" x2="72" y2="64" stroke="#fff" strokeWidth="5.5" strokeLinecap="round" />
   </svg>
 );
 
 /* ── OpenCode ──
-   Purple gradient cloud/blob with white >_ terminal prompt */
+   Dark rounded rectangle with white top block and gray bottom block */
 const OpenCodeLogo = (
-  <svg width="24" height="24" viewBox="0 0 100 100" fill="none">
-    <defs>
-      <linearGradient id="oc-grad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stopColor="#A78BFA" />
-        <stop offset="100%" stopColor="#6D5BDE" />
-      </linearGradient>
-    </defs>
-    <path
-      d="M50 10 C62 10 70 16 74 22 C82 20 92 26 92 38 C92 48 86 54 78 56 C80 62 76 72 66 76 C60 78 52 76 50 72 C48 76 40 78 34 76 C24 72 20 62 22 56 C14 54 8 48 8 38 C8 26 18 20 26 22 C30 16 38 10 50 10 Z"
-      fill="url(#oc-grad)"
-    />
-    <path d="M36 46 L28 54 L36 62" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M56 62 L72 62" stroke="#ffffff" strokeWidth="5" strokeLinecap="round" />
+  <svg width="24" height="24" viewBox="0 0 100 120" fill="none">
+    <rect x="6" y="6" width="88" height="108" rx="8" fill="#1a1a1a" />
+    <rect x="22" y="28" width="56" height="30" rx="2" fill="#ffffff" />
+    <rect x="22" y="62" width="56" height="30" rx="2" fill="#b0b0b0" />
   </svg>
 );
 
 /* ── Cursor ──
-   Official Cursor logo — dark rounded square with geometric prism */
+   Official Cursor prism mark from cursor.com */
 const CursorLogo = (
   <svg width="24" height="24" viewBox="0 0 512 512" fill="none">
     <rect width="512" height="512" rx="112" fill="#14120b" />
@@ -72,7 +71,7 @@ const CursorLogo = (
 );
 
 /* ── GitHub Copilot ──
-   Octocat silhouette — official GitHub mark */
+   GitHub Octocat silhouette */
 const CopilotLogo = (
   <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
     <path
