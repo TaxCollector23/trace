@@ -6,7 +6,7 @@ type OS = "macos" | "windows" | "linux";
 
 const INSTALL: Record<OS, { name: string; command: string }> = {
   macos: { name: "macOS", command: "curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh" },
-  windows: { name: "Windows", command: "npm install -g tracedev" },
+  windows: { name: "Windows", command: "irm https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.ps1 | iex" },
   linux: { name: "Linux", command: "curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh" },
 };
 
