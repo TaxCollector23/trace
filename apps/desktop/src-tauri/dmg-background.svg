@@ -1,17 +1,13 @@
 <svg width="660" height="400" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <radialGradient id="glow" cx="50%" cy="40%" r="65%">
-      <stop offset="0%" stop-color="#151520"/>
-      <stop offset="100%" stop-color="#09090b"/>
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f6f7f9"/>
     </radialGradient>
     <linearGradient id="arrow-grad" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0%" stop-color="#4A8EF5" stop-opacity="0.4"/>
-      <stop offset="50%" stop-color="#4A8EF5"/>
-      <stop offset="100%" stop-color="#4A8EF5" stop-opacity="0.4"/>
-    </linearGradient>
-    <linearGradient id="tBody" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#5EA0FF"/>
-      <stop offset="100%" stop-color="#3870D4"/>
+      <stop offset="0%" stop-color="#2f6fed" stop-opacity="0.35"/>
+      <stop offset="50%" stop-color="#2f6fed"/>
+      <stop offset="100%" stop-color="#2f6fed" stop-opacity="0.35"/>
     </linearGradient>
   </defs>
 
@@ -20,29 +16,29 @@
 
   <!-- Subtle grid dots -->
   <pattern id="dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-    <circle cx="12" cy="12" r="0.5" fill="#ffffff" opacity="0.05"/>
+    <circle cx="12" cy="12" r="0.5" fill="#0b0c0f" opacity="0.06"/>
   </pattern>
   <rect width="660" height="400" fill="url(#dots)"/>
 
   <!-- Trace logo mark (large, centered above the arrow zone) -->
   <g transform="translate(255, 60)">
-    <rect width="120" height="120" rx="26" fill="#f5f5f6"/>
-    <rect x="29.3" y="30" width="62" height="14" rx="4" fill="#5b93f5"/>
-    <rect x="53" y="50" width="14" height="42" rx="4" fill="#5b93f5"/>
+    <rect width="120" height="120" rx="26" fill="#2f6fed"/>
+    <rect x="29.3" y="30" width="62" height="14" rx="4" fill="#ffffff"/>
+    <rect x="53" y="50" width="14" height="42" rx="4" fill="#ffffff"/>
   </g>
-  <text x="330" y="204" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="700" fill="#fafafa">Trace</text>
+  <text x="330" y="204" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="24" font-weight="500" fill="#0b0c0f">Trace</text>
 
   <!-- Arrow (centered between app icon and Applications folder positions) -->
   <g transform="translate(270, 240)">
     <line x1="0" y1="0" x2="110" y2="0" stroke="url(#arrow-grad)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="6 4"/>
-    <polygon points="108,-7 122,0 108,7" fill="#4A8EF5" opacity="0.8"/>
+    <polygon points="108,-7 122,0 108,7" fill="#2f6fed" opacity="0.9"/>
   </g>
 
   <!-- Instruction text -->
-  <text x="330" y="300" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#a1a1aa">
+  <text x="330" y="300" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="500" fill="#565a63">
     Drag Trace to Applications
   </text>
 
   <!-- Subtle accent line -->
-  <line x1="240" y1="330" x2="420" y2="330" stroke="#4A8EF5" stroke-width="1" opacity="0.1"/>
+  <line x1="240" y1="330" x2="420" y2="330" stroke="#2f6fed" stroke-width="1" opacity="0.15"/>
 </svg>
