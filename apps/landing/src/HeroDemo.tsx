@@ -1,66 +1,88 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { toneClass, useTypedTerminal, type TermLine } from "./useTypedTerminal";
+import { motion } from "framer-motion";
 
 /**
- * A scripted terminal session, typed and streamed line by line, then looped.
- * The text matches the CLI's real output verbatim (see
- * crates/trace-cli/src/commands/run.rs — the "── Trace run summary ──"
- * block, the checkpoint/check lines, and `trace patch`'s diff format) rather
- * than invented marketing copy.
+ * The hero visual: an animated mockup of the Trace desktop app window,
+ * showing agent sessions streaming in live. Replaces the old CLI-typing
+ * terminal — the desktop app, not the command line, is the product story now.
  */
-const SCRIPT: TermLine[] = [
-  { kind: "input", text: 'trace run "claude fix the login bug"' },
-  { kind: "out", text: "Checkpoint created at a3f9c21" },
-  { kind: "out", text: "Watching file changes…" },
-  { kind: "gap" },
-  { kind: "input", text: "trace patch a3f9c21" },
-  { kind: "dim", text: "src/auth/login.ts" },
-  { kind: "del", text: "- if (user.token = null) {" },
-  { kind: "add", text: "+ if (user.token === null) {" },
-  { kind: "out", text: "    return unauthorized();" },
-  { kind: "dim", text: "  }" },
-  { kind: "gap" },
-  { kind: "dim", text: "── Trace run summary ──" },
-  { kind: "out", text: "  status:    completed (exit 0)" },
-  { kind: "out", text: "  changes:   1 file changed" },
-  { kind: "out", text: "  cost:      $0.02" },
+const SESSIONS = [
+  { agent: "Claude Code", prompt: "fix the login bug and add tests", files: 7, cost: "$0.04", status: "good" as const },
+  { agent: "Cursor", prompt: "rm -rf node_modules && npm install", files: 0, cost: "—", status: "bad" as const },
+  { agent: "Codex CLI", prompt: "refactor auth middleware to use JWT", files: 3, cost: "$0.12", status: "good" as const },
+  { agent: "OpenCode", prompt: "add pagination to /api/users", files: 5, cost: "$0.08", status: "warn" as const },
 ];
 
-export default function HeroDemo() {
-  const { shown, state, reduceMotion, cursorOn } = useTypedTerminal(SCRIPT);
+const container = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.12, delayChildren: 0.3 } },
+};
+const item = {
+  hidden: { opacity: 0, y: 10 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const } },
+};
 
+export default function HeroDemo() {
   return (
-    <div className="overflow-hidden rounded-md bg-surface">
-      <div className="flex items-center gap-2 bg-black/30 px-3.5 py-2.5">
-        <span className="h-2.5 w-2.5 rounded-full bg-bad" />
-        <span className="h-2.5 w-2.5 rounded-full bg-warn" />
-        <span className="h-2.5 w-2.5 rounded-full bg-good" />
-        <span className="ml-2 font-mono text-xs text-text-dim">trace — zsh</span>
-      </div>
-      <div className="min-h-[300px] p-4 font-mono text-[13px] leading-[1.7]">
-        <AnimatePresence initial={false}>
-          {shown.map((line, i) => {
-            if (line.kind === "gap") return <div key={i} className="h-2" />;
-            const isCurrentInput = line.kind === "input" && i === state.visible && !reduceMotion;
-            const text = isCurrentInput ? line.text.slice(0, state.typed) : line.text;
-            return (
+    <div className="relative">
+      {/* ambient blue glow behind the window */}
+      <div className="ambient-glow pointer-events-none absolute -inset-10 -z-10 rounded-full bg-brand/20 blur-3xl" />
+
+      <div className="overflow-hidden rounded-xl border border-border bg-white shadow-lg">
+        {/* title bar */}
+        <div className="flex items-center gap-2 border-b border-border bg-surface px-4 py-2.5">
+          <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
+          <span className="ml-2 text-xs font-medium text-text-dimmer">Trace — Session Timeline</span>
+          <span className="ml-auto flex items-center gap-1.5 text-[11px] font-medium text-good">
+            <span className="rec-dot h-1.5 w-1.5 rounded-full bg-good" />
+            Recording
+          </span>
+        </div>
+
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-[36px_1fr] gap-0"
+        >
+          {/* mini sidebar */}
+          <div className="flex flex-col items-center gap-4 border-r border-border bg-surface py-5">
+            {["dashboard", "timeline", "risk", "cost"].map((k) => (
+              <span key={k} className="h-2 w-2 rounded-full bg-border-strong" />
+            ))}
+          </div>
+
+          {/* session list */}
+          <div className="space-y-2.5 p-4">
+            {SESSIONS.map((s) => (
               <motion.div
-                key={i}
-                initial={reduceMotion ? false : { opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
-                className={`whitespace-pre ${toneClass[line.kind]}`}
+                key={s.agent + s.prompt}
+                variants={item}
+                whileHover={{ y: -2 }}
+                className="card-lift flex items-center justify-between gap-3 rounded-lg border border-border bg-white px-3.5 py-3"
               >
-                {line.kind === "input" && <span className="mr-2 select-none text-brand">$</span>}
-                {text}
-                {isCurrentInput && (
-                  <span className={`ml-px inline-block h-[14px] w-[7px] translate-y-[2px] bg-brand ${cursorOn ? "animate-pulse" : ""}`} />
-                )}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-text">{s.agent}</span>
+                    <StatusDot status={s.status} />
+                  </div>
+                  <p className="mt-0.5 truncate font-mono text-xs text-text-dimmer">{s.prompt}</p>
+                </div>
+                <div className="shrink-0 text-right text-xs text-text-dimmer">
+                  <div>{s.files} files</div>
+                  <div className="font-mono">{s.cost}</div>
+                </div>
               </motion.div>
-            );
-          })}
-        </AnimatePresence>
+            ))}
+          </div>
+        </motion.div>
       </div>
     </div>
   );
+}
+
+function StatusDot({ status }: { status: "good" | "warn" | "bad" }) {
+  const cls = status === "good" ? "bg-good" : status === "warn" ? "bg-warn" : "bg-bad";
+  return <span className={`h-1.5 w-1.5 rounded-full ${cls}`} />;
 }

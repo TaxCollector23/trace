@@ -26,16 +26,22 @@ export default {
       DEFAULT: "8px",
       md: "10px",
       lg: "12px",
+      xl: "16px",
       full: "9999px", // circles/avatars only — never buttons or cards
     },
     boxShadow: {
-      // One elevation step. Nothing dramatic, nothing colored.
-      sm: "0 1px 2px rgba(0,0,0,0.24)",
-      DEFAULT: "0 2px 8px rgba(0,0,0,0.28)",
+      // Soft, light-mode elevation. Nothing dramatic, nothing colored.
+      sm: "0 1px 2px rgba(15,15,20,0.06)",
+      DEFAULT: "0 4px 16px rgba(15,15,20,0.08)",
+      lg: "0 12px 32px rgba(15,15,20,0.10)",
+      glow: "0 0 0 1px rgba(47,111,237,0.12), 0 8px 24px rgba(47,111,237,0.18)",
       none: "none",
     },
     fontFamily: {
+      // Body copy, UI chrome.
       sans: ["Geist", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
+      // Display/heading font — a tall, warm serif used for h1/h2-scale text only.
+      serif: ["Instrument Serif", "Georgia", "serif"],
       mono: ["Geist Mono", "ui-monospace", "SFMono-Regular", "SF Mono", "Menlo", "monospace"],
     },
     fontSize: {
@@ -43,32 +49,38 @@ export default {
       sm: ["14px", { lineHeight: "21px" }],
       base: ["16px", { lineHeight: "26px" }],
       lg: ["18px", { lineHeight: "28px" }],
-      xl: ["21px", { lineHeight: "30px" }],
-      "2xl": ["26px", { lineHeight: "33px", letterSpacing: "-0.01em" }],
-      "3xl": ["34px", { lineHeight: "40px", letterSpacing: "-0.02em" }],
-      "4xl": ["48px", { lineHeight: "52px", letterSpacing: "-0.02em" }],
+      xl: ["22px", { lineHeight: "32px" }],
+      "2xl": ["30px", { lineHeight: "38px", letterSpacing: "-0.01em" }],
+      "3xl": ["42px", { lineHeight: "48px", letterSpacing: "-0.01em" }],
+      "4xl": ["58px", { lineHeight: "62px", letterSpacing: "-0.01em" }],
+      "5xl": ["76px", { lineHeight: "80px", letterSpacing: "-0.01em" }],
     },
     extend: {
       maxWidth: {
         content: "1160px",
       },
       colors: {
-        // Black, white, and one blue accent. Red/green/yellow exist only
-        // where they carry real meaning (run status) — full saturation,
-        // used sparingly, never decoratively.
-        bg: "#09090b",
-        surface: "#111113",
-        "surface-2": "#18181b",
-        border: "#27272a",
-        "border-strong": "#3a3a3e",
-        text: "#fafafa",
-        "text-dim": "#a1a1aa",
-        "text-dimmer": "#71717a",
-        brand: "#4fa3ff",
-        "brand-dim": "#74b7ff",
-        good: "#22c55e",
-        warn: "#f59e0b",
-        bad: "#ef4444",
+        // Black, white, and one signature blue. Red/green/yellow exist only
+        // where they carry real meaning (run status) — used sparingly, never
+        // decoratively. Light mode by default.
+        bg: "#ffffff",
+        surface: "#f6f7f9",
+        "surface-2": "#eceef2",
+        border: "#e4e6eb",
+        "border-strong": "#d3d6dd",
+        text: "#0b0c0f",
+        "text-dim": "#565a63",
+        "text-dimmer": "#8b8f98",
+        brand: "#2f6fed",
+        "brand-dim": "#1f57c9",
+        "brand-soft": "#eaf1ff",
+        "brand-glow": "#5b93f5",
+        good: "#16a34a",
+        "good-soft": "#e9f9ef",
+        warn: "#d97706",
+        "warn-soft": "#fef3e2",
+        bad: "#dc2626",
+        "bad-soft": "#fdecec",
       },
     },
   },
