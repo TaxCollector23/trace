@@ -23,7 +23,7 @@ export default function WorksEverywhere() {
             whileHover={{ y: -3 }}
             className="card-lift flex flex-col items-center gap-3 rounded-xl border border-border bg-white px-4 py-6 text-center shadow-sm"
           >
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface">
               <img src={c.logo} alt={`${c.name} logo`} className="h-full w-full object-cover" />
             </div>
             <span className="text-sm font-medium text-text">{c.name}</span>

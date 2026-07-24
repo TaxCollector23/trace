@@ -1,16 +1,17 @@
 :root {
   --bg: #ffffff;
-  --bg-elev: #f6f7f9;
-  --bg-code: #f6f7f9;
-  --border: #e4e6eb;
-  --text: #0b0c0f;
-  --text-dim: #565a63;
+  --bg-elev: #f4f4f5;
+  --bg-code: #f4f4f5;
+  --border: #d8d8db;
+  --text: #000000;
+  --text-dim: #2e2e33;
   --brand: #2f6fed;
   --brand-soft: #eaf1ff;
   --green: #16a34a;
   --accent: #2f6fed;
-  /* Platypi is a tall serif — every rule below carries extra line-height so
-     ascenders/descenders don't crowd the line above or below. */
+  /* Platypi is a tall serif — headings carry extra line-height/margin so
+     ascenders/descenders don't crowd the line above or below. Body copy
+     uses a normal paragraph line-height; it doesn't need the same room. */
   --sans: "Platypi", Georgia, "Times New Roman", serif;
   --mono: "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --sidebar-w: 280px;
@@ -24,8 +25,8 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--sans);
-  font-size: 17px;
-  line-height: 1.9;
+  font-size: 16.5px;
+  line-height: 1.65;
   -webkit-font-smoothing: antialiased;
 }
 a { color: var(--accent); text-decoration: none; }

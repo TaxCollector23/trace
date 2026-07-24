@@ -54,16 +54,6 @@ pre {
   box-shadow: 0 12px 32px rgba(15, 15, 20, 0.1);
 }
 
-/* Slow ambient pulse used behind the hero mockup — a soft blue glow, not a
-   spinner; conveys "always recording" rather than "loading". */
-@keyframes ambient-pulse {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(1.05); }
-}
-.ambient-glow {
-  animation: ambient-pulse 6s ease-in-out infinite;
-}
-
 @keyframes rec-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }

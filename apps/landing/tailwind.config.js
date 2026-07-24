@@ -30,11 +30,10 @@ export default {
       full: "9999px", // circles/avatars only — never buttons or cards
     },
     boxShadow: {
-      // Soft, light-mode elevation. Nothing dramatic, nothing colored.
-      sm: "0 1px 2px rgba(15,15,20,0.06)",
-      DEFAULT: "0 4px 16px rgba(15,15,20,0.08)",
-      lg: "0 12px 32px rgba(15,15,20,0.10)",
-      glow: "0 0 0 1px rgba(47,111,237,0.12), 0 8px 24px rgba(47,111,237,0.18)",
+      // Soft, neutral light-mode elevation. No colored/glow shadows anywhere.
+      sm: "0 1px 2px rgba(0,0,0,0.07)",
+      DEFAULT: "0 4px 16px rgba(0,0,0,0.09)",
+      lg: "0 12px 32px rgba(0,0,0,0.12)",
       none: "none",
     },
     fontFamily: {
@@ -60,21 +59,21 @@ export default {
         content: "1160px",
       },
       colors: {
-        // Black, white, and one signature blue. Red/green/yellow exist only
-        // where they carry real meaning (run status) — used sparingly, never
-        // decoratively. Light mode by default.
+        // Black, white, and one signature blue — pushed toward true black
+        // rather than washed-out grey for text, borders, and surfaces.
+        // Red/green/yellow exist only where they carry real meaning (run
+        // status) — used sparingly, never decoratively. Light mode default.
         bg: "#ffffff",
-        surface: "#f6f7f9",
-        "surface-2": "#eceef2",
-        border: "#e4e6eb",
-        "border-strong": "#d3d6dd",
-        text: "#0b0c0f",
-        "text-dim": "#565a63",
-        "text-dimmer": "#8b8f98",
+        surface: "#f4f4f5",
+        "surface-2": "#e8e8ea",
+        border: "#d8d8db",
+        "border-strong": "#b8b8bd",
+        text: "#000000",
+        "text-dim": "#2e2e33",
+        "text-dimmer": "#5c5c63",
         brand: "#2f6fed",
         "brand-dim": "#1f57c9",
         "brand-soft": "#eaf1ff",
-        "brand-glow": "#5b93f5",
         good: "#16a34a",
         "good-soft": "#e9f9ef",
         warn: "#d97706",

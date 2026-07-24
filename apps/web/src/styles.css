@@ -1,11 +1,11 @@
 :root {
   --bg: #ffffff;
-  --bg-elev: #f6f7f9;
-  --bg-elev-2: #eceef2;
-  --border: #e4e6eb;
-  --border-soft: #edeef1;
-  --text: #0b0c0f;
-  --text-dim: #565a63;
+  --bg-elev: #f4f4f5;
+  --bg-elev-2: #e8e8ea;
+  --border: #d8d8db;
+  --border-soft: #e2e2e5;
+  --text: #000000;
+  --text-dim: #2e2e33;
   --brand: #2f6fed;
   --brand-dim: #1f57c9;
   --brand-soft: #eaf1ff;

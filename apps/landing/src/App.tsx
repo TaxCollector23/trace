@@ -8,11 +8,11 @@ export default function App() {
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-border bg-bg/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-content items-center justify-between px-6 py-4">
-          <Link to="/" className="flex items-center gap-2.5 text-[17px] font-semibold text-text">
+          <Link to="/" className="flex items-center gap-3.5 text-[17px] font-semibold text-text">
             <Mark size={28} />
             Trace
           </Link>
-          <nav className="flex items-center gap-7">
+          <nav className="flex items-center gap-9">
             <NavLink
               to="/about"
               className={({ isActive }) =>
@@ -33,11 +33,12 @@ export default function App() {
               href={GITHUB_REPO}
               target="_blank"
               rel="noreferrer"
-              className="text-sm font-medium text-text-dim transition-colors hover:text-text"
+              aria-label="GitHub"
+              className="opacity-70 transition-opacity hover:opacity-100"
             >
-              GitHub
+              <img src="/logos/github.png" alt="GitHub" className="h-5 w-5 object-contain" />
             </a>
-            <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.96 }}>
+            <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.96 }} className="ml-2">
               <Link
                 to="/download"
                 className="btn-pop rounded-full bg-text px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-dim"
@@ -58,7 +59,7 @@ export default function App() {
       <footer className="border-t border-border">
         <div className="mx-auto grid max-w-content grid-cols-1 gap-8 px-6 py-12 sm:grid-cols-[1.4fr_1fr_1fr]">
           <div>
-            <div className="flex items-center gap-2.5 text-[15px] font-semibold text-text">
+            <div className="flex items-center gap-3.5 text-[15px] font-semibold text-text">
               <Mark size={22} />
               Trace
             </div>
@@ -78,9 +79,13 @@ export default function App() {
           </div>
           <div>
             <div className="mb-3 text-xs font-medium uppercase tracking-wide text-text-dimmer">Resources</div>
-            <ul className="space-y-2 text-sm">
+            <ul className="space-y-2.5 text-sm">
               <li><a className="text-text-dim transition-colors hover:text-text" href={DOCS_URL} target="_blank" rel="noreferrer">Documentation</a></li>
-              <li><a className="text-text-dim transition-colors hover:text-text" href={GITHUB_REPO} target="_blank" rel="noreferrer">GitHub</a></li>
+              <li>
+                <a href={GITHUB_REPO} target="_blank" rel="noreferrer" aria-label="GitHub" className="inline-flex opacity-70 transition-opacity hover:opacity-100">
+                  <img src="/logos/github.png" alt="GitHub" className="h-4 w-4 object-contain" />
+                </a>
+              </li>
               <li><a className="text-text-dim transition-colors hover:text-text" href={`${GITHUB_REPO}/releases`} target="_blank" rel="noreferrer">Releases</a></li>
             </ul>
           </div>

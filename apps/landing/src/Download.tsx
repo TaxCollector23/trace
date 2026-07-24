@@ -1,8 +1,7 @@
 import { motion } from "framer-motion";
-import { Section } from "./components";
+import { Section, Button } from "./components";
 import { GITHUB_REPO } from "./config";
 
-const RELEASE_URL = `${GITHUB_REPO}/releases/latest`;
 const DMG_URL = `${GITHUB_REPO}/releases/latest/download/trace-desktop-macos-arm64.dmg`;
 
 export default function Download() {
@@ -12,35 +11,18 @@ export default function Download() {
         <div>
           <h2 className="font-serif text-3xl text-text">Download the desktop app</h2>
           <p className="mt-3 max-w-[440px] text-text-dim">
-            One native app, no terminal required. It starts its own local daemon,
-            connects to Claude Code, Codex CLI, and Cursor automatically, and shows
-            you everything they changed before you ship it.
+            One native app for macOS, no terminal required. It starts its own local
+            daemon, connects to Claude Code, Codex CLI, and Cursor automatically, and
+            shows you everything they changed before you ship it.
           </p>
 
           <div className="mt-7 flex flex-wrap items-center gap-4">
-            <motion.a
-              href={DMG_URL}
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.96 }}
-              className="btn-pop flex items-center gap-2.5 rounded-full bg-brand px-6 py-3.5 text-base font-medium text-white shadow-glow"
-            >
-              <AppleMark />
+            <Button href={DMG_URL}>
+              <img src="/logos/macosapple.png" alt="" className="h-4 w-4 object-contain" />
               Download for macOS
-            </motion.a>
+            </Button>
             <span className="text-sm text-text-dimmer">Apple Silicon · macOS 12+</span>
           </div>
-
-          <p className="mt-5 text-sm text-text-dimmer">
-            Windows and Linux are on the way.{" "}
-            <a
-              href={RELEASE_URL}
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-brand hover:text-brand-dim"
-            >
-              Watch releases on GitHub ↗
-            </a>
-          </p>
         </div>
 
         <motion.div
@@ -56,44 +38,46 @@ export default function Download() {
   );
 }
 
-function AppleMark() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M16.365 1.43c0 1.14-.462 2.05-1.207 2.9-.83.95-2.1 1.688-3.298 1.598-.132-1.09.418-2.235 1.16-3.026C13.807.99 15.298.28 16.365 1.43zm3.6 16.7c-.593 1.35-1.312 2.68-2.36 3.83-.907 1-1.87 2.02-3.28 2.04-1.37.02-1.822-.86-3.4-.86-1.578 0-2.08.84-3.38.88-1.35.04-2.38-1.08-3.29-2.08-1.86-2.04-3.29-5.78-1.38-8.32.95-1.27 2.63-2.07 4.44-2.1 1.32-.02 2.56.9 3.36.9.8 0 2.3-1.11 3.87-.95.66.03 2.52.27 3.71 2.02-.1.06-2.22 1.3-2.2 3.86.02 3.06 2.68 4.08 2.72 4.1-.02.08-.42 1.46-1.4 2.68z"/>
-    </svg>
-  );
-}
-
-/* ── Compact preview of the desktop app window, echoing the fuller
-   AppPreview shown in the hero, so this section reads as "here is the thing
-   you're about to download" rather than a second unrelated illustration. ── */
+/* ── Compact preview of the desktop app window, focused on a single Cursor
+   session — a different agent from the hero's Claude Code mockup so the
+   page doesn't repeat the same example twice. ── */
 function InstallPreview() {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-lg">
-      <div className="flex items-center gap-2 border-b border-border bg-white px-4 py-2.5">
+    <div className="overflow-hidden rounded-xl border border-border bg-white shadow-lg">
+      <div className="flex items-center gap-2 border-b border-border bg-surface px-4 py-3">
         <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
-        <span className="ml-2 text-xs font-medium text-text-dimmer">Trace.app</span>
+        <span className="ml-2 text-xs font-medium text-text-dimmer">Trace — Cursor Session</span>
       </div>
-      <div className="space-y-2.5 p-5">
-        <Row agent="Claude Code" status="good" label="reviewed · $0.04" />
-        <Row agent="Cursor" status="warn" label="1 risky command" />
-        <Row agent="Codex CLI" status="good" label="reviewed · $0.11" />
-      </div>
-    </div>
-  );
-}
+      <div className="p-5">
+        <div className="flex items-center gap-2.5">
+          <img src="/logos/cursor.png" alt="" className="h-7 w-7 rounded-md" />
+          <div>
+            <div className="text-sm font-semibold text-text">Cursor</div>
+            <div className="font-mono text-xs text-text-dimmer">add pagination to /api/users</div>
+          </div>
+        </div>
 
-function Row({ agent, status, label }: { agent: string; status: "good" | "warn"; label: string }) {
-  const dot = status === "good" ? "bg-good" : "bg-warn";
-  return (
-    <div className="flex items-center justify-between rounded-lg border border-border bg-white px-3.5 py-2.5">
-      <div className="flex items-center gap-2.5">
-        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
-        <span className="text-sm font-medium text-text">{agent}</span>
+        <div className="mt-4 flex items-center justify-between rounded-lg border border-border bg-surface px-3.5 py-2.5">
+          <span className="font-mono text-xs text-text-dim">1 command flagged</span>
+          <span className="rounded-full bg-warn-soft px-2 py-0.5 text-[11px] font-medium text-warn">review</span>
+        </div>
+        <div className="mt-2 rounded-lg border border-border bg-surface px-3.5 py-2.5 font-mono text-xs text-text-dim">
+          rm -rf node_modules &amp;&amp; npm install
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <div className="rounded-lg border border-border px-3 py-2.5 text-center">
+            <div className="font-serif text-xl text-text">5</div>
+            <div className="mt-0.5 text-[10px] uppercase tracking-wide text-text-dimmer">Files changed</div>
+          </div>
+          <div className="rounded-lg border border-border px-3 py-2.5 text-center">
+            <div className="font-serif text-xl text-warn">Medium</div>
+            <div className="mt-0.5 text-[10px] uppercase tracking-wide text-text-dimmer">Risk</div>
+          </div>
+        </div>
       </div>
-      <span className="text-xs text-text-dimmer">{label}</span>
     </div>
   );
 }

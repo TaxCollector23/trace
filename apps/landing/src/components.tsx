@@ -1,5 +1,38 @@
-import type { ReactNode } from "react";
+import type { AnchorHTMLAttributes, ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+
+interface ButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
+  variant?: "primary" | "secondary";
+  to?: string;
+  children: ReactNode;
+}
+
+/** Every big pill-shaped button on the site, guaranteed identical padding,
+ * height, radius, and press animation — no more one-off className drift. */
+export function Button({ variant = "primary", to, children, className = "", ...rest }: ButtonProps) {
+  const base =
+    "btn-pop flex h-12 items-center justify-center gap-2.5 rounded-full px-6 text-[15px] font-medium whitespace-nowrap";
+  const tone =
+    variant === "primary"
+      ? "bg-brand text-white shadow"
+      : "border border-border bg-white text-text";
+  const cls = `${base} ${tone} ${className}`;
+
+  return (
+    <motion.div whileHover={{ y: -2 }} whileTap={{ scale: 0.96 }} className="inline-block">
+      {to ? (
+        <Link to={to} className={cls}>
+          {children}
+        </Link>
+      ) : (
+        <a className={cls} {...rest}>
+          {children}
+        </a>
+      )}
+    </motion.div>
+  );
+}
 
 export function Section({
   id,

@@ -14,7 +14,7 @@ export default function About() {
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         className="mt-5 font-serif text-4xl text-text md:text-5xl"
       >
-        Git stores commits. Trace stores execution.
+        The black box recorder for your AI agents
       </motion.h1>
       <motion.p
         initial={{ opacity: 0, y: 12 }}
@@ -27,7 +27,7 @@ export default function About() {
         because there was nothing to read. Trace exists to close that gap.
       </motion.p>
 
-      <Prose title="The problem with a fast, quiet agent">
+      <Prose title="Why Trace exists">
         Claude Code, Codex, Cursor — they're good enough now that it's tempting to
         stop watching. That's exactly when something breaks: a dependency gets
         swapped, a config value changes, a shell command runs that you'd never
@@ -36,7 +36,7 @@ export default function About() {
         changed, why, and what it touched along the way.
       </Prose>
 
-      <Prose title="What Trace actually does">
+      <Prose title="What Trace does">
         Trace is a desktop app that sits next to your agents, not inside them.
         Launch a session and it checkpoints your Git state, watches every file
         change as it happens, classifies the commands your agent runs, flags
@@ -45,13 +45,14 @@ export default function About() {
         click, because the checkpoint was already there.
       </Prose>
 
-      <Prose title="Why local-first isn't a compromise">
-        Trace's dashboard runs on <code>127.0.0.1</code>, full stop. Your code,
-        your diffs, your command history — none of it leaves your machine unless
-        you explicitly wire up an integration like GitHub, and even then only
-        sanitized summaries go out. This isn't a limitation we're working around;
-        it's the whole point. A tool that reviews your agent's work shouldn't
-        need its own trust fall.
+      <Prose title="How it works">
+        Terminal agents — Claude Code, Codex, OpenCode — are launched directly by
+        the desktop app, so every command and file change is fully attributed.
+        GUI tools connect in instead: Cursor over MCP, GitHub Copilot through a
+        companion extension. Everything lands in the same local dashboard,
+        running only on <code>127.0.0.1</code> — your code, diffs, and command
+        history never leave your machine unless you explicitly wire up an
+        integration, and even then only sanitized summaries go out.
       </Prose>
 
       <Prose title="What it does not do">
@@ -59,7 +60,7 @@ export default function About() {
           <li>It does not write code or replace your agent — it watches, records, and reviews.</li>
           <li>It does not upload your project, your secrets, or your local database anywhere.</li>
           <li>It does not require an account, a login, or a subscription to use today.</li>
-          <li>It does not claim to fully sandbox GUI tools — Cursor and Copilot connect in, but the strongest guarantees are for agents Trace launches directly.</li>
+          <li>It does not claim to fully sandbox GUI tools — the strongest guarantees are for agents Trace launches directly.</li>
         </ul>
       </Prose>
 
@@ -76,7 +77,7 @@ export default function About() {
           <p className="text-sm leading-relaxed text-text-dim">
             Trace is built by developers who wanted to keep shipping fast with AI
             agents without losing the habit of knowing what actually happened.
-            If you want the fuller story of why, <a href={`${GITHUB_REPO}/discussions`} target="_blank" rel="noreferrer" className="font-medium text-brand hover:text-brand-dim">open a discussion on GitHub</a> — always glad to talk about it.
+            If you want the fuller story of why, <a href={`${GITHUB_REPO}/discussions`} target="_blank" rel="noreferrer" className="font-medium text-brand hover:text-brand-dim">start a discussion</a> — always glad to talk about it.
           </p>
         </div>
       </Reveal>
