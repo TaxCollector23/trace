@@ -1,7 +1,5 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Reveal } from "../components";
-import { GITHUB_REPO } from "../config";
 
 export default function About() {
   return (
@@ -55,32 +53,6 @@ export default function About() {
         integration, and even then only sanitized summaries go out.
       </Prose>
 
-      <Prose title="What it does not do">
-        <ul className="space-y-1.5">
-          <li>It does not write code or replace your agent — it watches, records, and reviews.</li>
-          <li>It does not upload your project, your secrets, or your local database anywhere.</li>
-          <li>It does not require an account, a login, or a subscription to use today.</li>
-          <li>It does not claim to fully sandbox GUI tools — the strongest guarantees are for agents Trace launches directly.</li>
-        </ul>
-      </Prose>
-
-      <Prose title="Where this is going">
-        Today Trace is a single developer's desktop app. The roadmap is a team
-        tier — shared policy rules, an organization-wide view of what agents
-        changed and where, sanitized audit trails, and role-based access — for
-        teams who've decided AI-written code needs the same review discipline as
-        human-written code, just automated.
-      </Prose>
-
-      <Reveal>
-        <div className="mt-14 rounded-xl border border-border bg-surface p-6">
-          <p className="text-sm leading-relaxed text-text-dim">
-            Trace is built by developers who wanted to keep shipping fast with AI
-            agents without losing the habit of knowing what actually happened.
-            If you want the fuller story of why, <a href={`${GITHUB_REPO}/discussions`} target="_blank" rel="noreferrer" className="font-medium text-brand hover:text-brand-dim">start a discussion</a> — always glad to talk about it.
-          </p>
-        </div>
-      </Reveal>
     </div>
   );
 }

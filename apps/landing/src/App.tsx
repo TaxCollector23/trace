@@ -1,5 +1,4 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { motion } from "framer-motion";
 import { Mark } from "./Mark";
 import { DOCS_URL, GITHUB_REPO } from "./config";
 
@@ -38,14 +37,14 @@ export default function App() {
             >
               <img src="/logos/github.png" alt="GitHub" className="h-6 w-6 object-contain" />
             </a>
-            <motion.div whileHover={{ y: -1 }} whileTap={{ scale: 0.96 }} className="ml-3">
-              <Link
-                to="/download"
-                className="btn-pop rounded-full bg-text px-5 py-2.5 text-base font-medium text-white shadow-sm hover:bg-brand-dim"
-              >
-                Download
-              </Link>
-            </motion.div>
+            <NavLink
+              to="/download"
+              className={({ isActive }) =>
+                `text-base font-medium transition-colors ${isActive ? "text-brand" : "text-brand hover:text-brand-dim"}`
+              }
+            >
+              Download
+            </NavLink>
           </nav>
         </div>
       </header>
@@ -63,11 +62,6 @@ export default function App() {
               <Mark size={26} />
               Trace
             </div>
-            <p className="mt-4 max-w-[320px] text-sm leading-relaxed text-text-dim">
-              The trust layer for AI software engineering. The dashboard runs only
-              on <code className="text-text">127.0.0.1</code> — this site is for
-              downloads and docs, and never touches your local daemon.
-            </p>
           </div>
           <div>
             <div className="mb-3 text-xs font-medium uppercase tracking-wide text-text-dim">Product</div>

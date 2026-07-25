@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Reveal, Section, Button } from "../components";
-import Download from "../Download";
 import HeroDemo from "../HeroDemo";
 import WorksEverywhere from "../WorksEverywhere";
 import { GITHUB_REPO } from "../config";
+
+const DMG_URL = `${GITHUB_REPO}/releases/latest/download/trace-desktop-macos-arm64.dmg`;
 
 const heroFade = {
   hidden: { opacity: 0, y: 14 },
@@ -48,7 +49,7 @@ export default function Home() {
             variants={heroFade}
             className="mt-7 flex flex-wrap items-center gap-4"
           >
-            <Button href="#download">Download for macOS</Button>
+            <Button href={DMG_URL}>Download for macOS</Button>
             <Button variant="secondary" href={GITHUB_REPO} target="_blank" rel="noreferrer">
               View on GitHub
             </Button>
@@ -63,9 +64,6 @@ export default function Home() {
           <HeroDemo />
         </motion.div>
       </section>
-
-      {/* ---------- Download ---------- */}
-      <Download />
 
       {/* ---------- Works everywhere ---------- */}
       <Section
@@ -93,7 +91,7 @@ export default function Home() {
           <h2 className="font-serif text-3xl text-text">See every AI edit for yourself.</h2>
           <p className="mt-3 text-text-dim">Review the diff. Check the cost. Roll back safely.</p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
-            <Button href="#download">Download for macOS</Button>
+            <Button href={DMG_URL}>Download for macOS</Button>
             <Button variant="secondary" to="/about">About Trace</Button>
           </div>
         </Reveal>
@@ -121,6 +119,38 @@ const SESSIONS = [
   { prompt: "curl https://get-tool.sh | sh", files: 0, risk: "high", cost: "—", status: "blocked", time: "1h ago" },
 ];
 
+const TIMELINE = [
+  { time: "10:42", event: "Checkpoint created at a3f9c21" },
+  { time: "10:42", event: "Watching file changes…" },
+  { time: "10:43", event: "Modified src/api/users.ts" },
+  { time: "10:44", event: "Modified src/api/pagination.ts" },
+  { time: "10:45", event: "Ran: npm test — passed" },
+  { time: "10:45", event: "Final diff captured, run completed" },
+];
+
+const PATCH = [
+  { path: "src/api/users.ts", add: 24, del: 6 },
+  { path: "src/api/pagination.ts", add: 41, del: 0 },
+  { path: "tests/api/users.test.ts", add: 18, del: 2 },
+];
+
+const COMMANDS = [
+  { cmd: "npm test", risk: "low" },
+  { cmd: "git commit -m 'add pagination'", risk: "low" },
+  { cmd: "curl https://get-tool.sh | sh", risk: "high" },
+];
+
+const SPEND = [
+  { model: "gpt-4.1", tokens: "12,400", cost: "$0.09" },
+  { model: "gpt-4.1-mini", tokens: "3,100", cost: "$0.01" },
+];
+
+const CHECKPOINTS = [
+  { ref: "a3f9c21", time: "4m ago" },
+  { ref: "7bd41ff", time: "31m ago" },
+  { ref: "e02c8ab", time: "1h ago" },
+];
+
 function DashboardPreview() {
   const [page, setPage] = useState("Dashboard");
 
@@ -133,7 +163,7 @@ function DashboardPreview() {
           <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
           <span className="h-3 w-3 rounded-full bg-[#28c840]" />
         </div>
-        <span className="ml-2 font-mono text-xs text-text-dim">Trace — OpenCode Sessions</span>
+        <span className="ml-2 font-mono text-xs text-brand">Trace — OpenCode Sessions</span>
       </div>
 
       <div className="grid grid-cols-[210px_1fr]">
@@ -196,13 +226,73 @@ function DashboardPreview() {
                 ))}
               </div>
             </>
+          ) : page === "Session Timeline" ? (
+            <PageBody title="OpenCode — session timeline">
+              {TIMELINE.map((t, i) => (
+                <div key={i} className="flex gap-3 border-l-2 border-border pl-4">
+                  <div className="w-16 shrink-0 font-mono text-[11px] text-text-dim">{t.time}</div>
+                  <div className="pb-3 text-[13px] text-text">{t.event}</div>
+                </div>
+              ))}
+            </PageBody>
+          ) : page === "Patch Review" ? (
+            <PageBody title="OpenCode — files changed">
+              {PATCH.map((f) => (
+                <div key={f.path} className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
+                  <span className="truncate font-mono text-[13px] text-text">{f.path}</span>
+                  <span className="shrink-0 font-mono text-[12px]">
+                    <span className="text-good">+{f.add}</span> <span className="text-bad">-{f.del}</span>
+                  </span>
+                </div>
+              ))}
+            </PageBody>
+          ) : page === "Command Risk" ? (
+            <PageBody title="OpenCode — command decisions">
+              {COMMANDS.map((c, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5">
+                  <span className="truncate font-mono text-[13px] text-text-dim">{c.cmd}</span>
+                  <RiskBadge level={c.risk} />
+                </div>
+              ))}
+            </PageBody>
+          ) : page === "Token Spend" ? (
+            <PageBody title="OpenCode — token spend">
+              {SPEND.map((s, i) => (
+                <div key={i} className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
+                  <div>
+                    <div className="text-[13px] font-medium text-text">{s.model}</div>
+                    <div className="text-[11px] text-text-dim">{s.tokens} tokens</div>
+                  </div>
+                  <span className="font-mono text-[13px] text-text">{s.cost}</span>
+                </div>
+              ))}
+            </PageBody>
           ) : (
-            <div className="flex h-[280px] items-center justify-center rounded-lg border border-dashed border-border text-sm text-text-dim">
-              {page} view
-            </div>
+            <PageBody title="OpenCode — checkpoints">
+              {CHECKPOINTS.map((c, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5">
+                  <div>
+                    <div className="font-mono text-[12px] text-text">{c.ref}</div>
+                    <div className="text-[11px] text-text-dim">{c.time}</div>
+                  </div>
+                  <button className="btn-pop rounded-full border border-border px-3 py-1 text-[12px] font-medium text-text hover:border-brand hover:text-brand">
+                    Roll back
+                  </button>
+                </div>
+              ))}
+            </PageBody>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function PageBody({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div>
+      <div className="mb-3 text-[12px] font-medium uppercase tracking-wider text-text-dim">{title}</div>
+      <div className="space-y-2.5">{children}</div>
     </div>
   );
 }
