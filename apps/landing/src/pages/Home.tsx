@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Reveal, Section, Button } from "../components";
 import Download from "../Download";
@@ -70,7 +71,7 @@ export default function Home() {
       <Section
         id="integrations"
         title="Works with the agents you already run"
-        lede="Claude Code, Codex CLI, and OpenCode launch straight from the desktop app. Cursor and GitHub Copilot connect in."
+        lede="Claude Code, Codex CLI, and OpenCode are launched directly by the desktop app. Cursor and GitHub Copilot are set up once in their own settings, then report back automatically."
       >
         <WorksEverywhere />
       </Section>
@@ -101,17 +102,17 @@ export default function Home() {
   );
 }
 
-/* ── Realistic dashboard mockup — OpenCode, reviewing three real runs.
-   A different agent from the hero (Claude Code) and the download section
-   (Cursor), bigger and denser than the old cramped table. ── */
+/* ── Realistic, clickable dashboard mockup — OpenCode, reviewing three real
+   runs. A different agent from the hero (Claude Code) and the download
+   section (Cursor). Sidebar nav actually switches the highlighted page. ── */
 
 const SIDEBAR = [
-  { name: "Dashboard", active: true },
-  { name: "Session Timeline", active: false },
-  { name: "Patch Review", active: false },
-  { name: "Command Risk", active: false },
-  { name: "Token Spend", active: false },
-  { name: "Rollback Center", active: false },
+  "Dashboard",
+  "Session Timeline",
+  "Patch Review",
+  "Command Risk",
+  "Token Spend",
+  "Rollback Center",
 ];
 
 const SESSIONS = [
@@ -121,8 +122,10 @@ const SESSIONS = [
 ];
 
 function DashboardPreview() {
+  const [page, setPage] = useState("Dashboard");
+
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-white shadow-lg" aria-hidden="true">
+    <div className="overflow-hidden rounded-xl border border-border bg-white shadow-lg">
       {/* title bar */}
       <div className="flex items-center gap-2 border-b border-border px-5 py-3.5">
         <div className="flex gap-1.5">
@@ -130,11 +133,11 @@ function DashboardPreview() {
           <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
           <span className="h-3 w-3 rounded-full bg-[#28c840]" />
         </div>
-        <span className="ml-2 font-mono text-xs text-text-dimmer">Trace — OpenCode Sessions</span>
+        <span className="ml-2 font-mono text-xs text-text-dim">Trace — OpenCode Sessions</span>
       </div>
 
       <div className="grid grid-cols-[210px_1fr]">
-        {/* sidebar */}
+        {/* sidebar — click an item to switch pages */}
         <div className="border-r border-border bg-surface p-4">
           <div className="mb-4 flex items-center gap-2 px-2 text-[15px] font-semibold text-text">
             <svg width="16" height="16" viewBox="0 0 194 200" fill="none">
@@ -143,53 +146,61 @@ function DashboardPreview() {
             </svg>
             Trace
           </div>
-          {SIDEBAR.map((item) => (
-            <div
-              key={item.name}
-              className={`mb-1 rounded-lg px-3 py-2 text-[13.5px] ${
-                item.active
+          {SIDEBAR.map((name) => (
+            <button
+              key={name}
+              onClick={() => setPage(name)}
+              className={`mb-1 block w-full rounded-lg px-3 py-2 text-left text-[13.5px] transition-colors ${
+                page === name
                   ? "bg-brand-soft font-medium text-brand-dim"
-                  : "text-text-dimmer"
+                  : "text-text-dim hover:bg-surface-2"
               }`}
             >
-              {item.name}
-            </div>
+              {name}
+            </button>
           ))}
         </div>
 
         {/* main content */}
         <div className="p-6">
-          {/* KPI row */}
-          <div className="mb-6 grid grid-cols-4 gap-3">
-            <KPI value="3" label="Sessions today" />
-            <KPI value="13" label="Files changed" />
-            <KPI value="1" label="Blocked" color="text-bad" />
-            <KPI value="$0.15" label="Total cost" />
-          </div>
-
-          {/* recent sessions */}
-          <div className="mb-3 flex items-center gap-2 text-[12px] font-medium uppercase tracking-wider text-text-dimmer">
-            <img src="/logos/opencode.png" alt="" className="h-4 w-4 rounded-sm" />
-            OpenCode — recent sessions
-          </div>
-          <div className="space-y-2.5">
-            {SESSIONS.map((s, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <span className="truncate font-mono text-[13px] text-text">{s.prompt}</span>
-                  <div className="mt-1 text-[11px] text-text-dimmer">{s.time} · {s.files} files</div>
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <RiskBadge level={s.risk} />
-                  <span className="w-14 text-right font-mono text-[12px] text-text-dim">{s.cost}</span>
-                  <StatusBadge status={s.status} />
-                </div>
+          {page === "Dashboard" ? (
+            <>
+              {/* KPI row */}
+              <div className="mb-6 grid grid-cols-4 gap-3">
+                <KPI value="3" label="Sessions today" />
+                <KPI value="13" label="Files changed" />
+                <KPI value="1" label="Blocked" color="text-bad" />
+                <KPI value="$0.15" label="Total cost" />
               </div>
-            ))}
-          </div>
+
+              {/* recent sessions */}
+              <div className="mb-3 text-[12px] font-medium uppercase tracking-wider text-text-dim">
+                OpenCode — recent sessions
+              </div>
+              <div className="space-y-2.5">
+                {SESSIONS.map((s, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between gap-4 rounded-lg border border-border px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <span className="truncate font-mono text-[13px] text-text">{s.prompt}</span>
+                      <div className="mt-1 text-[11px] text-text-dim">{s.time} · {s.files} files</div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <RiskBadge level={s.risk} />
+                      <span className="w-14 text-right font-mono text-[12px] text-text-dim">{s.cost}</span>
+                      <StatusBadge status={s.status} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="flex h-[280px] items-center justify-center rounded-lg border border-dashed border-border text-sm text-text-dim">
+              {page} view
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -199,8 +210,8 @@ function DashboardPreview() {
 function KPI({ value, label, color }: { value: string; label: string; color?: string }) {
   return (
     <div className="rounded-lg border border-border bg-surface px-4 py-3">
-      <div className={`font-serif text-2xl ${color || "text-text"}`}>{value}</div>
-      <div className="mt-0.5 text-[10.5px] uppercase tracking-wide text-text-dimmer">{label}</div>
+      <div className={`text-xl font-semibold ${color || "text-text"}`}>{value}</div>
+      <div className="mt-0.5 text-[10.5px] uppercase tracking-wide text-text-dim">{label}</div>
     </div>
   );
 }

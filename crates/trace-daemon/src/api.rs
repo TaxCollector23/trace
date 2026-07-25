@@ -47,6 +47,7 @@ pub fn router() -> Router<AppState> {
         .route("/check-command", post(check_command))
         .route("/scan", post(scan_project))
         .route("/doctor", get(doctor))
+        .route("/analytics", get(analytics))
         // GitHub (reads directly from the repo, including private)
         .route("/github/status", get(gh_status))
         .route("/github/commits", get(gh_commits))
@@ -473,6 +474,13 @@ async fn doctor(State(state): State<AppState>) -> impl IntoResponse {
         "agents_installed": installed,
         "agents": agents,
     }))
+}
+
+/// Usage analytics across every run: run-frequency averages and per-agent
+/// token totals. Pure aggregate SQL over the local database — nothing sent
+/// anywhere.
+async fn analytics(State(state): State<AppState>) -> ApiResult<impl IntoResponse> {
+    Ok(Json(store(&state).analytics_summary()?))
 }
 
 // --- GitHub ---------------------------------------------------------------

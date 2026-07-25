@@ -298,6 +298,33 @@ pub struct ApiUsage {
     pub created_at: String,
 }
 
+/// Token/run totals for one agent, across every run that ever recorded
+/// API usage — the "how much have I used Claude Code vs Codex" breakdown.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentTokenStats {
+    pub agent_name: String,
+    pub run_count: i64,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub estimated_cost: f64,
+}
+
+/// Usage analytics across every run ever recorded, computed from real data
+/// (no telemetry, no network — this is a local SQLite aggregate query).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnalyticsSummary {
+    pub total_runs: i64,
+    pub first_run_at: Option<String>,
+    /// Average runs per hour/day/week/month since the first recorded run.
+    /// `None` when there isn't enough history yet (fewer than 2 runs, or
+    /// the first run was less than an hour ago).
+    pub avg_per_hour: Option<f64>,
+    pub avg_per_day: Option<f64>,
+    pub avg_per_week: Option<f64>,
+    pub avg_per_month: Option<f64>,
+    pub by_agent: Vec<AgentTokenStats>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewApiUsage {
     pub provider: String,

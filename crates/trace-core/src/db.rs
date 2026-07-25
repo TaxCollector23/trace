@@ -402,6 +402,77 @@ impl Store {
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
+    /// Usage analytics across every run: how often you run agents, and how
+    /// many tokens each one has burned. Computed with two aggregate queries
+    /// — no telemetry, this never leaves the local SQLite file.
+    pub fn analytics_summary(&self) -> Result<AnalyticsSummary> {
+        let total_runs: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM runs", [], |r| r.get(0))?;
+        let first_run_at: Option<String> = self
+            .conn
+            .query_row("SELECT MIN(started_at) FROM runs", [], |r| r.get(0))?;
+
+        let (avg_per_hour, avg_per_day, avg_per_week, avg_per_month) = match &first_run_at {
+            Some(first) if total_runs > 1 => {
+                let elapsed_hours = chrono::DateTime::parse_from_rfc3339(first)
+                    .ok()
+                    .map(|start| {
+                        let hours = (chrono::Utc::now() - start.with_timezone(&chrono::Utc))
+                            .num_minutes() as f64
+                            / 60.0;
+                        hours.max(1.0)
+                    });
+                match elapsed_hours {
+                    Some(hours) => {
+                        let per_hour = total_runs as f64 / hours;
+                        (
+                            Some(per_hour),
+                            Some(per_hour * 24.0),
+                            Some(per_hour * 24.0 * 7.0),
+                            Some(per_hour * 24.0 * 30.0),
+                        )
+                    }
+                    None => (None, None, None, None),
+                }
+            }
+            _ => (None, None, None, None),
+        };
+
+        let mut stmt = self.conn.prepare(
+            "SELECT COALESCE(r.agent_name, 'unknown') AS agent,
+                    COUNT(DISTINCT r.id) AS run_count,
+                    COALESCE(SUM(u.input_tokens), 0) AS input_tokens,
+                    COALESCE(SUM(u.output_tokens), 0) AS output_tokens,
+                    COALESCE(SUM(u.estimated_cost), 0.0) AS estimated_cost
+             FROM runs r
+             JOIN api_usage u ON u.run_id = r.id
+             GROUP BY agent
+             ORDER BY (input_tokens + output_tokens) DESC",
+        )?;
+        let by_agent = stmt
+            .query_map([], |row| {
+                Ok(AgentTokenStats {
+                    agent_name: row.get(0)?,
+                    run_count: row.get(1)?,
+                    input_tokens: row.get(2)?,
+                    output_tokens: row.get(3)?,
+                    estimated_cost: row.get(4)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        Ok(AnalyticsSummary {
+            total_runs,
+            first_run_at,
+            avg_per_hour,
+            avg_per_day,
+            avg_per_week,
+            avg_per_month,
+            by_agent,
+        })
+    }
+
     // --- Checkpoints ------------------------------------------------------
 
     pub fn add_checkpoint(&self, run_id: &str, new: &NewCheckpoint) -> Result<Checkpoint> {

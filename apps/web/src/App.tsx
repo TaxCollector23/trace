@@ -8,6 +8,7 @@ const links: [string, string][] = [
   ["/patch", "Patch Review"],
   ["/risk", "Command Risk"],
   ["/cost", "Token Spend"],
+  ["/analytics", "Trace Analytics"],
   ["/rollback", "Rollback Points"],
   ["/github", "Integration Status"],
 ];

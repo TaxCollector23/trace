@@ -156,6 +156,24 @@ export interface GithubPull {
   html_url: string;
 }
 
+export interface AgentTokenStats {
+  agent_name: string;
+  run_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  estimated_cost: number;
+}
+
+export interface AnalyticsSummary {
+  total_runs: number;
+  first_run_at: string | null;
+  avg_per_hour: number | null;
+  avg_per_day: number | null;
+  avg_per_week: number | null;
+  avg_per_month: number | null;
+  by_agent: AgentTokenStats[];
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`/api${path}`);
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
@@ -198,4 +216,5 @@ export const api = {
   checkpoints: (id: string) => get<Checkpoint[]>(`/runs/${id}/checkpoints`),
   testResults: (id: string) => get<TestResult[]>(`/runs/${id}/test-results`),
   rollback: (id: string) => post<{ ok: boolean; git_ref: string }>(`/runs/${id}/rollback`, {}),
+  analytics: () => get<AnalyticsSummary>("/analytics"),
 };

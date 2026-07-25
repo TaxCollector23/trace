@@ -8,6 +8,7 @@ import PatchReview from "./pages/PatchReview";
 import CostCenter from "./pages/CostCenter";
 import RiskCenter from "./pages/RiskCenter";
 import RollbackCenter from "./pages/RollbackCenter";
+import Analytics from "./pages/Analytics";
 import GitHub from "./pages/GitHub";
 import NotFound from "./pages/NotFound";
 import "./styles.css";
@@ -29,6 +30,7 @@ const router = createHashRouter([
       { path: "risk", element: <RiskCenter /> },
       { path: "risk/:runId", element: <RiskCenter /> },
       { path: "rollback", element: <RollbackCenter /> },
+      { path: "analytics", element: <Analytics /> },
       { path: "github", element: <GitHub /> },
       { path: "*", element: <NotFound /> },
     ],
