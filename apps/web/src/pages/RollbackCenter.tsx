@@ -53,11 +53,7 @@ export default function RollbackCenter() {
         for confirmation before changing files.
       </p>
 
-      {message && (
-        <div className="note" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {message}
-        </div>
-      )}
+      {message && <div className="note">{message}</div>}
 
       {runsQ.loading || rowsQ.loading ? (
         <Loading error={runsQ.error ?? rowsQ.error} />

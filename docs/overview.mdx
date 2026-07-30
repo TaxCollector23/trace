@@ -3,16 +3,16 @@ title: Overview
 description: The local-first control layer for AI coding agents.
 ---
 
-Trace is a local-first control layer for AI coding agents. It gives you a
-complete record of what happened during a session — commands, file changes,
-risks, costs, checks, and rollback points — so you can review an agent's work
-the same way you'd review a coworker's pull request.
+TraceGuard is the **local-first control layer for AI coding agents**. It gives
+developers a record of what happened during an AI coding session — commands,
+patches, risks, costs, checks, and rollback points — and includes **TraceCompress**
+to reduce prompt waste and enforce direct, minimal model output.
 
 It is a black box recorder, an AI safety layer, a cost tracker, and a
 patch-review command center for tools like Claude Code, Codex, Cursor, and
 generic terminal agents.
 
-Trace tells you:
+TraceGuard tells you:
 
 - **what changed** — files created, modified, or deleted
 - **what ran** — the commands executed during a session
@@ -22,14 +22,14 @@ Trace tells you:
 - **what broke** — build/test results and a deterministic failure diagnosis
 - **how to undo it** — Git-based checkpoints and rollback
 
-## What Trace is not
+## What TraceGuard is not
 
 - It is **not** a chatbot or an AI coding assistant.
 - It does **not** replace Claude Code, Cursor, or Copilot.
 - It does **not** send your project data anywhere. Everything stays on your
-  machine in `~/.trace` and your project's `.trace/` folder.
+  machine in `~/.traceguard` and your project's `.traceguard/` folder.
 
-Trace *wraps, observes, records, guards, and reviews* the agents you already
+TraceGuard *wraps, observes, records, guards, and reviews* the agents you already
 use.
 
 ## How it works
@@ -37,17 +37,17 @@ use.
 You launch an agent or command through the wrapper:
 
 ```bash
-trace run "claude fix the login bug"
+trg run "claude fix the login bug"
 ```
 
-Trace creates a checkpoint, captures the starting Git state, watches the
+TraceGuard creates a checkpoint, captures the starting Git state, watches the
 project for file changes, records command output, scans for secrets and risky
 commands, captures the final Git diff, optionally runs your configured checks,
 and stores everything in a local SQLite database. You review it all in a local
 dashboard at `http://127.0.0.1:<port>`.
 
 <Note>
-Trace observes terminal-based agents most directly. For GUI-based tools it
+TraceGuard observes terminal-based agents most directly. For GUI-based tools it
 can still watch file changes and Git diffs, but it cannot guard the tool's
 internal actions. See [Limitations](/limitations).
 </Note>

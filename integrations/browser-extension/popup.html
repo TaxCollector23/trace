@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        width: 280px;
+        margin: 0;
+        padding: 14px;
+        background: #0d1117;
+        color: #e6edf3;
+        font: 13px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      h1 { font-size: 15px; margin: 0 0 4px; }
+      h1 span { color: #3fb950; }
+      .status { margin: 10px 0; padding: 8px 10px; border-radius: 8px; border: 1px solid #2b333d; background: #11161d; font-size: 12px; }
+      .ok { color: #3fb950; }
+      .bad { color: #f85149; }
+      code { background: #161b22; padding: 1px 5px; border-radius: 4px; }
+      ul { padding-left: 18px; margin: 8px 0; }
+      li { margin: 3px 0; }
+      a { color: #4493f8; }
+    </style>
+  </head>
+  <body>
+    <h1>Trace<span>Guard</span> · TraceCompress</h1>
+    <div class="status" id="status">Checking local daemon…</div>
+    <p>On supported AI sites, click the green <b>TG</b> button near the bottom-right
+    to compress your prompt and attach Bare Mode output rules.</p>
+    <ul>
+      <li>Local-first: prompt text only goes to <code>127.0.0.1</code>.</li>
+      <li>Never replaces your prompt without confirmation.</li>
+    </ul>
+    <p><a href="https://taxcollector23.github.io/TraceGuard/" target="_blank">Docs</a></p>
+    <script src="popup.js"></script>
+  </body>
+</html>

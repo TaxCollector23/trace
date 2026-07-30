@@ -1,12 +1,13 @@
 {
-  "name": "tracedev",
-  "version": "1.2.0",
-  "description": "Trace CLI wrapper — installs the trace binary. The trust layer for autonomous software engineering.",
+  "name": "traceguard",
+  "version": "1.1.0",
+  "description": "TraceGuard CLI wrapper — installs the trg binary. Local black box recorder for AI coding agents.",
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/TaxCollector23/trace" },
-  "homepage": "https://github.com/TaxCollector23/trace",
+  "repository": { "type": "git", "url": "https://github.com/TaxCollector23/TraceGuard" },
+  "homepage": "https://github.com/TaxCollector23/TraceGuard",
   "bin": {
-    "trace": "./bin/trace.js"
+    "trg": "./bin/trg.js",
+    "traceguard": "./bin/trg.js"
   },
   "scripts": {
     "postinstall": "node scripts/postinstall.js"

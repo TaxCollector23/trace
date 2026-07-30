@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Project } from "../api";
 import { api } from "../api";
-import { Loading, stagger, useAsync } from "../components";
+import { Loading, useAsync } from "../components";
 
 export default function GitHub() {
   const projectsQ = useAsync(() => api.dashboard());
@@ -48,17 +48,17 @@ export default function GitHub() {
     <div>
       <h1 className="page-title">GitHub</h1>
       <p className="page-sub">
-        Trace reads directly from your project's GitHub repository —
+        TraceGuard reads directly from your project's GitHub repository —
         including private repos — using a token from the environment, the{" "}
         <span className="mono">gh</span> CLI, or{" "}
-        <span className="mono">~/.trace/github.json</span>. Read-only; the
+        <span className="mono">~/.traceguard/github.json</span>. Read-only; the
         token only goes to api.github.com.
       </p>
 
       {projectsQ.loading ? (
-        <Loading error={projectsQ.error} variant="cards" rows={1} />
+        <Loading error={projectsQ.error} />
       ) : projects.length === 0 ? (
-        <div className="empty">No projects yet. Run `trace init` in a repo.</div>
+        <div className="empty">No projects yet. Run `trg init` in a repo.</div>
       ) : (
         <>
           {projects.length > 1 && (
@@ -78,7 +78,7 @@ export default function GitHub() {
 
           {/* Status */}
           {statusQ.loading ? (
-            <Loading error={statusQ.error} variant="cards" rows={1} />
+            <Loading error={statusQ.error} />
           ) : status ? (
             <div className="card">
               <div className="run-meta" style={{ marginTop: 0 }}>
@@ -119,14 +119,14 @@ export default function GitHub() {
           {/* Commits */}
           <div className="section-title">Recent commits</div>
           {commitsQ.loading ? (
-            <Loading error={commitsQ.error} variant="table" rows={4} />
+            <Loading error={commitsQ.error} />
           ) : (commitsQ.data ?? []).length === 0 ? (
             <div className="empty">No commits (or not authorized).</div>
           ) : (
             <table>
               <tbody>
-                {(commitsQ.data ?? []).map((c, i) => (
-                  <tr key={c.sha} className="enter" style={stagger(i, 20, 160)}>
+                {(commitsQ.data ?? []).map((c) => (
+                  <tr key={c.sha}>
                     <td className="mono">{c.sha}</td>
                     <td>{c.message}</td>
                     <td className="muted">{c.author}</td>
@@ -139,14 +139,14 @@ export default function GitHub() {
           {/* Pull requests */}
           <div className="section-title">Open pull requests</div>
           {pullsQ.loading ? (
-            <Loading error={pullsQ.error} variant="table" rows={2} />
+            <Loading error={pullsQ.error} />
           ) : (pullsQ.data ?? []).length === 0 ? (
             <div className="empty">No open pull requests.</div>
           ) : (
             <table>
               <tbody>
-                {(pullsQ.data ?? []).map((p, i) => (
-                  <tr key={p.number} className="enter" style={stagger(i, 20, 160)}>
+                {(pullsQ.data ?? []).map((p) => (
+                  <tr key={p.number}>
                     <td className="mono">#{p.number}</td>
                     <td>
                       <a href={p.html_url} target="_blank" rel="noreferrer">

@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { getNav, search } from "./content";
 
-const GITHUB = "https://github.com/TaxCollector23/trace";
+const GITHUB = "https://github.com/TaxCollector23/TraceGuard";
+const LANDING = "https://traceguardlanding.vercel.app";
 
 export default function App() {
   const nav = useMemo(() => getNav(), []);
@@ -14,7 +15,7 @@ export default function App() {
     <div className="layout">
       <aside className="sidebar">
         <a className="brand" href={`#/`}>
-          Trace
+          Trace<span>Guard</span>
           <em>docs</em>
         </a>
 
@@ -61,6 +62,9 @@ export default function App() {
         </nav>
 
         <div className="side-foot">
+          <a href={LANDING} target="_blank" rel="noreferrer">
+            Home
+          </a>
           <a href={GITHUB} target="_blank" rel="noreferrer">
             GitHub
           </a>

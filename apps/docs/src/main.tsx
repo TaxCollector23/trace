@@ -4,7 +4,7 @@ import { createHashRouter, RouterProvider, Navigate } from "react-router-dom";
 import App from "./App";
 import Doc from "./Doc";
 import { orderedSlugs } from "./content";
-import "highlight.js/styles/github.css";
+import "highlight.js/styles/github-dark.css";
 import "./styles.css";
 
 const first = orderedSlugs()[0] ?? "overview";

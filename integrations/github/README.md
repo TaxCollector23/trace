@@ -1,22 +1,22 @@
-# Trace — GitHub integration
+# TraceGuard — GitHub integration
 
 Two ready-to-use surfaces plus an App skeleton.
 
 ## GitHub Action (`action.yml`)
 
-Run Trace checks in CI and upload a **sanitized** summary artifact.
+Run TraceGuard checks in CI and upload a **sanitized** summary artifact.
 
 ```yaml
-# .github/workflows/trace.yml
-name: trace
+# .github/workflows/traceguard.yml
+name: traceguard
 on: [pull_request]
 jobs:
-  trace:
+  traceguard:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 50 }
-      - uses: TaxCollector23/trace/integrations/github@main
+      - uses: TaxCollector23/TraceGuard/integrations/github@main
         with:
           checks: "npm run build, npm test"
           fail-on-risky: "true"

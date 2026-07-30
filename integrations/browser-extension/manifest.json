@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "TraceGuard — TraceCompress",
+  "version": "1.1.0",
+  "description": "Compress prompts and attach Bare Mode output rules in AI prompt boxes, using your local TraceGuard daemon. Local-first; prompt text only goes to 127.0.0.1.",
+  "permissions": ["storage", "clipboardWrite"],
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "TraceGuard" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://aistudio.google.com/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}

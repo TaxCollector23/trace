@@ -1,20 +1,11 @@
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import { StatusBadge, fmtCost, fmtTime, Loading, stagger, useAsync } from "../components";
+import { StatusBadge, fmtCost, fmtTime, Loading, useAsync } from "../components";
 
 export default function Dashboard() {
   const { data, error, loading } = useAsync(() => api.dashboard());
 
-  if (loading || error || !data) {
-    return (
-      <div>
-        <h1 className="page-title">Dashboard</h1>
-        <p className="page-sub">Recent monitored runs across your projects.</p>
-        <Loading error={error} variant="kpis" />
-        {!error && <Loading variant="cards" rows={4} />}
-      </div>
-    );
-  }
+  if (loading || error || !data) return <Loading error={error} />;
 
   const { runs, projects } = data;
   const totalCost = runs.reduce((s, r) => s + (r.estimated_cost ?? 0), 0);
@@ -29,19 +20,19 @@ export default function Dashboard() {
       </p>
 
       <div className="kpis">
-        <div className="kpi enter" style={stagger(0)}>
+        <div className="kpi">
           <div className="k-val">{runs.length}</div>
           <div className="k-label">Recent runs</div>
         </div>
-        <div className="kpi enter" style={stagger(1)}>
+        <div className="kpi">
           <div className="k-val">{projects.length}</div>
           <div className="k-label">Projects</div>
         </div>
-        <div className="kpi enter" style={stagger(2)}>
+        <div className="kpi">
           <div className="k-val">{secretWarnings}</div>
           <div className="k-label">Secret warnings</div>
         </div>
-        <div className="kpi enter" style={stagger(3)}>
+        <div className="kpi">
           <div className="k-val">{totalCost > 0 ? fmtCost(totalCost) : "—"}</div>
           <div className="k-label">Estimated cost</div>
         </div>
@@ -50,16 +41,11 @@ export default function Dashboard() {
       {runs.length === 0 ? (
         <div className="empty">
           Start your first monitored AI coding session with{" "}
-          <span className="mono">trace run claude</span>.
+          <span className="mono">trg run claude</span>.
         </div>
       ) : (
-        runs.map((r, i) => (
-          <Link
-            key={r.id}
-            to={`/timeline/${r.id}`}
-            className="card card-link enter"
-            style={stagger(i)}
-          >
+        runs.map((r) => (
+          <Link key={r.id} to={`/timeline/${r.id}`} className="card card-link">
             <div className="run-head">
               <div className="run-cmd">{r.command}</div>
               <StatusBadge status={r.status} />

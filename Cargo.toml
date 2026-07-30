@@ -1,18 +1,17 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/trace-core",
-    "crates/trace-daemon",
-    "crates/trace-cli",
-    "apps/desktop/src-tauri",
+    "crates/traceguard-core",
+    "crates/traceguard-daemon",
+    "crates/trg-cli",
 ]
 
 [workspace.package]
-version = "1.2.1"
+version = "1.1.0"
 edition = "2021"
 license = "MIT"
-authors = ["Trace contributors"]
-repository = "https://github.com/TaxCollector23/trace"
+authors = ["TraceGuard contributors"]
+repository = "https://github.com/TaxCollector23/TraceGuard"
 rust-version = "1.74"
 
 [workspace.dependencies]

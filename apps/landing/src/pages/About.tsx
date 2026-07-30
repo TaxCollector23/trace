@@ -1,69 +1,95 @@
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 
 export default function About() {
   return (
-    <div className="max-w-[700px] py-16">
-      <Link to="/" className="text-sm text-text-dim hover:text-text">← Back</Link>
-
-      <motion.h1
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="mt-5 font-serif text-4xl text-text md:text-5xl"
-      >
-        The black box recorder for your AI agents
-      </motion.h1>
-      <motion.p
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.08, ease: [0.16, 1, 0.3, 1] }}
-        className="mt-4 text-lg leading-relaxed text-text-dim"
-      >
-        You wouldn't merge a coworker's PR without reading the diff. Most people
-        approve their AI agent's changes without reading anything at all —
-        because there was nothing to read. Trace exists to close that gap.
-      </motion.p>
-
-      <Prose title="Why Trace exists">
-        Claude Code, Codex, Cursor — they're good enough now that it's tempting to
-        stop watching. That's exactly when something breaks: a dependency gets
-        swapped, a config value changes, a shell command runs that you'd never
-        have approved if you'd seen it coming. The agent isn't malicious. It's
-        just fast, and by the time you notice, the context is gone — what
-        changed, why, and what it touched along the way.
-      </Prose>
-
-      <Prose title="What Trace does">
-        Trace is a desktop app that sits next to your agents, not inside them.
-        Launch a session and it checkpoints your Git state, watches every file
-        change as it happens, classifies the commands your agent runs, flags
-        anything that looks like a secret, and totals the cost — all before you
-        decide whether to keep it. If something goes wrong, rollback is one
-        click, because the checkpoint was already there.
-      </Prose>
-
-      <Prose title="How it works">
-        Terminal agents — Claude Code, Codex, OpenCode — are launched directly by
-        the desktop app, so every command and file change is fully attributed.
-        GUI tools connect in instead: Cursor over MCP, GitHub Copilot through a
-        companion extension. Everything lands in the same local dashboard,
-        running only on <code>127.0.0.1</code> — your code, diffs, and command
-        history never leave your machine unless you explicitly wire up an
-        integration, and even then only sanitized summaries go out.
-      </Prose>
-
-    </div>
-  );
-}
-
-function Prose({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="mt-12 border-t border-border pt-8">
-      <h2 className="font-serif text-2xl text-text">{title}</h2>
-      <div className="mt-3 leading-relaxed text-text-dim [&_code]:rounded [&_code]:bg-surface [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:text-text [&_li]:list-disc [&_li]:ml-5">
-        {children}
+    <div className="prose">
+      <div className="page-head">
+        <Link to="/" className="back">
+          ← Back
+        </Link>
+        <h1>About TraceGuard</h1>
+        <p className="muted">
+          The local-first command center for the AI-agent era — built for
+          developers who refuse to ship code they never saw.
+        </p>
       </div>
-    </section>
+
+      <h2>What TraceGuard is</h2>
+      <p>
+        TraceGuard is a black box recorder and AI safety layer for coding agents.
+        You launch an agent or command through the <code>trg</code> wrapper, and
+        TraceGuard turns the session into a reviewable record: what changed, what
+        ran, what looked risky, what it cost, what broke, and how to roll back —
+        all from a dashboard that runs on your own machine.
+      </p>
+
+      <h2>Why it exists</h2>
+      <p>
+        AI agents edit files, run shell commands, touch secrets, change
+        dependencies, and spend tokens faster than any human can follow. Left
+        unwatched, an agent run is a black box. TraceGuard replaces that black
+        box with an execution timeline, patch intelligence, command risk
+        analysis, and rollback-ready checkpoints — so you stay in control of
+        automation instead of cleaning up after it.
+      </p>
+
+      <h2>What it records</h2>
+      <ul>
+        <li>A full session timeline: prompts, commands, file edits, checks, results</li>
+        <li>Patch review from real Git diffs — added, modified, deleted, config, env</li>
+        <li>Command risk: destructive, unsafe, or suspicious shell behavior</li>
+        <li>Secret detection with redaction — raw values are never stored</li>
+        <li>Token spend: provider, model, usage, and estimated cost when available</li>
+        <li>Git-backed rollback points created before monitored runs</li>
+        <li>TraceCompress: prompt compression and Bare Mode output discipline</li>
+      </ul>
+
+      <h2>TraceCompress</h2>
+      <p>
+        Developers waste tokens on bloated prompts; models waste tokens on filler,
+        sugarcoating, and false completion claims. TraceCompress rewrites prompts
+        into precise instructions while preserving meaning, file names, commands,
+        and must-not-do rules — then attaches Bare Mode rules that force direct,
+        minimal, verifiable output. It runs locally and deterministically by
+        default; external-LLM compression is opt-in.
+      </p>
+
+      <h2>Local-first by design</h2>
+      <p>
+        TraceGuard's real dashboard runs only on <code>127.0.0.1</code>. Project
+        history, Git diffs, prompt-compression metadata, and run records stay on
+        your machine by default. There is no account and no cloud sync. Raw
+        secrets are never stored, and any cloud or GitHub integration uses
+        sanitized summaries only.
+      </p>
+
+      <h2>What it does not do</h2>
+      <ul>
+        <li>It does not replace your AI coding agent or write code for you.</li>
+        <li>It does not upload your project, secrets, or local database.</li>
+        <li>It does not require a login or a cloud account.</li>
+        <li>
+          It does not pretend GUI tools are fully controllable — full guarding
+          requires the <code>trg</code> wrapper or supported hooks.
+        </li>
+      </ul>
+
+      <h2>Integration status</h2>
+      <p>
+        Honest by default. Terminal agents (Claude Code, Codex, and generic
+        commands) work today through <code>trg run</code>. The Cursor MCP server,
+        VS Code extension, and browser extension for ChatGPT/Claude/Gemini are
+        built and load locally. GitHub Actions CI summaries are available; a
+        GitHub App with PR checks is on the roadmap.
+      </p>
+
+      <h2>Roadmap: teams</h2>
+      <p>
+        TraceGuard is developer-controlled and local-first today. A future team
+        tier — shared policy rules, organization dashboards, sanitized run
+        summaries, AI activity audit logs, role-based access, and centralized
+        reporting — is on the roadmap and is not available now.
+      </p>
+    </div>
   );
 }

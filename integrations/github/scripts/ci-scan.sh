@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Trace CI scan.
+# TraceGuard CI scan.
 #
 # Runs configured checks, scans the diff against the base ref for risky changes
 # and secret-like content, and writes a SANITIZED summary to
-# trace-summary.json. It never writes raw file contents or secret values.
+# traceguard-summary.json. It never writes raw file contents or secret values.
 set -euo pipefail
 
 CHECKS=""
@@ -45,7 +45,7 @@ if [ -n "$CHECKS" ]; then
   for cmd in "${CMDS[@]}"; do
     trimmed="$(echo "$cmd" | sed 's/^ *//;s/ *$//')"
     [ -z "$trimmed" ] && continue
-    echo "Trace check: $trimmed"
+    echo "TraceGuard check: $trimmed"
     if ! bash -c "$trimmed"; then
       CHECK_STATUS="failed"
     fi
@@ -53,9 +53,9 @@ if [ -n "$CHECKS" ]; then
 fi
 
 # --- Sanitized summary (no file contents, no secret values) ---
-cat > trace-summary.json <<EOF
+cat > traceguard-summary.json <<EOF
 {
-  "schema": "trace.summary/v1",
+  "schema": "traceguard.summary/v1",
   "commit": "${GITHUB_SHA:-unknown}",
   "files_changed": ${NUM_FILES:-0},
   "risky_file_warnings": ${RISKY},
@@ -64,9 +64,9 @@ cat > trace-summary.json <<EOF
 }
 EOF
 
-echo "Trace summary:"; cat trace-summary.json
+echo "TraceGuard summary:"; cat traceguard-summary.json
 
 if [ "$FAIL_ON_RISKY" = "true" ] && { [ "${SECRET_HITS:-0}" -gt 0 ] || [ "$RISKY" -gt 0 ]; }; then
-  echo "::error::Trace detected risky changes or secret-like content."
+  echo "::error::TraceGuard detected risky changes or secret-like content."
   exit 1
 fi

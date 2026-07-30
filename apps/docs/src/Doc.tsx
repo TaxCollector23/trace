@@ -48,7 +48,7 @@ export default function Doc() {
   if (!page) {
     return (
       <main className="content">
-        <div className="content-inner notfound">
+        <div className="notfound">
           <h1>Page not found</h1>
           <p>
             <Link to="/">Back to docs</Link>
@@ -61,31 +61,29 @@ export default function Doc() {
   return (
     <>
       <main className="content">
-        <div className="content-inner">
-          <div className="eyebrow">Documentation</div>
-          <h1 className="doc-title">{page.title}</h1>
-          {page.description && <p className="doc-desc">{page.description}</p>}
+        <div className="eyebrow">Documentation</div>
+        <h1 className="doc-title">{page.title}</h1>
+        {page.description && <p className="doc-desc">{page.description}</p>}
 
-          <Markdown source={page.markdown} />
+        <Markdown source={page.markdown} />
 
-          <div className="pager">
-            {prev ? (
-              <Link className="pager-link prev" to={`/${prev}`}>
-                <span>Previous</span>
-                {getPage(prev)?.title}
-              </Link>
-            ) : (
-              <span />
-            )}
-            {next ? (
-              <Link className="pager-link next" to={`/${next}`}>
-                <span>Next</span>
-                {getPage(next)?.title}
-              </Link>
-            ) : (
-              <span />
-            )}
-          </div>
+        <div className="pager">
+          {prev ? (
+            <Link className="pager-link prev" to={`/${prev}`}>
+              <span>Previous</span>
+              {getPage(prev)?.title}
+            </Link>
+          ) : (
+            <span />
+          )}
+          {next ? (
+            <Link className="pager-link next" to={`/${next}`}>
+              <span>Next</span>
+              {getPage(next)?.title}
+            </Link>
+          ) : (
+            <span />
+          )}
         </div>
       </main>
 

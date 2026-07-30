@@ -1,0 +1,88 @@
+---
+title: Agents & Launch
+description: Detect AI tools, harden prompts, and launch them anywhere.
+---
+
+TraceGuard is an **agent hub**: it detects the AI coding tools on your machine,
+hardens your prompt, and launches it into the right tool — CLI or web.
+
+## Detect your tools
+
+```bash
+trg agents
+```
+
+Lists every supported tool with its install status and version. Missing CLIs
+show the exact install command. Web tools (ChatGPT, Gemini, Perplexity, …) need
+no install.
+
+Supported ids: `claude`, `codex`, `cursor`, `windsurf`, `aider`, `opencode`,
+`continue`, `copilot`, `gh`, `chatgpt`, `claude-web`, `gemini`, `perplexity`,
+`groq`, `openrouter`, `ollama`, `lmstudio`, `openwebui`, `localai`.
+
+## Launch a prompt
+
+```bash
+trg launch claude "fix the 401 in src/auth/login.ts; run npm test"
+trg launch chatgpt "explain this stack trace"
+trg launch auto "refactor the parser and add tests"   # auto-routes
+```
+
+- **CLI tools** are detected and executed directly.
+- **Web tools** get the prompt copied to your clipboard and the site opened —
+  TraceGuard never pretends it typed into a web page.
+- **Editors / local runtimes** (Cursor, Windsurf, Ollama, LM Studio) open with
+  the prompt on your clipboard to paste.
+
+Set a default so you can omit the target inside `trg guard --launch`:
+
+```bash
+trg use claude
+```
+
+The auto-router picks a sensible target by prompt type (coding → Claude/Cursor/
+Codex, research → ChatGPT/Perplexity/Gemini, GitHub → gh/Copilot), preferring
+tools you actually have installed.
+
+## Harden a prompt
+
+```bash
+trg guard "fix my app"
+trg guard --coding "fix the auth bug"            # strict coding-agent rules
+trg guard --project "fix the dashboard"          # injects detected project context
+trg guard --mode no-bullshit --launch chatgpt "summarize the changes"
+```
+
+`trg guard` cleans the prompt, attaches a rules block (anti-hallucination + the
+selected mode), scores it 0–100 across nine metrics, and lints it for vague
+patterns and missing context. Modes: `minimal`, `balanced`, `strict`, `coding`,
+`research`, `marketing`, `debate`, `school`, `business`, `investor`, `design`,
+`debugging`, `app-builder`, `release-engineer`, `documentation`, `security`,
+`no-bullshit`.
+
+Add your own rules (applied to every hardening):
+
+```bash
+trg rules add "Never change the database schema"
+trg rules list
+```
+
+## Secret safety
+
+Before launching, TraceGuard scans the prompt for API keys, tokens, `.env`
+content, private keys, and database URLs. If anything matches, it warns and asks
+you to confirm with `--yes` or remove the secret first.
+
+## Project scan & doctor
+
+```bash
+trg scan      # package manager, framework, tests, scripts, git status
+trg doctor    # toolchain, clipboard, daemon, installed agents, PATH
+```
+
+## Honesty
+
+Launch status is never faked. Web launches say the prompt is on your clipboard;
+CLI launches print the exact command and run it; missing tools print the install
+command. If a CLI doesn't accept a one-shot prompt, the prompt is placed on your
+clipboard instead.

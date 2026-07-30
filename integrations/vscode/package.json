@@ -1,9 +1,9 @@
 {
-  "name": "trace-vscode",
-  "displayName": "Trace",
-  "description": "Lightweight bridge to your local Trace daemon: recent runs, dashboard, running commands through trace, and recording GitHub Copilot editing sessions as real Trace runs.",
+  "name": "traceguard-vscode",
+  "displayName": "TraceGuard",
+  "description": "Lightweight bridge to your local TraceGuard daemon: recent runs, dashboard, and running the current command through trg.",
   "version": "0.1.0",
-  "publisher": "trace",
+  "publisher": "traceguard",
   "private": true,
   "engines": { "vscode": "^1.80.0" },
   "categories": ["Other"],
@@ -13,25 +13,23 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "trace",
-          "title": "Trace",
+          "id": "traceguard",
+          "title": "TraceGuard",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "trace": [{ "id": "trace.runs", "name": "Recent Runs" }]
+      "traceguard": [{ "id": "traceguard.runs", "name": "Recent Runs" }]
     },
     "commands": [
-      { "command": "trace.openDashboard", "title": "Trace: Open Dashboard" },
-      { "command": "trace.runCommand", "title": "Trace: Run Command through trace" },
-      { "command": "trace.refresh", "title": "Trace: Refresh Runs", "icon": "$(refresh)" },
-      { "command": "trace.startCopilotSession", "title": "Trace: Start Copilot Session" },
-      { "command": "trace.endCopilotSession", "title": "Trace: End Copilot Session" }
+      { "command": "traceguard.openDashboard", "title": "TraceGuard: Open Dashboard" },
+      { "command": "traceguard.runCommand", "title": "TraceGuard: Run Command through trg" },
+      { "command": "traceguard.refresh", "title": "TraceGuard: Refresh Runs", "icon": "$(refresh)" }
     ],
     "menus": {
       "view/title": [
-        { "command": "trace.refresh", "when": "view == trace.runs", "group": "navigation" }
+        { "command": "traceguard.refresh", "when": "view == traceguard.runs", "group": "navigation" }
       ]
     }
   },

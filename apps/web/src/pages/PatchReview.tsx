@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
 import type { FileChange } from "../api";
 import { api } from "../api";
-import { DiffView, Loading, RunPicker, stagger, useAsync } from "../components";
+import { DiffView, Loading, RunPicker, useAsync } from "../components";
 
 const DEP_FILES = [
   "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock",
@@ -59,7 +59,7 @@ export default function PatchReview() {
       </p>
 
       {runsQ.loading ? (
-        <Loading error={runsQ.error} variant="cards" rows={1} />
+        <Loading error={runsQ.error} />
       ) : runs.length === 0 ? (
         <div className="empty">No runs recorded yet.</div>
       ) : (
@@ -67,7 +67,7 @@ export default function PatchReview() {
           <RunPicker runs={runs} current={current} base="/patch" />
 
           {changesQ.loading ? (
-            <Loading error={changesQ.error} variant="table" rows={4} />
+            <Loading error={changesQ.error} />
           ) : (
             <>
               <div className="note">{summary(changes, deps, configs, envs)}</div>
@@ -132,8 +132,8 @@ function Section({
       <div className="section-title">{title}</div>
       <table>
         <tbody>
-          {items.map((c, i) => (
-            <tr key={c.id} className="enter" style={stagger(i, 20, 160)}>
+          {items.map((c) => (
+            <tr key={c.id}>
               <td>
                 <span className={`pill ${cls}`}>{c.change_type}</span>
               </td>
