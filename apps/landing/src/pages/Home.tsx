@@ -3,9 +3,7 @@ import { motion } from "framer-motion";
 import { Reveal, Section, Button } from "../components";
 import HeroDemo from "../HeroDemo";
 import WorksEverywhere from "../WorksEverywhere";
-import { GITHUB_REPO, RATIFY_URL } from "../config";
-
-const RELEASES_URL = `${GITHUB_REPO}/releases/latest`;
+import { RATIFY_URL } from "../config";
 
 const heroFade = {
   hidden: { opacity: 0, y: 14 },
@@ -29,20 +27,19 @@ export default function Home() {
             variants={heroFade}
             className="font-serif text-4xl text-text md:text-5xl"
           >
-            Know what your AI agent did — and stop it before it ships something wrong.
+            Know what your AI agent did before you ship it.
           </motion.h1>
           <motion.p
             custom={1}
             initial="hidden"
             animate="show"
             variants={heroFade}
-            className="mt-5 max-w-[500px] text-lg leading-relaxed text-text-dim"
+            className="mt-5 max-w-[520px] text-lg leading-relaxed text-text-dim"
           >
-            Trace watches every file your AI agents touch — Claude Code, Codex, Cursor,
-            Aider, and more — turns each session into a diff you can review, a cost
-            you can see, and a checkpoint you can undo. A panel of three independent
-            models double-checks the risky calls and can tell an agent to stop and
-            fix something before you ever see it. Runs on macOS, Windows, and Linux.
+            Trace watches every file Claude Code, Codex, Cursor, Windsurf, and Aider
+            touch. Each session becomes a diff you can review, a policy-checked patch,
+            a cost you can see, and a checkpoint you can undo — with three independent
+            models double-checking the risky calls in real time.
           </motion.p>
           <motion.div
             custom={2}
@@ -51,9 +48,9 @@ export default function Home() {
             variants={heroFade}
             className="mt-7 flex flex-wrap items-center gap-4"
           >
-            <Button href={RELEASES_URL}>Download Trace</Button>
-            <Button variant="secondary" href={GITHUB_REPO} target="_blank" rel="noreferrer">
-              View on GitHub
+            <Button to="/download">Download Trace</Button>
+            <Button variant="secondary" to="/cli">
+              Download the CLI
             </Button>
           </motion.div>
         </div>
@@ -171,8 +168,8 @@ export default function Home() {
           <h2 className="font-serif text-3xl text-text">See every AI edit for yourself.</h2>
           <p className="mt-3 text-text-dim">Review the diff. Check the cost. Roll back safely.</p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
-            <Button href={RELEASES_URL}>Download Trace</Button>
-            <Button variant="secondary" to="/about">About Trace</Button>
+            <Button to="/download">Download Trace</Button>
+            <Button variant="secondary" to="/cli">Download the CLI</Button>
           </div>
         </Reveal>
       </section>

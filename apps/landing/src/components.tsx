@@ -57,33 +57,19 @@ export function Section({
 }
 
 // -- Download menu ----------------------------------------------------------
-// Detects the visitor's OS to feature it at the top of the menu, but always
-// lists all three so cross-platform is obvious. The primary link goes to
-// `/download` (the on-site page) so a click without hovering still works —
-// hover only *augments* with direct downloads, never replaces the primary.
+// Hoverable nav link. Primary click goes to /download (the on-site page);
+// hover augments with direct one-click downloads for each OS and a link to
+// the CLI page. No OS-detection pill — every option gets equal weight so
+// the menu reads cleanly.
 
-type OS = "macOS" | "Windows" | "Linux" | "unknown";
-
-function detectOS(): OS {
-  if (typeof navigator === "undefined") return "unknown";
-  const p = navigator.platform.toLowerCase();
-  const ua = navigator.userAgent.toLowerCase();
-  if (p.includes("mac") || ua.includes("mac os")) return "macOS";
-  if (p.includes("win") || ua.includes("windows")) return "Windows";
-  if (p.includes("linux") || ua.includes("linux")) return "Linux";
-  return "unknown";
-}
-
-const OS_ROWS: Array<{ os: OS; label: string; sub: string; href: string }> = [
-  { os: "macOS", label: "macOS", sub: "Apple Silicon · .dmg", href: DOWNLOADS.macOS },
-  { os: "Windows", label: "Windows", sub: "x64 · installer .exe", href: DOWNLOADS.windows },
-  { os: "Linux", label: "Linux", sub: ".deb + AppImage", href: DOWNLOADS.linuxDeb },
+const OS_ROWS: Array<{ label: string; sub: string; href: string }> = [
+  { label: "macOS", sub: "Apple Silicon · .dmg", href: DOWNLOADS.macOS },
+  { label: "Windows", sub: "x64 · installer .exe", href: DOWNLOADS.windows },
+  { label: "Linux", sub: ".deb + AppImage", href: DOWNLOADS.linuxDeb },
 ];
 
 export function DownloadMenu() {
   const [open, setOpen] = useState(false);
-  const detected = detectOS();
-  const rows = [...OS_ROWS].sort((a, b) => Number(b.os === detected) - Number(a.os === detected));
 
   return (
     <div
@@ -113,24 +99,17 @@ export function DownloadMenu() {
             className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-border bg-white shadow-lg"
           >
             <div className="border-b border-border px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-text-dim">
-              Trace desktop app
+              Desktop app
             </div>
             <ul>
-              {rows.map((r) => (
-                <li key={r.os}>
+              {OS_ROWS.map((r) => (
+                <li key={r.label}>
                   <a
                     href={r.href}
                     className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-brand/5"
                   >
                     <div>
-                      <div className="text-sm font-medium text-text">
-                        {r.label}
-                        {r.os === detected && (
-                          <span className="ml-2 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand">
-                            your OS
-                          </span>
-                        )}
-                      </div>
+                      <div className="text-sm font-medium text-text">{r.label}</div>
                       <div className="text-xs text-text-dim">{r.sub}</div>
                     </div>
                     <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden className="text-text-dim">
@@ -140,6 +119,18 @@ export function DownloadMenu() {
                 </li>
               ))}
             </ul>
+            <Link
+              to="/cli"
+              className="flex items-center justify-between border-t border-border px-4 py-3 transition-colors hover:bg-brand/5"
+            >
+              <div>
+                <div className="text-sm font-medium text-text">CLI</div>
+                <div className="text-xs text-text-dim">brew · curl · PowerShell</div>
+              </div>
+              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden className="text-text-dim">
+                <path d="M5 3l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </Link>
             <a
               href={DOWNLOADS.releases}
               target="_blank"
