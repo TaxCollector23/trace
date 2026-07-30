@@ -48,6 +48,7 @@ pub fn router() -> Router<AppState> {
         .route("/scan", post(scan_project))
         .route("/doctor", get(doctor))
         .route("/analytics", get(analytics))
+        .route("/analytics/coaching", get(coaching_report))
         .route("/benchmarks", get(benchmarks))
         // Policy engine + judge (merged in from Ratify's review pipeline)
         .route("/runs/:id/prompt", post(record_prompt))
@@ -501,6 +502,18 @@ async fn analytics(State(state): State<AppState>) -> ApiResult<impl IntoResponse
     Ok(Json(store(&state).analytics_summary()?))
 }
 
+/// Personalized prompt-coaching feedback derived from the user's own recent
+/// prompts — which patterns show up most, which correlate with flagged runs,
+/// and one concrete example from their own history. Deterministic aggregation,
+/// no LLM call; the semantic pass batches through the judge panel elsewhere.
+async fn coaching_report(
+    State(state): State<AppState>,
+    Query(q): Query<LimitQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let events = store(&state).recent_prompt_events(q.limit.unwrap_or(200) as i64)?;
+    Ok(Json(trace_core::build_coaching_report(&events)))
+}
+
 /// Runs the policy engine's own labeled-fixture benchmark fresh on every
 /// call — it's pure computation over in-memory fixtures (no I/O), so
 /// there's nothing to cache or go stale. See `trace-core::eval`.
@@ -674,6 +687,8 @@ struct HookCheckBody {
 #[derive(Serialize)]
 struct HookCheckResponse {
     block: bool,
+    /// Blocking message when `block == true`. Kept for backward compat
+    /// with older hook shells that only read this field.
     message: Option<String>,
     policy_findings: usize,
     /// True when the judge would otherwise have run (Model Prompting Mode
@@ -681,6 +696,18 @@ struct HookCheckResponse {
     /// its cooldown window since the last judge call. Distinguishes "the
     /// panel looked and allowed it" from "the panel didn't look this time."
     judge_on_cooldown: bool,
+    /// The single message the hook should echo *to the coding agent* — a
+    /// concrete, actionable multi-line summary of what was flagged, why,
+    /// and what the agent should try next. Populated for any decision
+    /// beyond `allow` (including `warn`, which the hook echoes without
+    /// exit 2). This is the field a new hook/MCP surface should read;
+    /// `message` is a fallback for the older shell.
+    agent_feedback: Option<String>,
+    /// The consensus decision itself, so MCP-driven surfaces can render
+    /// the same information with their own affordances instead of a raw
+    /// string. Absent when the judge didn't run.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    consensus: Option<String>,
 }
 
 /// The live guardrail entry point: called from the coding agent's own
@@ -750,8 +777,22 @@ async fn hook_check(
         store(&state).add_policy_findings(&id, &policy_findings)?;
     }
 
-    let mut response =
-        HookCheckResponse { block: false, message: None, policy_findings: policy_findings.len(), judge_on_cooldown: false };
+    let mut response = HookCheckResponse {
+        block: false,
+        message: None,
+        policy_findings: policy_findings.len(),
+        judge_on_cooldown: false,
+        agent_feedback: None,
+        consensus: None,
+    };
+
+    // Even before the judge runs, deterministic policy findings are worth
+    // echoing to the agent as advisory. The hook script surfaces this at
+    // exit 0 (no block) if the judge is off; if the judge later escalates,
+    // this text becomes part of the blocking message too.
+    if !policy_findings.is_empty() {
+        response.agent_feedback = Some(format_policy_advisory(&policy_findings));
+    }
 
     let judge_wanted = judge_settings.model_prompting_mode && judge_settings.mode != trace_core::JudgeMode::Disabled;
     // Only consult (and thereby reset) the cooldown clock when the judge
@@ -780,17 +821,102 @@ async fn hook_check(
         let action_taken = if should_block { "agent_prompted" } else { "flagged_only" };
         store(&state).save_judge_verdict(&id, &format!("live-edit: {}", body.tool_name), &verdict, action_taken)?;
 
+        response.consensus = Some(verdict.consensus.as_str().to_string());
+        // Always fold the panel's reasoning into agent_feedback (not just
+        // on block). A `warn` verdict still contains useful "here's what
+        // could be better" that the hook echoes without exit 2, giving
+        // the agent a self-correction chance before the next edit.
+        if verdict.consensus != trace_core::Decision::Allow {
+            response.agent_feedback = Some(format_agent_feedback(
+                &policy_findings,
+                &verdict,
+                &body.tool_name,
+                body.file_path.as_deref(),
+            ));
+        }
+
         if should_block {
             response.block = true;
-            response.message = Some(format!(
-                "Trace's review panel flagged this edit ({}). {} Stop, re-examine what you just changed, and address this before continuing.",
-                verdict.consensus.as_str().replace('_', " "),
-                verdict.summary
-            ));
+            // Legacy `message` field mirrors agent_feedback so older shell
+            // hooks that only read `message` still get the rich text.
+            response.message = response.agent_feedback.clone();
         }
     }
 
     Ok(Json(response))
+}
+
+/// Produce the multi-line message that the coding agent actually reads
+/// back — no dashboard visit needed. Concrete: every deterministic
+/// finding, every disagreeing reviewer's own reasoning, and a directive
+/// on what to do next.
+fn format_agent_feedback(
+    policy_findings: &[trace_core::PolicyFinding],
+    verdict: &trace_core::JudgeVerdict,
+    tool_name: &str,
+    file_path: Option<&str>,
+) -> String {
+    use trace_core::Decision;
+    let file = file_path.unwrap_or("(unknown file)");
+    let mut lines: Vec<String> = Vec::new();
+    lines.push(format!(
+        "[Trace] {} on {} → panel consensus: {} ({:.0}% confidence, {:.0}% agreement).",
+        tool_name,
+        file,
+        verdict.consensus.as_str().replace('_', " "),
+        verdict.confidence * 100.0,
+        verdict.agreement * 100.0
+    ));
+
+    if !policy_findings.is_empty() {
+        lines.push(String::new());
+        lines.push("Deterministic checks found:".into());
+        for f in policy_findings.iter().take(6) {
+            lines.push(format!("  • [{}] {}: {}", f.severity.as_str(), f.title, f.description));
+        }
+        if policy_findings.len() > 6 {
+            lines.push(format!("  … and {} more", policy_findings.len() - 6));
+        }
+    }
+
+    // Each reviewer's actual reasoning — this is what makes the feedback
+    // *actionable* for the agent rather than a generic "please fix it."
+    let successful: Vec<_> = verdict.votes.iter().filter(|v| v.error.is_none()).collect();
+    if !successful.is_empty() {
+        lines.push(String::new());
+        lines.push("Reviewers said:".into());
+        for v in &successful {
+            let short = v.reasoning.trim();
+            let short: String = short.chars().take(280).collect();
+            if !short.is_empty() {
+                lines.push(format!("  • {} ({:.0}%): {}", v.model, v.confidence * 100.0, short));
+            }
+        }
+    }
+
+    lines.push(String::new());
+    lines.push(match verdict.consensus {
+        Decision::Block => "→ Do not continue with this edit. Revert or rework the change to address the highest-severity issue above, then explain what you changed.".into(),
+        Decision::RequireApproval => "→ Pause here. Explain your rationale in one sentence and wait for confirmation before continuing.".into(),
+        Decision::Warn => "→ Not blocking, but before your next edit, address the issue above or note explicitly why it's acceptable.".into(),
+        Decision::Allow => "→ No action required.".into(),
+    });
+
+    lines.join("\n")
+}
+
+/// Advisory formatting used when the judge didn't run but the deterministic
+/// policy engine found things worth telling the agent about. Kept short —
+/// the agent will still be moving forward, so we prioritize signal density.
+fn format_policy_advisory(findings: &[trace_core::PolicyFinding]) -> String {
+    let mut out = String::from("[Trace] Deterministic checks:");
+    for f in findings.iter().take(6) {
+        out.push_str(&format!("\n  • [{}] {}: {}", f.severity.as_str(), f.title, f.description));
+    }
+    if findings.len() > 6 {
+        out.push_str(&format!("\n  … and {} more", findings.len() - 6));
+    }
+    out
 }
 
 /// Formats a project's stored doctrine rules as prompt-ready lines, e.g.

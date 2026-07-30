@@ -15,6 +15,7 @@ pub fn version_string() -> String {
 
 pub mod adapter;
 pub mod agents;
+pub mod coaching;
 pub mod config;
 pub mod cost;
 pub mod db;
@@ -34,6 +35,7 @@ pub mod scan;
 pub mod secrets;
 pub mod time;
 
+pub use coaching::{build_report as build_coaching_report, CoachingReport, PatternStat};
 pub use config::{GlobalConfig, ProjectConfig};
 pub use db::Store;
 pub use doctrine::{mine_doctrine, MinedRule, MiningResult, RuleStrength};

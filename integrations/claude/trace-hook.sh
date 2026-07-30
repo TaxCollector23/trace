@@ -98,11 +98,32 @@ case "$EVENT" in
       -H 'content-type: application/json' \
       -d "$BODY" 2>/dev/null || echo '{}')
 
-    BLOCK=$(printf '%s' "$RESP" | sed -n 's/.*"block"[: ]*\(true\|false\).*/\1/p')
+    if [ "$HAVE_JQ" = "1" ]; then
+      BLOCK=$(printf '%s' "$RESP" | jq -r '.block // false')
+      FEEDBACK=$(printf '%s' "$RESP" | jq -r '.agent_feedback // .message // empty')
+      CONSENSUS=$(printf '%s' "$RESP" | jq -r '.consensus // empty')
+    else
+      # Best-effort without jq — breaks on messages with escaped quotes.
+      # Install jq for reliable multi-line feedback with per-model reasoning.
+      BLOCK=$(printf '%s' "$RESP" | sed -n 's/.*"block"[: ]*\(true\|false\).*/\1/p')
+      FEEDBACK=$(printf '%s' "$RESP" | sed -n 's/.*"message"[: ]*"\(.*\)","policy.*/\1/p')
+      CONSENSUS=$(printf '%s' "$RESP" | sed -n 's/.*"consensus"[: ]*"\([a-z_]*\)".*/\1/p')
+    fi
+
     if [ "$BLOCK" = "true" ]; then
-      MESSAGE=$(printf '%s' "$RESP" | sed -n 's/.*"message"[: ]*"\(.*\)","policy.*/\1/p')
-      echo "${MESSAGE:-Trace review panel flagged this edit. Please re-examine it before continuing.}" >&2
+      # Blocking path: exit 2 surfaces the message back to Claude Code as
+      # feedback on the tool call. `agent_feedback` includes each reviewer's
+      # specific reasoning, so the model sees exactly what to fix — the
+      # whole point of Model Prompting Mode.
+      echo "${FEEDBACK:-Trace's review panel flagged this edit. Please re-examine it before continuing.}" >&2
       exit 2
+    fi
+
+    # Non-blocking advisory: policy engine or judge returned warn. Echo to
+    # stderr and exit 0 so the agent sees the feedback (and can self-correct
+    # on its next tool call) without being interrupted.
+    if [ -n "${FEEDBACK:-}" ] && [ "${CONSENSUS:-allow}" != "allow" ]; then
+      echo "$FEEDBACK" >&2
     fi
     exit 0
     ;;
