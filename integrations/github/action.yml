@@ -1,0 +1,56 @@
+name: "Trace CI"
+description: "Run Trace's policy engine (and, optionally, judge panel) in CI and upload a sanitized summary. Never uploads raw files, secrets, or the local database."
+author: "Trace"
+branding:
+  icon: "shield"
+  color: "green"
+
+inputs:
+  checks:
+    description: "Comma-separated check commands to run (e.g. 'npm run build, npm test')."
+    required: false
+    default: ""
+  fail-on-risky:
+    description: "Fail the job if risky diffs or secret-like changes are detected."
+    required: false
+    default: "false"
+  enable-judge:
+    description: "Also run the 3-LLM judge panel. Requires provider keys as TRACE_<PROVIDER>_API_KEY secrets/env vars (e.g. TRACE_ANTHROPIC_API_KEY)."
+    required: false
+    default: "false"
+  install:
+    description: "Install the trace binary if it isn't already on PATH. Set to 'false' if your workflow already installs it."
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install trace
+      if: inputs.install == 'true'
+      shell: bash
+      run: |
+        if ! command -v trace >/dev/null 2>&1; then
+          curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh
+          echo "$HOME/.trace/bin" >> "$GITHUB_PATH"
+        fi
+
+    - name: Trace scan
+      shell: bash
+      run: |
+        echo "::group::Trace"
+        bash "${{ github.action_path }}/scripts/ci-scan.sh" \
+          --checks "${{ inputs.checks }}" \
+          --fail-on-risky "${{ inputs.fail-on-risky }}" \
+          --enable-judge "${{ inputs.enable-judge }}"
+        echo "::endgroup::"
+
+    - name: Upload sanitized summary
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: trace-summary
+        path: |
+          trace-summary.json
+          trace-review.json
+        if-no-files-found: ignore

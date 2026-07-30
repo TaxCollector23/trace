@@ -1,0 +1,30 @@
+---
+title: Cursor
+description: An MCP server exposing Trace tools to Cursor.
+---
+
+The Cursor integration (`integrations/cursor/`) is an **MCP server** that exposes
+Trace operations as tools, backed by the local daemon.
+
+## Tools
+
+- `trace_start_run`
+- `trace_end_run`
+- `trace_record_event`
+- `trace_get_recent_runs`
+- `trace_get_patch_summary`
+- `trace_check_command`
+- `trace_get_rollback_options`
+
+## Configure
+
+Add the MCP server to your Cursor MCP settings (see
+`integrations/cursor/README.md`). It connects to `http://127.0.0.1:<port>` from
+`~/.trace/daemon.json`.
+
+## Honest limitation
+
+<Note>
+Trace can observe project file changes and Git diffs. Full command blocking
+requires supported integration points or running commands through `trace`.
+</Note>

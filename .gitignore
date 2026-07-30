@@ -1,0 +1,27 @@
+# Rust
+/target
+**/*.rs.bk
+
+# Node / Vite
+**/node_modules
+apps/landing/dist
+apps/docs/dist
+**/*.tsbuildinfo
+
+# Note: apps/web/dist IS committed. It is embedded into the daemon binary by
+# rust-embed, so committing the built dashboard means a fresh clone serves a
+# working UI without first running the web build. CI rebuilds it before release.
+
+# Tooling
+.vercel
+packages/npm/bin/trace
+packages/npm/bin/trace.exe
+
+# OS / editor
+.DS_Store
+*.log
+
+# Secrets — never commit
+.env
+.env.local
+.env.*.local

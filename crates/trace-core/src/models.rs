@@ -1,0 +1,485 @@
+//! Core data models and event types shared across the CLI, daemon, and core.
+//!
+//! These types are the wire format for the local API and the row shape for the
+//! SQLite tables. Keep them serializable and free of behaviour.
+
+use serde::{Deserialize, Serialize};
+
+/// Lifecycle status of a monitored run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RunStatus {
+    Running,
+    Completed,
+    Failed,
+    Blocked,
+    RolledBack,
+}
+
+impl RunStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RunStatus::Running => "running",
+            RunStatus::Completed => "completed",
+            RunStatus::Failed => "failed",
+            RunStatus::Blocked => "blocked",
+            RunStatus::RolledBack => "rolled_back",
+        }
+    }
+
+    #[allow(clippy::should_implement_trait)]
+    pub fn from_str(s: &str) -> RunStatus {
+        match s {
+            "completed" => RunStatus::Completed,
+            "failed" => RunStatus::Failed,
+            "blocked" => RunStatus::Blocked,
+            "rolled_back" => RunStatus::RolledBack,
+            _ => RunStatus::Running,
+        }
+    }
+}
+
+/// A registered project.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Project {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub config_path: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// A single monitored session.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Run {
+    pub id: String,
+    pub project_id: String,
+    pub command: String,
+    pub agent_name: Option<String>,
+    pub user_prompt: Option<String>,
+    pub started_at: String,
+    pub ended_at: Option<String>,
+    pub starting_commit: Option<String>,
+    pub ending_commit: Option<String>,
+    pub status: String,
+    pub exit_code: Option<i64>,
+    pub created_at: String,
+}
+
+/// Request body to create a run.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewRun {
+    pub project_id: String,
+    pub command: String,
+    pub agent_name: Option<String>,
+    pub user_prompt: Option<String>,
+    pub starting_commit: Option<String>,
+}
+
+/// Request body to register/upsert a project.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewProject {
+    pub name: String,
+    pub path: String,
+    pub config_path: String,
+}
+
+/// Categories of timeline events. Stored as `type` on the events table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EventType {
+    RunCreated,
+    CheckpointCreated,
+    CommandStarted,
+    FileCreated,
+    FileModified,
+    FileDeleted,
+    RiskyCommandWarned,
+    RiskyCommandBlocked,
+    CommandApproved,
+    SecretWarning,
+    ApiUsageRecorded,
+    BuildStarted,
+    BuildFailed,
+    BuildPassed,
+    TestsPassed,
+    TestsFailed,
+    FinalDiffCaptured,
+    RunCompleted,
+    RunFailed,
+    RollbackCreated,
+    RollbackCompleted,
+    Note,
+
+    // --- Unified adapter event vocabulary (see core::adapter) ---
+    // Every adapter (Claude today; Cursor/Codex/etc. later) emits from this
+    // same set, so the replay engine and dashboard never special-case an
+    // agent. Some overlap with the events above is intentional: those
+    // predate the adapter system and are kept so existing runs/dashboards
+    // don't need a migration.
+    SessionStarted,
+    SessionEnded,
+    PromptSubmitted,
+    PromptFinished,
+    ToolCallStarted,
+    ToolCallFinished,
+    CommandOutput,
+    FileOpened,
+    DirectoryCreated,
+    DirectoryDeleted,
+    GitStatusChanged,
+    CommitDetected,
+    BranchChanged,
+    TestsStarted,
+    AgentIdle,
+    AgentThinking,
+    ReplayMarker,
+    RiskDetected,
+}
+
+impl EventType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            EventType::RunCreated => "run_created",
+            EventType::CheckpointCreated => "checkpoint_created",
+            EventType::CommandStarted => "command_started",
+            EventType::FileCreated => "file_created",
+            EventType::FileModified => "file_modified",
+            EventType::FileDeleted => "file_deleted",
+            EventType::RiskyCommandWarned => "risky_command_warned",
+            EventType::RiskyCommandBlocked => "risky_command_blocked",
+            EventType::CommandApproved => "command_approved",
+            EventType::SecretWarning => "secret_warning",
+            EventType::ApiUsageRecorded => "api_usage_recorded",
+            EventType::BuildStarted => "build_started",
+            EventType::BuildFailed => "build_failed",
+            EventType::BuildPassed => "build_passed",
+            EventType::TestsPassed => "tests_passed",
+            EventType::TestsFailed => "tests_failed",
+            EventType::FinalDiffCaptured => "final_diff_captured",
+            EventType::RunCompleted => "run_completed",
+            EventType::RunFailed => "run_failed",
+            EventType::RollbackCreated => "rollback_created",
+            EventType::RollbackCompleted => "rollback_completed",
+            EventType::Note => "note",
+            EventType::SessionStarted => "session_started",
+            EventType::SessionEnded => "session_ended",
+            EventType::PromptSubmitted => "prompt_submitted",
+            EventType::PromptFinished => "prompt_finished",
+            EventType::ToolCallStarted => "tool_call_started",
+            EventType::ToolCallFinished => "tool_call_finished",
+            EventType::CommandOutput => "command_output",
+            EventType::FileOpened => "file_opened",
+            EventType::DirectoryCreated => "directory_created",
+            EventType::DirectoryDeleted => "directory_deleted",
+            EventType::GitStatusChanged => "git_status_changed",
+            EventType::CommitDetected => "commit_detected",
+            EventType::BranchChanged => "branch_changed",
+            EventType::TestsStarted => "tests_started",
+            EventType::AgentIdle => "agent_idle",
+            EventType::AgentThinking => "agent_thinking",
+            EventType::ReplayMarker => "replay_marker",
+            EventType::RiskDetected => "risk_detected",
+        }
+    }
+}
+
+/// A timeline event.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Event {
+    pub id: String,
+    pub run_id: String,
+    #[serde(rename = "type")]
+    pub event_type: String,
+    pub message: String,
+    pub metadata_json: Option<String>,
+    pub created_at: String,
+}
+
+/// Body for appending an event.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewEvent {
+    #[serde(rename = "type")]
+    pub event_type: String,
+    pub message: String,
+    pub metadata_json: Option<String>,
+}
+
+/// How a file changed, derived from the final git diff (source of truth).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ChangeType {
+    Created,
+    Modified,
+    Deleted,
+    Renamed,
+}
+
+impl ChangeType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ChangeType::Created => "created",
+            ChangeType::Modified => "modified",
+            ChangeType::Deleted => "deleted",
+            ChangeType::Renamed => "renamed",
+        }
+    }
+
+    /// The vocabulary `policy.rs`'s checks actually match against — the same
+    /// one GitHub's own PR-files API uses ("added"/"removed", not
+    /// "created"/"deleted"). `as_str()` above is for display/storage; this
+    /// is for anything that feeds `policy::FileDiff.status`. Keeping these
+    /// separate rather than changing `as_str()` avoids a silent behavior
+    /// change everywhere `as_str()` is already used for display/persistence.
+    pub fn as_diff_status(&self) -> &'static str {
+        match self {
+            ChangeType::Created => "added",
+            ChangeType::Modified => "modified",
+            ChangeType::Deleted => "removed",
+            ChangeType::Renamed => "renamed",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileChange {
+    pub id: String,
+    pub run_id: String,
+    pub path: String,
+    pub change_type: String,
+    pub diff_summary: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewFileChange {
+    pub path: String,
+    pub change_type: String,
+    pub diff_summary: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommandRecord {
+    pub id: String,
+    pub run_id: String,
+    pub command: String,
+    pub decision: String,
+    pub exit_code: Option<i64>,
+    pub stdout_path: Option<String>,
+    pub stderr_path: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewCommand {
+    pub command: String,
+    pub decision: String,
+    pub exit_code: Option<i64>,
+    pub stdout_path: Option<String>,
+    pub stderr_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecretRecord {
+    pub id: String,
+    pub run_id: String,
+    pub file_path: Option<String>,
+    pub secret_type: String,
+    pub redacted_value: String,
+    pub action_taken: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewSecret {
+    pub file_path: Option<String>,
+    pub secret_type: String,
+    pub redacted_value: String,
+    pub action_taken: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApiUsage {
+    pub id: String,
+    pub run_id: String,
+    pub provider: String,
+    pub model: String,
+    pub input_tokens: Option<i64>,
+    pub output_tokens: Option<i64>,
+    pub cached_tokens: Option<i64>,
+    pub estimated_cost: Option<f64>,
+    pub latency_ms: Option<i64>,
+    pub created_at: String,
+}
+
+/// Token/run totals for one agent, across every run that ever recorded
+/// API usage — the "how much have I used Claude Code vs Codex" breakdown.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentTokenStats {
+    pub agent_name: String,
+    pub run_count: i64,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub estimated_cost: f64,
+}
+
+/// Usage analytics across every run ever recorded, computed from real data
+/// (no telemetry, no network — this is a local SQLite aggregate query).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnalyticsSummary {
+    pub total_runs: i64,
+    pub first_run_at: Option<String>,
+    /// Average runs per hour/day/week/month since the first recorded run.
+    /// `None` when there isn't enough history yet (fewer than 2 runs, or
+    /// the first run was less than an hour ago).
+    pub avg_per_hour: Option<f64>,
+    pub avg_per_day: Option<f64>,
+    pub avg_per_week: Option<f64>,
+    pub avg_per_month: Option<f64>,
+    pub by_agent: Vec<AgentTokenStats>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewApiUsage {
+    pub provider: String,
+    pub model: String,
+    pub input_tokens: Option<i64>,
+    pub output_tokens: Option<i64>,
+    pub cached_tokens: Option<i64>,
+    pub estimated_cost: Option<f64>,
+    pub latency_ms: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Checkpoint {
+    pub id: String,
+    pub run_id: String,
+    pub project_id: String,
+    pub git_ref: Option<String>,
+    pub checkpoint_type: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewCheckpoint {
+    pub project_id: String,
+    pub git_ref: Option<String>,
+    pub checkpoint_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TestResult {
+    pub id: String,
+    pub run_id: String,
+    pub command: String,
+    pub status: String,
+    pub output_summary: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewTestResult {
+    pub command: String,
+    pub status: String,
+    pub output_summary: Option<String>,
+}
+
+/// Aggregated counts shown on a run card.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RunSummary {
+    #[serde(flatten)]
+    pub run: Run,
+    pub project_name: String,
+    pub files_changed: i64,
+    pub command_count: i64,
+    pub secret_warnings: i64,
+    pub estimated_cost: Option<f64>,
+    pub checks_status: Option<String>,
+}
+
+// --- Policy findings, judge verdicts, and prompt events --------------------
+// Storage-layer records for the deterministic policy engine (policy.rs) and
+// the 3-LLM consensus judge (judge.rs). Kept as plain-string severity/decision
+// fields here (rather than the typed enums used in policy.rs/judge.rs/guard.rs)
+// since these are wire/row shapes read straight off SQLite and serialized
+// straight to the dashboard — the typed enums are the source of truth when a
+// finding or verdict is first produced.
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PolicyFindingRecord {
+    pub id: String,
+    pub run_id: String,
+    pub rule_key: String,
+    pub title: String,
+    pub description: String,
+    pub file_path: Option<String>,
+    pub severity: String,
+    pub confidence: f64,
+    pub source: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JudgeVoteRecord {
+    pub id: String,
+    pub verdict_id: String,
+    pub provider: String,
+    pub model: String,
+    pub decision: String,
+    pub confidence: f64,
+    pub reasoning: String,
+    pub error: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JudgeVerdictRecord {
+    pub id: String,
+    pub run_id: String,
+    pub subject: String,
+    pub consensus: String,
+    pub confidence: f64,
+    pub agreement: f64,
+    pub summary: String,
+    /// "agent_prompted" | "flagged_only" — see JudgeSettings::model_prompting_mode.
+    pub action_taken: String,
+    pub created_at: String,
+    #[serde(default)]
+    pub votes: Vec<JudgeVoteRecord>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewPromptEvent {
+    pub prompt_text: String,
+    pub word_count: i64,
+    /// JSON-encoded array of detected pattern tags, e.g. `["vague","too_short"]`.
+    pub patterns_json: String,
+    pub clarity_score: f64,
+    pub led_to_flag: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptEventRecord {
+    pub id: String,
+    pub run_id: String,
+    pub prompt_text: String,
+    pub word_count: i64,
+    pub patterns_json: String,
+    pub clarity_score: f64,
+    pub led_to_flag: bool,
+    pub created_at: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DoctrineRuleRecord {
+    pub id: String,
+    pub project_id: String,
+    pub rule_key: String,
+    pub rule_text: String,
+    pub category: String,
+    pub strength: String,
+    pub confidence: f64,
+    pub supporting_evidence_json: String,
+    pub created_at: String,
+}

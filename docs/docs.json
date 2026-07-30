@@ -1,0 +1,57 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Trace",
+  "colors": {
+    "primary": "#4493f8",
+    "light": "#4493f8",
+    "dark": "#0d1117"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": ["overview", "installation", "quickstart"]
+      },
+      {
+        "group": "Using Trace",
+        "pages": [
+          "cli-commands",
+          "local-dashboard",
+          "agent-runs",
+          "command-guarding",
+          "secret-detection",
+          "cost-tracking",
+          "patch-review",
+          "rollback"
+        ]
+      },
+      {
+        "group": "Integrations",
+        "pages": [
+          "integrations/overview",
+          "integrations/github",
+          "integrations/claude",
+          "integrations/codex",
+          "integrations/vscode",
+          "integrations/cursor"
+        ]
+      },
+      {
+        "group": "Reference",
+        "pages": [
+          "configuration",
+          "troubleshooting",
+          "limitations",
+          "security-model",
+          "versioning",
+          "release-notes"
+        ]
+      }
+    ]
+  },
+  "footerSocials": {
+    "github": "https://github.com/TaxCollector23/trace"
+  }
+}

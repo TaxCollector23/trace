@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-bg text-text font-sans antialiased;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Instrument Serif ships italic-capable but the tall x-height needs breathing
+   room — every heading gets extra line-height so ascenders/descenders don't
+   crowd the line above or below. */
+.font-serif {
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: #2f6fed26;
+  color: #0b0c0f;
+}
+
+:focus-visible {
+  outline: 2px solid #2f6fed;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+code,
+pre {
+  @apply font-mono;
+}
+
+/* Shared button/card feel: a quick, springy press instead of a static hover. */
+.btn-pop {
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease, background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.btn-pop:hover {
+  transform: translateY(-1px);
+}
+.btn-pop:active {
+  transform: translateY(0) scale(0.97);
+}
+
+.card-lift {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(15, 15, 20, 0.1);
+}
+
+@keyframes rec-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.rec-dot {
+  animation: rec-dot 1.8s ease-in-out infinite;
+}

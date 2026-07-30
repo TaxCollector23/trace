@@ -1,0 +1,70 @@
+---
+title: Release Notes
+description: Trace changelog.
+---
+
+## v1.1 — Rebrand to Trace, TraceCompress removed
+
+- Renamed the project from **TraceGuard** to **Trace**. The binary is now
+  `trace` (previously `trg`, with `traceguard` as a long alias — both are
+  gone).
+- Removed **TraceCompress** (prompt compression, output-budget presets, and
+  the `compress-prompt` / `run --compress` commands) and the agent-launching
+  surface (`agents`, `use`, `launch`, `guard`, `rules`). Trace is scoped to
+  recording, guarding, and reviewing agent runs.
+- Global directory moved to `~/.trace` (database `trace.db`); per-project
+  directory moved to `<project>/.trace`.
+- GitHub repo, Docs Pages, Homebrew tap, and npm package all moved to the
+  `trace` name.
+- **GitHub**: read directly from the repo (including private) via `trace
+  github` and the dashboard GitHub page.
+- **Docs** moved to GitHub Pages; **landing** with OS-aware install.
+- Homebrew tap, install scripts, npm wrapper, `trace update`.
+
+## Earlier — pre-rebrand groundwork (as TraceGuard)
+
+- **TraceCompress**: prompt compression + output discipline (since removed —
+  see above).
+  - Modes: Normal, Concise, Bare Mode (strict response rules).
+  - Preserved-constraints checklist, removed-redundancy summary, conflict
+    detection, response-rules block, output-budget presets (Tiny/Short/Normal/Detailed).
+  - CLI: `trg compress-prompt --mode <m> [--output-budget <p>]` and
+    `trg run --compress`.
+  - Dashboard: **Prompt Compressor** page.
+  - Privacy: `[prompt_compression]` config; `prompt_history = false` stores only
+    estimates + metadata, never raw prompt text. External-LLM compression was
+    opt-in.
+  - New endpoints under `/api/prompt-compressor/*`.
+- `trg update` self-update command.
+- MIT `LICENSE` added.
+
+## v0.1.0 — Local-first MVP (as TraceGuard)
+
+Initial release.
+
+**Core**
+- `trg` CLI: `init`, `run`, `dashboard`, `rollback`, `compress-prompt`,
+  `daemon start|stop|status`.
+- Local Axum daemon bound to `127.0.0.1`, port discovery from `8757`.
+- Local SQLite persistence and the local React dashboard (Dashboard, Run
+  Timeline, Patch Review, Cost Center, Risk Center, Rollback Center, Utilities).
+
+**Monitoring**
+- Run recording with checkpoints, file watching, command output capture.
+- Git checkpoints and Git-based rollback.
+- Rule-based command guarding (allow / warn / require approval / block).
+- Local secret detection with redaction.
+- Cost tracking schema with honest partial-data handling.
+- Deterministic patch diagnosis.
+
+**Productivity**
+- Prompt Compressor (local, deterministic) and output-budget controls.
+
+**Surfaces**
+- Public landing site (`apps/landing`, Vercel).
+- Mintlify documentation.
+- Integration scaffolds: GitHub, Claude Code, Codex, VS Code, Cursor.
+- Installers: Homebrew tap, shell script, PowerShell script, optional npm
+  wrapper.
+
+> Dates and versions are updated as releases are tagged.

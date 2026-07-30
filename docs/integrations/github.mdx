@@ -1,0 +1,71 @@
+---
+title: GitHub
+description: GitHub App and Actions integration with sanitized summaries.
+---
+
+The GitHub integration has four surfaces, kept realistically scoped.
+
+## 1. GitHub App
+
+The App (planned scope) listens for repository events and posts Trace
+summaries as PR check results:
+
+- `pull_request` opened / synchronized
+- `push`
+- creates a **check run** with a Trace summary
+- links a local Trace run to a commit SHA
+- shows changed files and warnings as the check result
+
+See `integrations/github/app/` for the manifest and event-handler skeleton.
+
+## 2. GitHub Actions
+
+Run Trace in CI to flag risky diffs and secret-like changes:
+
+```yaml
+- uses: TaxCollector23/trace/integrations/github@main
+  with:
+    checks: "npm run build, npm test"
+```
+
+The action:
+
+- runs configured checks
+- scans the diff for risky changes and secret-like content
+- uploads a **sanitized** Trace summary artifact
+- creates a status / check result
+
+## 3. Pull request checks
+
+The sanitized summary surfaces as a PR check: counts of files changed,
+risky-command flags, redacted secret findings, and check pass/fail.
+
+## 4. Read directly from the repo (including private)
+
+Trace can read your project's GitHub repository directly — **even when it is
+private** — via the GitHub REST API. It is read-only and the token is only ever
+sent to `api.github.com`.
+
+Token resolution order:
+
+1. `GITHUB_TOKEN` / `GH_TOKEN` environment variables
+2. `gh auth token` (the GitHub CLI's stored credential)
+3. `~/.trace/github.json` → `{ "token": "ghp_..." }`
+
+```bash
+trace github status              # who am I, which repo, public/private
+trace github commits --limit 10  # commits from the remote
+trace github pulls               # open PRs
+trace github cat src/auth.ts     # file contents from the remote (private OK)
+```
+
+The dashboard's **GitHub** page shows the same data and includes a file reader.
+For private repos, ensure one of the token sources above is set (e.g.
+`gh auth login`).
+
+## What is never uploaded
+
+<Warning>
+The GitHub integration uploads **only sanitized summaries**. It never uploads
+raw project files, raw secrets, or your local SQLite database.
+</Warning>

@@ -1,0 +1,6 @@
+{
+  "//": "Reserve the closest available site id for the new 'trace' brand: trace.web.app / trace.firebaseapp.com. Fallbacks: trace-app, trace-dev, trace-cli. This project was previously reserved as 'traceguard-app' under the old name; create/rename the Firebase project and update 'default' below to match.",
+  "projects": {
+    "default": "traceguard-app"
+  }
+}

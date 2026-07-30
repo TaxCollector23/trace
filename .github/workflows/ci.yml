@@ -1,0 +1,103 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, test)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: rustfmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy --workspace --exclude trace-desktop --all-targets -- -D warnings
+      - name: test
+        run: cargo test --workspace --exclude trace-desktop
+
+  desktop:
+    name: Desktop shell (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            name: macOS
+          - os: windows-latest
+            name: Windows
+          - os: ubuntu-latest
+            name: Linux
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # Tauri's Linux backend is WebKitGTK; the macOS and Windows runners
+      # already ship what they need (WebKit and WebView2 respectively).
+      - name: install Linux system dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf build-essential libssl-dev libgtk-3-dev file
+      - name: build dashboard (frontend served by the desktop shell)
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run build
+      - name: build desktop shell
+        run: cargo build -p trace-desktop
+
+  web:
+    name: Dashboard build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: build dashboard
+        working-directory: apps/web
+        run: |
+          npm ci
+          npm run build
+
+  landing:
+    name: Landing build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: build landing
+        working-directory: apps/landing
+        run: |
+          npm ci
+          npm run build
+
+  installers:
+    name: Installer validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: shellcheck / syntax
+        run: |
+          sh -n scripts/install.sh
+          bash -n integrations/github/scripts/ci-scan.sh
+          bash -n integrations/claude/trace-hook.sh
+      - name: node syntax checks
+        run: |
+          node --check integrations/vscode/extension.js
+          node --check integrations/cursor/src/index.js
+          node --check packages/npm/bin/trace.js

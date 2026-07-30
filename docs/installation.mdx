@@ -1,0 +1,63 @@
+---
+title: Installation
+description: Install the trace CLI on macOS, Linux, or Windows.
+---
+
+Trace ships a single binary, `trace`.
+
+## macOS (Homebrew, recommended)
+
+```bash
+brew tap TaxCollector23/trace
+brew install trace
+```
+
+Update later with `brew upgrade trace`.
+
+## macOS / Linux (shell script)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh
+```
+
+This downloads the correct binary for your OS and architecture, installs it to
+`~/.trace/bin/trace`, marks it executable, and prints PATH instructions if
+needed.
+
+## Windows
+
+```powershell
+irm https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.ps1 | iex
+```
+
+This installs `trace.exe` to `%USERPROFILE%\.trace\bin\trace.exe` and updates
+your user PATH. Open a new terminal afterwards.
+
+## npm (optional fallback)
+
+```bash
+npm install -g trace
+```
+
+## Verify
+
+```bash
+trace --version
+trace --help
+```
+
+## Build from source
+
+You need Rust and Node.js.
+
+```bash
+git clone https://github.com/TaxCollector23/trace
+cd trace
+
+# Build the dashboard (embedded into the daemon in release builds)
+cd apps/web && npm install && npm run build && cd ../..
+
+# Build the CLI (the binary is named `trace`)
+cargo build --release -p trace-cli
+./target/release/trace --help
+```

@@ -1,0 +1,17 @@
+{
+  "name": "Trace",
+  "url": "https://github.com/TaxCollector23/trace",
+  "hook_attributes": {
+    "url": "https://example.invalid/replace-with-your-webhook"
+  },
+  "redirect_url": "https://github.com/TaxCollector23/trace",
+  "public": false,
+  "default_permissions": {
+    "checks": "write",
+    "pull_requests": "read",
+    "contents": "read",
+    "metadata": "read"
+  },
+  "default_events": ["pull_request", "push", "check_run"],
+  "description": "Trace posts sanitized run summaries as PR checks. It never reads or uploads raw secrets or your local database."
+}

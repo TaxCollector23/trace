@@ -1,0 +1,1106 @@
+//! SQLite persistence layer and schema for Trace.
+//!
+//! The daemon owns the database in normal operation; this module is the single
+//! place that knows the schema so the CLI and daemon never diverge.
+
+use anyhow::{Context, Result};
+use rusqlite::{params, Connection, OptionalExtension};
+
+use crate::ids::new_id;
+use crate::models::*;
+use crate::time::now_rfc3339;
+
+/// Embedded schema. Applied idempotently on every open.
+const SCHEMA: &str = r#"
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS projects (
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
+    path        TEXT NOT NULL UNIQUE,
+    config_path TEXT NOT NULL,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS runs (
+    id              TEXT PRIMARY KEY,
+    project_id      TEXT NOT NULL REFERENCES projects(id),
+    command         TEXT NOT NULL,
+    agent_name      TEXT,
+    user_prompt     TEXT,
+    started_at      TEXT NOT NULL,
+    ended_at        TEXT,
+    starting_commit TEXT,
+    ending_commit   TEXT,
+    status          TEXT NOT NULL,
+    exit_code       INTEGER,
+    created_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS events (
+    id            TEXT PRIMARY KEY,
+    run_id        TEXT NOT NULL REFERENCES runs(id),
+    type          TEXT NOT NULL,
+    message       TEXT NOT NULL,
+    metadata_json TEXT,
+    created_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS file_changes (
+    id           TEXT PRIMARY KEY,
+    run_id       TEXT NOT NULL REFERENCES runs(id),
+    path         TEXT NOT NULL,
+    change_type  TEXT NOT NULL,
+    diff_summary TEXT,
+    created_at   TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS commands (
+    id          TEXT PRIMARY KEY,
+    run_id      TEXT NOT NULL REFERENCES runs(id),
+    command     TEXT NOT NULL,
+    decision    TEXT NOT NULL,
+    exit_code   INTEGER,
+    stdout_path TEXT,
+    stderr_path TEXT,
+    created_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS secrets (
+    id            TEXT PRIMARY KEY,
+    run_id        TEXT NOT NULL REFERENCES runs(id),
+    file_path     TEXT,
+    secret_type   TEXT NOT NULL,
+    redacted_value TEXT NOT NULL,
+    action_taken  TEXT NOT NULL,
+    created_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS api_usage (
+    id             TEXT PRIMARY KEY,
+    run_id         TEXT NOT NULL REFERENCES runs(id),
+    provider       TEXT NOT NULL,
+    model          TEXT NOT NULL,
+    input_tokens   INTEGER,
+    output_tokens  INTEGER,
+    cached_tokens  INTEGER,
+    estimated_cost REAL,
+    latency_ms     INTEGER,
+    created_at     TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS checkpoints (
+    id              TEXT PRIMARY KEY,
+    run_id          TEXT NOT NULL REFERENCES runs(id),
+    project_id      TEXT NOT NULL REFERENCES projects(id),
+    git_ref         TEXT,
+    checkpoint_type TEXT NOT NULL,
+    created_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS test_results (
+    id             TEXT PRIMARY KEY,
+    run_id         TEXT NOT NULL REFERENCES runs(id),
+    command        TEXT NOT NULL,
+    status         TEXT NOT NULL,
+    output_summary TEXT,
+    created_at     TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS policy_findings (
+    id          TEXT PRIMARY KEY,
+    run_id      TEXT NOT NULL REFERENCES runs(id),
+    rule_key    TEXT NOT NULL,
+    title       TEXT NOT NULL,
+    description TEXT NOT NULL,
+    file_path   TEXT,
+    severity    TEXT NOT NULL,
+    confidence  REAL NOT NULL,
+    source      TEXT NOT NULL,
+    created_at  TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS judge_verdicts (
+    id         TEXT PRIMARY KEY,
+    run_id     TEXT NOT NULL REFERENCES runs(id),
+    subject    TEXT NOT NULL,
+    consensus  TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    agreement  REAL NOT NULL,
+    summary    TEXT NOT NULL,
+    -- What actually happened as a result: 'flagged_only' (Model Prompting Mode
+    -- off) or 'agent_prompted' (on) — surfaced directly on the dashboard.
+    action_taken TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS judge_votes (
+    id         TEXT PRIMARY KEY,
+    verdict_id TEXT NOT NULL REFERENCES judge_verdicts(id),
+    provider   TEXT NOT NULL,
+    model      TEXT NOT NULL,
+    decision   TEXT NOT NULL,
+    confidence REAL NOT NULL,
+    reasoning  TEXT NOT NULL,
+    error      TEXT,
+    created_at TEXT NOT NULL
+);
+
+-- One row per user prompt sent to a coding agent. Populated by the CLI
+-- adapters (they already see the prompt to start a run) and scored by the
+-- prompting-analytics engine for the dashboard's coaching view.
+CREATE TABLE IF NOT EXISTS prompt_events (
+    id            TEXT PRIMARY KEY,
+    run_id        TEXT NOT NULL REFERENCES runs(id),
+    prompt_text   TEXT NOT NULL,
+    word_count    INTEGER NOT NULL,
+    -- JSON array of detected pattern tags, e.g. ["vague","open_ended"].
+    patterns_json TEXT NOT NULL,
+    clarity_score REAL NOT NULL,
+    led_to_flag   INTEGER NOT NULL DEFAULT 0,
+    created_at    TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS doctrine_rules (
+    id                  TEXT PRIMARY KEY,
+    project_id          TEXT NOT NULL REFERENCES projects(id),
+    rule_key            TEXT NOT NULL,
+    rule_text           TEXT NOT NULL,
+    category            TEXT NOT NULL,
+    strength            TEXT NOT NULL,
+    confidence          REAL NOT NULL,
+    supporting_evidence_json TEXT NOT NULL,
+    created_at          TEXT NOT NULL,
+    UNIQUE(project_id, rule_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_runs_project ON runs(project_id);
+CREATE INDEX IF NOT EXISTS idx_events_run ON events(run_id);
+CREATE INDEX IF NOT EXISTS idx_file_changes_run ON file_changes(run_id);
+CREATE INDEX IF NOT EXISTS idx_commands_run ON commands(run_id);
+CREATE INDEX IF NOT EXISTS idx_secrets_run ON secrets(run_id);
+CREATE INDEX IF NOT EXISTS idx_api_usage_run ON api_usage(run_id);
+CREATE INDEX IF NOT EXISTS idx_checkpoints_run ON checkpoints(run_id);
+CREATE INDEX IF NOT EXISTS idx_test_results_run ON test_results(run_id);
+CREATE INDEX IF NOT EXISTS idx_policy_findings_run ON policy_findings(run_id);
+CREATE INDEX IF NOT EXISTS idx_judge_verdicts_run ON judge_verdicts(run_id);
+CREATE INDEX IF NOT EXISTS idx_judge_votes_verdict ON judge_votes(verdict_id);
+CREATE INDEX IF NOT EXISTS idx_prompt_events_run ON prompt_events(run_id);
+CREATE INDEX IF NOT EXISTS idx_doctrine_rules_project ON doctrine_rules(project_id);
+"#;
+
+/// Thin wrapper around a SQLite connection that exposes typed operations.
+pub struct Store {
+    conn: Connection,
+}
+
+impl Store {
+    /// Open (creating if needed) the database at `path` and apply the schema.
+    pub fn open(path: &std::path::Path) -> Result<Self> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("creating db dir {}", parent.display()))?;
+        }
+        let conn = Connection::open(path)
+            .with_context(|| format!("opening sqlite db {}", path.display()))?;
+        conn.execute_batch(SCHEMA).context("applying schema")?;
+        Ok(Store { conn })
+    }
+
+    /// Open an in-memory database (used in tests).
+    pub fn open_in_memory() -> Result<Self> {
+        let conn = Connection::open_in_memory()?;
+        conn.execute_batch(SCHEMA).context("applying schema")?;
+        Ok(Store { conn })
+    }
+
+    // --- Projects ---------------------------------------------------------
+
+    /// Insert a project, or update its name/config/timestamp if the path exists.
+    pub fn upsert_project(&self, new: &NewProject) -> Result<Project> {
+        let now = now_rfc3339();
+        if let Some(existing) = self.project_by_path(&new.path)? {
+            self.conn.execute(
+                "UPDATE projects SET name = ?1, config_path = ?2, updated_at = ?3 WHERE id = ?4",
+                params![new.name, new.config_path, now, existing.id],
+            )?;
+            return self
+                .project_by_id(&existing.id)?
+                .context("project vanished after update");
+        }
+        let id = new_id();
+        self.conn.execute(
+            "INSERT INTO projects (id, name, path, config_path, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+            params![id, new.name, new.path, new.config_path, now],
+        )?;
+        self.project_by_id(&id)?
+            .context("project vanished after insert")
+    }
+
+    pub fn project_by_id(&self, id: &str) -> Result<Option<Project>> {
+        self.conn
+            .query_row(
+                "SELECT id, name, path, config_path, created_at, updated_at FROM projects WHERE id = ?1",
+                params![id],
+                map_project,
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    pub fn project_by_path(&self, path: &str) -> Result<Option<Project>> {
+        self.conn
+            .query_row(
+                "SELECT id, name, path, config_path, created_at, updated_at FROM projects WHERE path = ?1",
+                params![path],
+                map_project,
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    pub fn list_projects(&self) -> Result<Vec<Project>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, path, config_path, created_at, updated_at FROM projects ORDER BY updated_at DESC",
+        )?;
+        let rows = stmt.query_map([], map_project)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    // --- Runs -------------------------------------------------------------
+
+    pub fn create_run(&self, new: &NewRun) -> Result<Run> {
+        let id = new_id();
+        let now = now_rfc3339();
+        self.conn.execute(
+            "INSERT INTO runs (id, project_id, command, agent_name, user_prompt, started_at,
+                ending_commit, starting_commit, status, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?8, ?6)",
+            params![
+                id,
+                new.project_id,
+                new.command,
+                new.agent_name,
+                new.user_prompt,
+                now,
+                new.starting_commit,
+                RunStatus::Running.as_str(),
+            ],
+        )?;
+        self.run_by_id(&id)?.context("run vanished after insert")
+    }
+
+    pub fn run_by_id(&self, id: &str) -> Result<Option<Run>> {
+        self.conn
+            .query_row(
+                "SELECT id, project_id, command, agent_name, user_prompt, started_at, ended_at,
+                    starting_commit, ending_commit, status, exit_code, created_at
+                 FROM runs WHERE id = ?1",
+                params![id],
+                map_run,
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    pub fn list_runs(&self, limit: i64) -> Result<Vec<Run>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, project_id, command, agent_name, user_prompt, started_at, ended_at,
+                starting_commit, ending_commit, status, exit_code, created_at
+             FROM runs ORDER BY started_at DESC LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![limit], map_run)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    /// Finalize a run with status, exit code, and ending commit.
+    pub fn finish_run(
+        &self,
+        run_id: &str,
+        status: RunStatus,
+        exit_code: Option<i64>,
+        ending_commit: Option<&str>,
+    ) -> Result<()> {
+        self.conn.execute(
+            "UPDATE runs SET status = ?1, exit_code = ?2, ending_commit = ?3, ended_at = ?4 WHERE id = ?5",
+            params![status.as_str(), exit_code, ending_commit, now_rfc3339(), run_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_run_status(&self, run_id: &str, status: RunStatus) -> Result<()> {
+        self.conn.execute(
+            "UPDATE runs SET status = ?1 WHERE id = ?2",
+            params![status.as_str(), run_id],
+        )?;
+        Ok(())
+    }
+
+    // --- Events -----------------------------------------------------------
+
+    pub fn add_event(&self, run_id: &str, new: &NewEvent) -> Result<Event> {
+        let id = new_id();
+        let now = now_rfc3339();
+        self.conn.execute(
+            "INSERT INTO events (id, run_id, type, message, metadata_json, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                id,
+                run_id,
+                new.event_type,
+                new.message,
+                new.metadata_json,
+                now
+            ],
+        )?;
+        Ok(Event {
+            id,
+            run_id: run_id.to_string(),
+            event_type: new.event_type.clone(),
+            message: new.message.clone(),
+            metadata_json: new.metadata_json.clone(),
+            created_at: now,
+        })
+    }
+
+    pub fn list_events(&self, run_id: &str) -> Result<Vec<Event>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, type, message, metadata_json, created_at
+             FROM events WHERE run_id = ?1 ORDER BY created_at ASC, rowid ASC",
+        )?;
+        let rows = stmt.query_map(params![run_id], map_event)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    // --- File changes -----------------------------------------------------
+
+    pub fn add_file_change(&self, run_id: &str, new: &NewFileChange) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO file_changes (id, run_id, path, change_type, diff_summary, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                new_id(),
+                run_id,
+                new.path,
+                new.change_type,
+                new.diff_summary,
+                now_rfc3339()
+            ],
+        )?;
+        Ok(())
+    }
+
+    /// Replace all recorded file changes for a run (final diff is source of truth).
+    pub fn replace_file_changes(&self, run_id: &str, changes: &[NewFileChange]) -> Result<()> {
+        self.conn.execute(
+            "DELETE FROM file_changes WHERE run_id = ?1",
+            params![run_id],
+        )?;
+        for c in changes {
+            self.add_file_change(run_id, c)?;
+        }
+        Ok(())
+    }
+
+    pub fn list_file_changes(&self, run_id: &str) -> Result<Vec<FileChange>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, path, change_type, diff_summary, created_at
+             FROM file_changes WHERE run_id = ?1 ORDER BY path ASC",
+        )?;
+        let rows = stmt.query_map(params![run_id], map_file_change)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    // --- Commands ---------------------------------------------------------
+
+    pub fn add_command(&self, run_id: &str, new: &NewCommand) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO commands (id, run_id, command, decision, exit_code, stdout_path, stderr_path, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![new_id(), run_id, new.command, new.decision, new.exit_code, new.stdout_path, new.stderr_path, now_rfc3339()],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_commands(&self, run_id: &str) -> Result<Vec<CommandRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, command, decision, exit_code, stdout_path, stderr_path, created_at
+             FROM commands WHERE run_id = ?1 ORDER BY created_at ASC",
+        )?;
+        let rows = stmt.query_map(params![run_id], map_command)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    // --- Secrets ----------------------------------------------------------
+
+    pub fn add_secret(&self, run_id: &str, new: &NewSecret) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO secrets (id, run_id, file_path, secret_type, redacted_value, action_taken, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![new_id(), run_id, new.file_path, new.secret_type, new.redacted_value, new.action_taken, now_rfc3339()],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_secrets(&self, run_id: &str) -> Result<Vec<SecretRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, file_path, secret_type, redacted_value, action_taken, created_at
+             FROM secrets WHERE run_id = ?1 ORDER BY created_at ASC",
+        )?;
+        let rows = stmt.query_map(params![run_id], map_secret)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    // --- API usage --------------------------------------------------------
+
+    pub fn add_api_usage(&self, run_id: &str, new: &NewApiUsage) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO api_usage (id, run_id, provider, model, input_tokens, output_tokens, cached_tokens, estimated_cost, latency_ms, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![new_id(), run_id, new.provider, new.model, new.input_tokens, new.output_tokens, new.cached_tokens, new.estimated_cost, new.latency_ms, now_rfc3339()],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_api_usage(&self, run_id: &str) -> Result<Vec<ApiUsage>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, provider, model, input_tokens, output_tokens, cached_tokens, estimated_cost, latency_ms, created_at
+             FROM api_usage WHERE run_id = ?1 ORDER BY created_at ASC",
+        )?;
+        let rows = stmt.query_map(params![run_id], map_api_usage)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    /// Usage analytics across every run: how often you run agents, and how
+    /// many tokens each one has burned. Computed with two aggregate queries
+    /// — no telemetry, this never leaves the local SQLite file.
+    pub fn analytics_summary(&self) -> Result<AnalyticsSummary> {
+        let total_runs: i64 = self
+            .conn
+            .query_row("SELECT COUNT(*) FROM runs", [], |r| r.get(0))?;
+        let first_run_at: Option<String> = self
+            .conn
+            .query_row("SELECT MIN(started_at) FROM runs", [], |r| r.get(0))?;
+
+        let (avg_per_hour, avg_per_day, avg_per_week, avg_per_month) = match &first_run_at {
+            Some(first) if total_runs > 1 => {
+                let elapsed_hours = chrono::DateTime::parse_from_rfc3339(first)
+                    .ok()
+                    .map(|start| {
+                        let hours = (chrono::Utc::now() - start.with_timezone(&chrono::Utc))
+                            .num_minutes() as f64
+                            / 60.0;
+                        hours.max(1.0)
+                    });
+                match elapsed_hours {
+                    Some(hours) => {
+                        let per_hour = total_runs as f64 / hours;
+                        (
+                            Some(per_hour),
+                            Some(per_hour * 24.0),
+                            Some(per_hour * 24.0 * 7.0),
+                            Some(per_hour * 24.0 * 30.0),
+                        )
+                    }
+                    None => (None, None, None, None),
+                }
+            }
+            _ => (None, None, None, None),
+        };
+
+        let mut stmt = self.conn.prepare(
+            "SELECT COALESCE(r.agent_name, 'unknown') AS agent,
+                    COUNT(DISTINCT r.id) AS run_count,
+                    COALESCE(SUM(u.input_tokens), 0) AS input_tokens,
+                    COALESCE(SUM(u.output_tokens), 0) AS output_tokens,
+                    COALESCE(SUM(u.estimated_cost), 0.0) AS estimated_cost
+             FROM runs r
+             JOIN api_usage u ON u.run_id = r.id
+             GROUP BY agent
+             ORDER BY (input_tokens + output_tokens) DESC",
+        )?;
+        let by_agent = stmt
+            .query_map([], |row| {
+                Ok(AgentTokenStats {
+                    agent_name: row.get(0)?,
+                    run_count: row.get(1)?,
+                    input_tokens: row.get(2)?,
+                    output_tokens: row.get(3)?,
+                    estimated_cost: row.get(4)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        Ok(AnalyticsSummary {
+            total_runs,
+            first_run_at,
+            avg_per_hour,
+            avg_per_day,
+            avg_per_week,
+            avg_per_month,
+            by_agent,
+        })
+    }
+
+    // --- Checkpoints ------------------------------------------------------
+
+    pub fn add_checkpoint(&self, run_id: &str, new: &NewCheckpoint) -> Result<Checkpoint> {
+        let id = new_id();
+        let now = now_rfc3339();
+        self.conn.execute(
+            "INSERT INTO checkpoints (id, run_id, project_id, git_ref, checkpoint_type, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                id,
+                run_id,
+                new.project_id,
+                new.git_ref,
+                new.checkpoint_type,
+                now
+            ],
+        )?;
+        Ok(Checkpoint {
+            id,
+            run_id: run_id.to_string(),
+            project_id: new.project_id.clone(),
+            git_ref: new.git_ref.clone(),
+            checkpoint_type: new.checkpoint_type.clone(),
+            created_at: now,
+        })
+    }
+
+    pub fn list_checkpoints(&self, run_id: &str) -> Result<Vec<Checkpoint>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, project_id, git_ref, checkpoint_type, created_at
+             FROM checkpoints WHERE run_id = ?1 ORDER BY created_at ASC",
+        )?;
+        let rows = stmt.query_map(params![run_id], map_checkpoint)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    /// All checkpoints across runs, most recent first (for the rollback center).
+    pub fn recent_checkpoints(&self, limit: i64) -> Result<Vec<Checkpoint>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, project_id, git_ref, checkpoint_type, created_at
+             FROM checkpoints ORDER BY created_at DESC LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![limit], map_checkpoint)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    // --- Test results -----------------------------------------------------
+
+    pub fn add_test_result(&self, run_id: &str, new: &NewTestResult) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO test_results (id, run_id, command, status, output_summary, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                new_id(),
+                run_id,
+                new.command,
+                new.status,
+                new.output_summary,
+                now_rfc3339()
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn list_test_results(&self, run_id: &str) -> Result<Vec<TestResult>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, command, status, output_summary, created_at
+             FROM test_results WHERE run_id = ?1 ORDER BY created_at ASC",
+        )?;
+        let rows = stmt.query_map(params![run_id], map_test_result)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    // --- Aggregates -------------------------------------------------------
+
+    /// Build a summary (counts + cost) for a run card.
+    pub fn run_summary(&self, run: &Run) -> Result<RunSummary> {
+        let project_name = self
+            .project_by_id(&run.project_id)?
+            .map(|p| p.name)
+            .unwrap_or_else(|| "Unknown project".to_string());
+
+        let files_changed: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM file_changes WHERE run_id = ?1",
+            params![run.id],
+            |r| r.get(0),
+        )?;
+        let command_count: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM commands WHERE run_id = ?1",
+            params![run.id],
+            |r| r.get(0),
+        )?;
+        let secret_warnings: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM secrets WHERE run_id = ?1",
+            params![run.id],
+            |r| r.get(0),
+        )?;
+        let estimated_cost: Option<f64> = self.conn.query_row(
+            "SELECT SUM(estimated_cost) FROM api_usage WHERE run_id = ?1",
+            params![run.id],
+            |r| r.get(0),
+        )?;
+        let checks_status: Option<String> = self.conn.query_row(
+            "SELECT status FROM test_results WHERE run_id = ?1 ORDER BY created_at DESC LIMIT 1",
+            params![run.id],
+            |r| r.get(0),
+        ).optional()?;
+
+        Ok(RunSummary {
+            run: run.clone(),
+            project_name,
+            files_changed,
+            command_count,
+            secret_warnings,
+            estimated_cost,
+            checks_status,
+        })
+    }
+
+    /// Summaries for the most recent runs.
+    pub fn recent_run_summaries(&self, limit: i64) -> Result<Vec<RunSummary>> {
+        let runs = self.list_runs(limit)?;
+        runs.iter().map(|r| self.run_summary(r)).collect()
+    }
+
+    // --- Policy findings (deterministic engine, ported from Ratify) -------
+
+    pub fn add_policy_findings(&self, run_id: &str, findings: &[crate::policy::PolicyFinding]) -> Result<()> {
+        for f in findings {
+            self.conn.execute(
+                "INSERT INTO policy_findings (id, run_id, rule_key, title, description, file_path, severity, confidence, source, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![
+                    new_id(),
+                    run_id,
+                    f.rule_key,
+                    f.title,
+                    f.description,
+                    f.file_path,
+                    f.severity.as_str(),
+                    f.confidence,
+                    f.source,
+                    now_rfc3339()
+                ],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn list_policy_findings(&self, run_id: &str) -> Result<Vec<PolicyFindingRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, rule_key, title, description, file_path, severity, confidence, source, created_at
+             FROM policy_findings WHERE run_id = ?1 ORDER BY created_at ASC",
+        )?;
+        let rows = stmt.query_map(params![run_id], map_policy_finding)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    // --- Judge verdicts (3-LLM consensus panel) ----------------------------
+
+    /// Persists a verdict and its votes, returning the verdict's row id.
+    /// `action_taken` is `"agent_prompted"` when Model Prompting Mode was on
+    /// and this verdict was actually sent back to the agent, or
+    /// `"flagged_only"` when it was only recorded for the dashboard.
+    pub fn save_judge_verdict(
+        &self,
+        run_id: &str,
+        subject: &str,
+        verdict: &crate::judge::JudgeVerdict,
+        action_taken: &str,
+    ) -> Result<String> {
+        let verdict_id = new_id();
+        self.conn.execute(
+            "INSERT INTO judge_verdicts (id, run_id, subject, consensus, confidence, agreement, summary, action_taken, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                verdict_id,
+                run_id,
+                subject,
+                verdict.consensus.as_str(),
+                verdict.confidence,
+                verdict.agreement,
+                verdict.summary,
+                action_taken,
+                now_rfc3339()
+            ],
+        )?;
+        for v in &verdict.votes {
+            self.conn.execute(
+                "INSERT INTO judge_votes (id, verdict_id, provider, model, decision, confidence, reasoning, error, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    new_id(),
+                    verdict_id,
+                    v.provider,
+                    v.model,
+                    v.decision.as_str(),
+                    v.confidence,
+                    v.reasoning,
+                    v.error,
+                    now_rfc3339()
+                ],
+            )?;
+        }
+        Ok(verdict_id)
+    }
+
+    pub fn list_judge_verdicts(&self, run_id: &str) -> Result<Vec<JudgeVerdictRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, subject, consensus, confidence, agreement, summary, action_taken, created_at
+             FROM judge_verdicts WHERE run_id = ?1 ORDER BY created_at ASC",
+        )?;
+        let mut records: Vec<JudgeVerdictRecord> = stmt
+            .query_map(params![run_id], map_judge_verdict)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        for record in &mut records {
+            let mut vstmt = self.conn.prepare(
+                "SELECT id, verdict_id, provider, model, decision, confidence, reasoning, error, created_at
+                 FROM judge_votes WHERE verdict_id = ?1 ORDER BY created_at ASC",
+            )?;
+            let votes = vstmt.query_map(params![record.id], map_judge_vote)?;
+            record.votes = votes.collect::<rusqlite::Result<Vec<_>>>()?;
+        }
+        Ok(records)
+    }
+
+    /// Every judge verdict across every run, most recent first — backs the
+    /// dashboard's "recent judgments" feed.
+    pub fn recent_judge_verdicts(&self, limit: i64) -> Result<Vec<JudgeVerdictRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, subject, consensus, confidence, agreement, summary, action_taken, created_at
+             FROM judge_verdicts ORDER BY created_at DESC LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![limit], map_judge_verdict)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(Into::into)
+    }
+
+    // --- Prompt events (for the prompting-quality dashboard) ---------------
+
+    pub fn add_prompt_event(&self, run_id: &str, new: &NewPromptEvent) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO prompt_events (id, run_id, prompt_text, word_count, patterns_json, clarity_score, led_to_flag, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![
+                new_id(),
+                run_id,
+                new.prompt_text,
+                new.word_count,
+                new.patterns_json,
+                new.clarity_score,
+                new.led_to_flag as i64,
+                now_rfc3339()
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn recent_prompt_events(&self, limit: i64) -> Result<Vec<PromptEventRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, prompt_text, word_count, patterns_json, clarity_score, led_to_flag, created_at
+             FROM prompt_events ORDER BY created_at DESC LIMIT ?1",
+        )?;
+        let rows = stmt.query_map(params![limit], map_prompt_event)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(Into::into)
+    }
+
+    // --- Doctrine rules (mined from PR review history) ---------------------
+
+    /// Replaces a project's mined doctrine wholesale — mining is meant to be
+    /// re-run periodically as review history accumulates, and a rule that
+    /// stopped showing up in recent PRs shouldn't linger forever.
+    pub fn replace_doctrine_rules(&self, project_id: &str, rules: &[crate::doctrine::MinedRule]) -> Result<()> {
+        self.conn.execute("DELETE FROM doctrine_rules WHERE project_id = ?1", params![project_id])?;
+        for r in rules {
+            let evidence_json = serde_json::to_string(&r.supporting_evidence).unwrap_or_else(|_| "[]".into());
+            self.conn.execute(
+                "INSERT INTO doctrine_rules (id, project_id, rule_key, rule_text, category, strength, confidence, supporting_evidence_json, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    new_id(),
+                    project_id,
+                    r.rule_key,
+                    r.rule_text,
+                    r.category,
+                    r.strength.as_str(),
+                    r.confidence,
+                    evidence_json,
+                    now_rfc3339()
+                ],
+            )?;
+        }
+        Ok(())
+    }
+
+    pub fn list_doctrine_rules(&self, project_id: &str) -> Result<Vec<DoctrineRuleRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, project_id, rule_key, rule_text, category, strength, confidence, supporting_evidence_json, created_at
+             FROM doctrine_rules WHERE project_id = ?1 ORDER BY confidence DESC",
+        )?;
+        let rows = stmt.query_map(params![project_id], map_doctrine_rule)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(Into::into)
+    }
+}
+
+// --- Row mappers ----------------------------------------------------------
+
+fn map_project(row: &rusqlite::Row) -> rusqlite::Result<Project> {
+    Ok(Project {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        path: row.get(2)?,
+        config_path: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+    })
+}
+
+fn map_run(row: &rusqlite::Row) -> rusqlite::Result<Run> {
+    Ok(Run {
+        id: row.get(0)?,
+        project_id: row.get(1)?,
+        command: row.get(2)?,
+        agent_name: row.get(3)?,
+        user_prompt: row.get(4)?,
+        started_at: row.get(5)?,
+        ended_at: row.get(6)?,
+        starting_commit: row.get(7)?,
+        ending_commit: row.get(8)?,
+        status: row.get(9)?,
+        exit_code: row.get(10)?,
+        created_at: row.get(11)?,
+    })
+}
+
+fn map_event(row: &rusqlite::Row) -> rusqlite::Result<Event> {
+    Ok(Event {
+        id: row.get(0)?,
+        run_id: row.get(1)?,
+        event_type: row.get(2)?,
+        message: row.get(3)?,
+        metadata_json: row.get(4)?,
+        created_at: row.get(5)?,
+    })
+}
+
+fn map_file_change(row: &rusqlite::Row) -> rusqlite::Result<FileChange> {
+    Ok(FileChange {
+        id: row.get(0)?,
+        run_id: row.get(1)?,
+        path: row.get(2)?,
+        change_type: row.get(3)?,
+        diff_summary: row.get(4)?,
+        created_at: row.get(5)?,
+    })
+}
+
+fn map_command(row: &rusqlite::Row) -> rusqlite::Result<CommandRecord> {
+    Ok(CommandRecord {
+        id: row.get(0)?,
+        run_id: row.get(1)?,
+        command: row.get(2)?,
+        decision: row.get(3)?,
+        exit_code: row.get(4)?,
+        stdout_path: row.get(5)?,
+        stderr_path: row.get(6)?,
+        created_at: row.get(7)?,
+    })
+}
+
+fn map_secret(row: &rusqlite::Row) -> rusqlite::Result<SecretRecord> {
+    Ok(SecretRecord {
+        id: row.get(0)?,
+        run_id: row.get(1)?,
+        file_path: row.get(2)?,
+        secret_type: row.get(3)?,
+        redacted_value: row.get(4)?,
+        action_taken: row.get(5)?,
+        created_at: row.get(6)?,
+    })
+}
+
+fn map_api_usage(row: &rusqlite::Row) -> rusqlite::Result<ApiUsage> {
+    Ok(ApiUsage {
+        id: row.get(0)?,
+        run_id: row.get(1)?,
+        provider: row.get(2)?,
+        model: row.get(3)?,
+        input_tokens: row.get(4)?,
+        output_tokens: row.get(5)?,
+        cached_tokens: row.get(6)?,
+        estimated_cost: row.get(7)?,
+        latency_ms: row.get(8)?,
+        created_at: row.get(9)?,
+    })
+}
+
+fn map_checkpoint(row: &rusqlite::Row) -> rusqlite::Result<Checkpoint> {
+    Ok(Checkpoint {
+        id: row.get(0)?,
+        run_id: row.get(1)?,
+        project_id: row.get(2)?,
+        git_ref: row.get(3)?,
+        checkpoint_type: row.get(4)?,
+        created_at: row.get(5)?,
+    })
+}
+
+fn map_test_result(row: &rusqlite::Row) -> rusqlite::Result<TestResult> {
+    Ok(TestResult {
+        id: row.get(0)?,
+        run_id: row.get(1)?,
+        command: row.get(2)?,
+        status: row.get(3)?,
+        output_summary: row.get(4)?,
+        created_at: row.get(5)?,
+    })
+}
+
+fn map_policy_finding(row: &rusqlite::Row) -> rusqlite::Result<PolicyFindingRecord> {
+    Ok(PolicyFindingRecord {
+        id: row.get(0)?,
+        run_id: row.get(1)?,
+        rule_key: row.get(2)?,
+        title: row.get(3)?,
+        description: row.get(4)?,
+        file_path: row.get(5)?,
+        severity: row.get(6)?,
+        confidence: row.get(7)?,
+        source: row.get(8)?,
+        created_at: row.get(9)?,
+    })
+}
+
+fn map_judge_verdict(row: &rusqlite::Row) -> rusqlite::Result<JudgeVerdictRecord> {
+    Ok(JudgeVerdictRecord {
+        id: row.get(0)?,
+        run_id: row.get(1)?,
+        subject: row.get(2)?,
+        consensus: row.get(3)?,
+        confidence: row.get(4)?,
+        agreement: row.get(5)?,
+        summary: row.get(6)?,
+        action_taken: row.get(7)?,
+        created_at: row.get(8)?,
+        votes: Vec::new(),
+    })
+}
+
+fn map_judge_vote(row: &rusqlite::Row) -> rusqlite::Result<JudgeVoteRecord> {
+    Ok(JudgeVoteRecord {
+        id: row.get(0)?,
+        verdict_id: row.get(1)?,
+        provider: row.get(2)?,
+        model: row.get(3)?,
+        decision: row.get(4)?,
+        confidence: row.get(5)?,
+        reasoning: row.get(6)?,
+        error: row.get(7)?,
+        created_at: row.get(8)?,
+    })
+}
+
+fn map_prompt_event(row: &rusqlite::Row) -> rusqlite::Result<PromptEventRecord> {
+    Ok(PromptEventRecord {
+        id: row.get(0)?,
+        run_id: row.get(1)?,
+        prompt_text: row.get(2)?,
+        word_count: row.get(3)?,
+        patterns_json: row.get(4)?,
+        clarity_score: row.get(5)?,
+        led_to_flag: row.get::<_, i64>(6)? != 0,
+        created_at: row.get(7)?,
+    })
+}
+
+fn map_doctrine_rule(row: &rusqlite::Row) -> rusqlite::Result<DoctrineRuleRecord> {
+    Ok(DoctrineRuleRecord {
+        id: row.get(0)?,
+        project_id: row.get(1)?,
+        rule_key: row.get(2)?,
+        rule_text: row.get(3)?,
+        category: row.get(4)?,
+        strength: row.get(5)?,
+        confidence: row.get(6)?,
+        supporting_evidence_json: row.get(7)?,
+        created_at: row.get(8)?,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn project_run_event_roundtrip() {
+        let store = Store::open_in_memory().unwrap();
+        let project = store
+            .upsert_project(&NewProject {
+                name: "My App".into(),
+                path: "/tmp/app".into(),
+                config_path: "/tmp/app/.trace/config.toml".into(),
+            })
+            .unwrap();
+
+        let run = store
+            .create_run(&NewRun {
+                project_id: project.id.clone(),
+                command: "npm test".into(),
+                agent_name: None,
+                user_prompt: None,
+                starting_commit: Some("abc123".into()),
+            })
+            .unwrap();
+        assert_eq!(run.status, "running");
+
+        store
+            .add_event(
+                &run.id,
+                &NewEvent {
+                    event_type: "run_created".into(),
+                    message: "created".into(),
+                    metadata_json: None,
+                },
+            )
+            .unwrap();
+        assert_eq!(store.list_events(&run.id).unwrap().len(), 1);
+
+        store
+            .finish_run(&run.id, RunStatus::Completed, Some(0), Some("def456"))
+            .unwrap();
+        let summary = store
+            .run_summary(&store.run_by_id(&run.id).unwrap().unwrap())
+            .unwrap();
+        assert_eq!(summary.project_name, "My App");
+        assert_eq!(summary.run.status, "completed");
+    }
+
+    #[test]
+    fn upsert_project_is_idempotent_by_path() {
+        let store = Store::open_in_memory().unwrap();
+        let a = store
+            .upsert_project(&NewProject {
+                name: "A".into(),
+                path: "/p".into(),
+                config_path: "/p/c".into(),
+            })
+            .unwrap();
+        let b = store
+            .upsert_project(&NewProject {
+                name: "B".into(),
+                path: "/p".into(),
+                config_path: "/p/c".into(),
+            })
+            .unwrap();
+        assert_eq!(a.id, b.id);
+        assert_eq!(b.name, "B");
+        assert_eq!(store.list_projects().unwrap().len(), 1);
+    }
+}

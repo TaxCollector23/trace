@@ -1,0 +1,49 @@
+---
+title: Limitations
+description: What Trace can and cannot do — honestly.
+---
+
+Trace is deliberately honest about its boundaries.
+
+## Wrapper-driven monitoring
+
+Trace works best when AI coding agents are launched through:
+
+```bash
+trace run <command>
+```
+
+Trace can still observe **some** file changes when tools modify the project
+outside Trace (via the file watcher and Git diff), but **full command
+guarding and run attribution require using the wrapper**.
+
+## GUI-based tools
+
+For terminal-based agents, Trace wraps the command directly and can guard
+it. For GUI-based tools, Trace may still watch file changes and capture Git
+diffs, but it **cannot block or even see the tool's internal actions**. Command
+guarding applies to the top-level command you pass to `trace run`, not to
+sub-commands a tool issues on its own.
+
+## Cost data
+
+Cost is only known when traffic flows through the local proxy or usage is
+imported. Otherwise the dashboard shows "cost unavailable" rather than guessing.
+See [Cost Tracking](/cost-tracking).
+
+## Git requirement for rollback
+
+Checkpoints and rollback require Git. Without a Git repository, runs are still
+recorded, but there is no checkpoint or rollback.
+
+## Scope
+
+This is a **local-first MVP**. Trace intentionally does **not** include:
+
+- a desktop app
+- cloud sync or accounts
+- team/enterprise features
+- agent comparison
+- a trust score
+
+All data stays on your machine.

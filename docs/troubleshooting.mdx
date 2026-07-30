@@ -1,0 +1,55 @@
+---
+title: Troubleshooting
+description: Common issues and how to resolve them.
+---
+
+## The dashboard won't open
+
+Check the daemon:
+
+```bash
+trace daemon status
+```
+
+If it is not running, start it and open the dashboard:
+
+```bash
+trace daemon start
+trace dashboard
+```
+
+The daemon binds to `127.0.0.1` and prefers port `8757`, falling back to the next
+free port. The active port is shown by `trace daemon status` and stored in
+`~/.trace/daemon.json`.
+
+## Port 8757 is in use
+
+That is fine — Trace automatically tries `8758`, `8759`, and so on. Use the
+port reported by `trace daemon status`.
+
+## "not a Trace project"
+
+Run `trace init` in your project root first. Trace searches upward from the
+current directory for a `.trace/config.toml`.
+
+## Rollback says it needs Git
+
+Checkpoints and rollback require a Git repository. Run `git init` yourself (and
+commit a baseline) before relying on rollback. Trace will not initialize
+Git for you.
+
+## The daemon log
+
+The daemon writes to `~/.trace/daemon.log`. Check it if the server fails to
+start.
+
+## Resetting state
+
+Stopping the daemon and removing `~/.trace` clears all global state
+(database, daemon file, logs). Your projects' `.trace/` folders are
+separate.
+
+```bash
+trace daemon stop
+rm -rf ~/.trace
+```

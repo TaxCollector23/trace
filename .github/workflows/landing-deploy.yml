@@ -1,0 +1,53 @@
+name: landing-deploy
+
+# Deploys the public landing site (apps/landing) to Vercel.
+#
+# This is OPTIONAL. The recommended setup is to connect the repo to Vercel with
+# Root Directory = apps/landing, which auto-deploys on push without this
+# workflow. This workflow is provided for CI-driven deploys and only runs when
+# the required Vercel secrets are configured.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/landing/**"
+      - ".github/workflows/landing-deploy.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Skip unless a Vercel token is present (set in repo secrets).
+    if: ${{ github.event_name == 'workflow_dispatch' || true }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Guard on secrets
+        id: guard
+        run: |
+          if [ -z "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "Vercel secrets not set; skipping deploy."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        if: steps.guard.outputs.skip == 'false'
+        working-directory: apps/landing
+        run: |
+          npm ci
+          npm run build
+
+      - name: Deploy to Vercel
+        if: steps.guard.outputs.skip == 'false'
+        working-directory: apps/landing
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npx vercel deploy --prod --yes --token "$VERCEL_TOKEN"
