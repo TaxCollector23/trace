@@ -1,13 +1,13 @@
-# TraceGuard — VS Code extension
+# Trace — VS Code extension
 
-A lightweight bridge to your local TraceGuard daemon. It does **not** duplicate
+A lightweight bridge to your local Trace daemon. It does **not** duplicate
 the dashboard.
 
 ## Features
 
 - **Recent Runs** view in the activity bar
-- **TraceGuard: Open Dashboard** command
-- **TraceGuard: Run Command through trg** command
+- **Trace: Open Dashboard** command
+- **Trace: Run Command through trace** command
 - Status icons for failed/blocked runs
 
 ## Develop / run
@@ -19,6 +19,6 @@ code .
 # Press F5 to launch an Extension Development Host.
 ```
 
-The extension reads the daemon port from `~/.traceguard/daemon.json` and talks
+The extension reads the daemon port from `~/.trace/daemon.json` and talks
 only to `http://127.0.0.1:<port>`. If the daemon is not running it offers to run
-`trg dashboard` for you. It never connects to any remote service.
+`trace dashboard` for you. It never connects to any remote service.

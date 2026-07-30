@@ -1,7 +1,7 @@
 name: docs-deploy
 
 # Build the documentation site (apps/docs) and publish it to GitHub Pages at
-# https://taxcollector23.github.io/TraceGuard/.
+# https://taxcollector23.github.io/trace/.
 on:
   push:
     branches: [main]

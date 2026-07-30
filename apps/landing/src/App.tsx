@@ -1,65 +1,82 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
+import { Mark } from "./Mark";
+import { DownloadMenu } from "./components";
 import { DOCS_URL, GITHUB_REPO } from "./config";
 
 export default function App() {
   return (
-    <div className="site">
-      <header className="topbar">
-        <Link to="/" className="logo">
-          Trace<span>Guard</span>
-        </Link>
-        <nav className="topnav">
-          <NavLink to="/about">About</NavLink>
-          <a href={DOCS_URL} target="_blank" rel="noreferrer">
-            Docs
-          </a>
-          <a href={GITHUB_REPO} target="_blank" rel="noreferrer">
-            GitHub
-          </a>
-          <a className="btn-primary" href="#download" style={{ padding: "8px 16px", fontSize: 14 }}>
-            Install
-          </a>
-        </nav>
+    <div className="flex min-h-screen flex-col">
+      <header className="sticky top-0 z-30 border-b border-border bg-bg/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-content items-center justify-between px-6 py-5">
+          <Link to="/" className="flex items-center gap-4 text-lg font-semibold text-text">
+            <Mark size={30} />
+            Trace
+          </Link>
+          <nav className="flex items-center gap-12">
+            <NavLink
+              to="/about"
+              className={({ isActive }) =>
+                `text-base font-medium transition-colors ${isActive ? "text-text" : "text-text-dim hover:text-text"}`
+              }
+            >
+              About
+            </NavLink>
+            <a
+              href={DOCS_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="text-base font-medium text-text-dim transition-colors hover:text-text"
+            >
+              Docs
+            </a>
+            <a
+              href={GITHUB_REPO}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="GitHub"
+              className="opacity-70 transition-opacity hover:opacity-100"
+            >
+              <img src="/logos/github.png" alt="GitHub" className="h-6 w-6 object-contain" />
+            </a>
+            <DownloadMenu />
+          </nav>
+        </div>
       </header>
 
-      <main>
-        <Outlet />
+      <main className="flex-1">
+        <div className="mx-auto max-w-content px-6">
+          <Outlet />
+        </div>
       </main>
 
-      <footer className="footer">
-        <div className="f-brand">
-          <div className="logo">
-            Trace<span>Guard</span>
+      <footer className="border-t border-border">
+        <div className="mx-auto grid max-w-content grid-cols-1 gap-8 px-6 py-12 sm:grid-cols-[1.4fr_1fr_1fr]">
+          <div>
+            <div className="flex items-center gap-4 text-base font-semibold text-text">
+              <Mark size={26} />
+              Trace
+            </div>
           </div>
-          <p>
-            The local-first control layer for AI coding agents. The real
-            dashboard runs only on <code>127.0.0.1</code>; this site is for
-            installation and docs and never connects to your local daemon.
-          </p>
-        </div>
-        <div className="f-col">
-          <h4>Product</h4>
-          <a href="#features">Features</a>
-          <a href="#download">Install</a>
-          <Link to="/about">About</Link>
-        </div>
-        <div className="f-col">
-          <h4>Resources</h4>
-          <a href={DOCS_URL} target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-          <a href={GITHUB_REPO} target="_blank" rel="noreferrer">
-            GitHub
-          </a>
-          <a href={`${GITHUB_REPO}/releases`} target="_blank" rel="noreferrer">
-            Releases
-          </a>
-        </div>
-        <div className="f-col">
-          <h4>Local-first</h4>
-          <span className="muted" style={{ fontSize: 13 }}>
-            Zero-cloud by default. Redacted secrets. MIT licensed.
-          </span>
+          <div>
+            <div className="mb-3 text-xs font-medium uppercase tracking-wide text-text-dim">Product</div>
+            <ul className="space-y-2 text-sm">
+              <li><a className="text-text-dim transition-colors hover:text-text" href="#integrations">Integrations</a></li>
+              <li><Link className="text-text-dim transition-colors hover:text-text" to="/download">Download</Link></li>
+              <li><Link className="text-text-dim transition-colors hover:text-text" to="/about">About</Link></li>
+            </ul>
+          </div>
+          <div>
+            <div className="mb-3 text-xs font-medium uppercase tracking-wide text-text-dim">Resources</div>
+            <ul className="space-y-2.5 text-sm">
+              <li><a className="text-text-dim transition-colors hover:text-text" href={DOCS_URL} target="_blank" rel="noreferrer">Documentation</a></li>
+              <li>
+                <a href={GITHUB_REPO} target="_blank" rel="noreferrer" aria-label="GitHub" className="inline-flex opacity-70 transition-opacity hover:opacity-100">
+                  <img src="/logos/github.png" alt="GitHub" className="h-4 w-4 object-contain" />
+                </a>
+              </li>
+              <li><a className="text-text-dim transition-colors hover:text-text" href={`${GITHUB_REPO}/releases`} target="_blank" rel="noreferrer">Releases</a></li>
+            </ul>
+          </div>
         </div>
       </footer>
     </div>

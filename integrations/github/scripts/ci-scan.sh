@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
-# TraceGuard CI scan.
+# Trace CI scan.
 #
-# Runs configured checks, scans the diff against the base ref for risky changes
-# and secret-like content, and writes a SANITIZED summary to
-# traceguard-summary.json. It never writes raw file contents or secret values.
+# When the `trace` binary is available, delegates to `trace review-diff` —
+# the same policy engine (and, optionally, judge panel) the local daemon
+# uses — and folds its findings into trace-summary.json. Falls back to a
+# crude grep-based heuristic when `trace` isn't installed, so this action
+# still does *something* useful without requiring an install step, and
+# never hard-fails just because the binary is missing.
 set -euo pipefail
 
 CHECKS=""
 FAIL_ON_RISKY="false"
+ENABLE_JUDGE="false"
 while [ $# -gt 0 ]; do
   case "$1" in
     --checks) CHECKS="$2"; shift 2 ;;
     --fail-on-risky) FAIL_ON_RISKY="$2"; shift 2 ;;
+    --enable-judge) ENABLE_JUDGE="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -25,17 +30,49 @@ else
 fi
 
 CHANGED_FILES=$(git diff --name-only "$RANGE" 2>/dev/null || echo "")
-DIFF=$(git diff "$RANGE" 2>/dev/null || echo "")
 NUM_FILES=$(printf '%s\n' "$CHANGED_FILES" | grep -c . || true)
 
-# --- Risky-change heuristics (names only; never contents) ---
-RISKY=0
-echo "$CHANGED_FILES" | grep -Eiq '(^|/)(\.env($|\.)|id_rsa$|.*\.pem$|secrets\.json$)' && RISKY=$((RISKY+1)) || true
+POLICY_FINDINGS=0
+HIGH_SEVERITY=0
+JUDGE_CONSENSUS="not_run"
+REVIEW_FAILED="false"
 
-# --- Secret-like patterns in the diff (count only; values are NOT recorded) ---
-SECRET_HITS=$(printf '%s' "$DIFF" | grep -Eoc \
-  'sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----' \
-  || true)
+if command -v trace >/dev/null 2>&1; then
+  echo "Trace: using 'trace review-diff' (policy engine$([ "$ENABLE_JUDGE" = "true" ] && echo " + judge panel"))"
+  JUDGE_FLAG=""
+  [ "$ENABLE_JUDGE" = "true" ] && JUDGE_FLAG="--judge"
+  FAIL_FLAG=""
+  [ "$FAIL_ON_RISKY" = "true" ] && FAIL_FLAG="--fail-on-risky"
+
+  set +e
+  # shellcheck disable=SC2086
+  trace review-diff --range "$RANGE" $JUDGE_FLAG $FAIL_FLAG --json trace-review.json
+  REVIEW_EXIT=$?
+  set -e
+
+  if [ -f trace-review.json ]; then
+    POLICY_FINDINGS=$(grep -o '"rule_key"' trace-review.json | wc -l | tr -d ' ')
+    HIGH_SEVERITY=$(grep -o '"severity":"high"' trace-review.json | wc -l | tr -d ' ')
+    JUDGE_CONSENSUS=$(sed -n 's/.*"consensus":"\([a-z_]*\)".*/\1/p' trace-review.json | head -1)
+    [ -z "$JUDGE_CONSENSUS" ] && JUDGE_CONSENSUS="disabled"
+  fi
+  [ "$REVIEW_EXIT" != "0" ] && REVIEW_FAILED="true"
+else
+  echo "Trace: 'trace' binary not found on PATH — falling back to basic heuristics."
+  echo "For the full policy engine + judge panel, install it first, e.g.:"
+  echo "  curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh"
+
+  DIFF=$(git diff "$RANGE" 2>/dev/null || echo "")
+  RISKY=0
+  echo "$CHANGED_FILES" | grep -Eiq '(^|/)(\.env($|\.)|id_rsa$|.*\.pem$|secrets\.json$)' && RISKY=$((RISKY+1)) || true
+  SECRET_HITS=$(printf '%s' "$DIFF" | grep -Eoc \
+    'sk-ant-[A-Za-z0-9_-]{20,}|sk-[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----' \
+    || true)
+  POLICY_FINDINGS=$((RISKY + ${SECRET_HITS:-0}))
+  HIGH_SEVERITY=${SECRET_HITS:-0}
+  JUDGE_CONSENSUS="unavailable"
+  [ "$FAIL_ON_RISKY" = "true" ] && [ "$POLICY_FINDINGS" -gt 0 ] && REVIEW_FAILED="true"
+fi
 
 # --- Configured checks ---
 CHECK_STATUS="skipped"
@@ -45,7 +82,7 @@ if [ -n "$CHECKS" ]; then
   for cmd in "${CMDS[@]}"; do
     trimmed="$(echo "$cmd" | sed 's/^ *//;s/ *$//')"
     [ -z "$trimmed" ] && continue
-    echo "TraceGuard check: $trimmed"
+    echo "Trace check: $trimmed"
     if ! bash -c "$trimmed"; then
       CHECK_STATUS="failed"
     fi
@@ -53,20 +90,25 @@ if [ -n "$CHECKS" ]; then
 fi
 
 # --- Sanitized summary (no file contents, no secret values) ---
-cat > traceguard-summary.json <<EOF
+cat > trace-summary.json <<EOF
 {
-  "schema": "traceguard.summary/v1",
+  "schema": "trace.summary/v2",
   "commit": "${GITHUB_SHA:-unknown}",
   "files_changed": ${NUM_FILES:-0},
-  "risky_file_warnings": ${RISKY},
-  "secret_like_findings": ${SECRET_HITS:-0},
+  "policy_findings": ${POLICY_FINDINGS:-0},
+  "high_severity_findings": ${HIGH_SEVERITY:-0},
+  "judge_consensus": "${JUDGE_CONSENSUS}",
   "checks_status": "${CHECK_STATUS}"
 }
 EOF
 
-echo "TraceGuard summary:"; cat traceguard-summary.json
+echo "Trace summary:"; cat trace-summary.json
 
-if [ "$FAIL_ON_RISKY" = "true" ] && { [ "${SECRET_HITS:-0}" -gt 0 ] || [ "$RISKY" -gt 0 ]; }; then
-  echo "::error::TraceGuard detected risky changes or secret-like content."
+if [ "$CHECK_STATUS" = "failed" ]; then
+  echo "::error::Trace: one or more configured checks failed."
+  exit 1
+fi
+if [ "$REVIEW_FAILED" = "true" ]; then
+  echo "::error::Trace detected risky changes (see trace-review.json / trace-summary.json)."
   exit 1
 fi

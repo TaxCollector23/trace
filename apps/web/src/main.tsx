@@ -8,8 +8,12 @@ import PatchReview from "./pages/PatchReview";
 import CostCenter from "./pages/CostCenter";
 import RiskCenter from "./pages/RiskCenter";
 import RollbackCenter from "./pages/RollbackCenter";
-import PromptCompressor from "./pages/PromptCompressor";
+import Analytics from "./pages/Analytics";
 import GitHub from "./pages/GitHub";
+import JudgePanel from "./pages/JudgePanel";
+import PromptCoach from "./pages/PromptCoach";
+import Benchmarks from "./pages/Benchmarks";
+import NotFound from "./pages/NotFound";
 import "./styles.css";
 
 // Hash routing keeps deep links working when served as static files by the
@@ -28,9 +32,13 @@ const router = createHashRouter([
       { path: "cost/:runId", element: <CostCenter /> },
       { path: "risk", element: <RiskCenter /> },
       { path: "risk/:runId", element: <RiskCenter /> },
+      { path: "judge", element: <JudgePanel /> },
+      { path: "prompting", element: <PromptCoach /> },
+      { path: "benchmarks", element: <Benchmarks /> },
       { path: "rollback", element: <RollbackCenter /> },
-      { path: "prompt-compressor", element: <PromptCompressor /> },
+      { path: "analytics", element: <Analytics /> },
       { path: "github", element: <GitHub /> },
+      { path: "*", element: <NotFound /> },
     ],
   },
 ]);

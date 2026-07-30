@@ -4,10 +4,10 @@ description: What a monitored run captures, and how attribution works.
 ---
 
 A **run** is one monitored session. It starts when you launch something through
-TraceGuard and ends when that command exits.
+Trace and ends when that command exits.
 
 ```bash
-trg run "claude fix the login bug"
+trace run "claude fix the login bug"
 ```
 
 ## What a run captures
@@ -25,15 +25,15 @@ trg run "claude fix the login bug"
 
 ## Run attribution
 
-TraceGuard works best when agents are launched **through** the wrapper:
+Trace works best when agents are launched **through** the wrapper:
 
 ```bash
-trg run <command>
+trace run <command>
 ```
 
-This is how TraceGuard attributes commands, output, and risks to a run. The file
+This is how Trace attributes commands, output, and risks to a run. The file
 watcher and Git diff can still observe changes a tool makes outside the wrapper,
-but full command guarding and run attribution require `trg run`.
+but full command guarding and run attribution require `trace run`.
 
 ## Run statuses
 

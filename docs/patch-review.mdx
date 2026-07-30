@@ -4,7 +4,7 @@ description: Review what an agent changed, grounded in the real Git diff.
 ---
 
 The **Patch Review** page shows the code changes for a run. Everything is derived
-from the actual Git diff and file-change data — TraceGuard does not invent facts.
+from the actual Git diff and file-change data — Trace does not invent facts.
 
 It shows:
 
@@ -18,13 +18,13 @@ It shows:
 
 The file watcher provides timeline detail (it shows *when* files changed during
 the run), but a flurry of editor saves is noisy. The **final Git diff** is what
-TraceGuard uses for the authoritative list of changes, so the patch review
+Trace uses for the authoritative list of changes, so the patch review
 matches exactly what is in your working tree relative to the run's starting
 commit.
 
 ## Failure diagnosis
 
-When a run or a configured check fails, TraceGuard adds **deterministic**
+When a run or a configured check fails, Trace adds **deterministic**
 diagnosis notes to the timeline — no AI guessing. For example:
 
 - a "module not found" error plus a changed `package.json` → suggests a

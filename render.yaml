@@ -1,0 +1,36 @@
+# Render blueprint for trace-cloud-api.
+#
+# Deploy with:
+#   1. Push this repo to GitHub.
+#   2. In Render, click New → Blueprint, select the repo, this file is picked up.
+#   3. Set no secrets — the API is bearer-token gated per-user; tokens are
+#      minted server-side on first upsert.
+#
+# Health check hits /healthz; the deploy is considered live when it returns 200.
+# Autoscale is off by default (starter plan is single-instance) — flip to
+# scaling: { minInstances: 2, maxInstances: 5 } once you're on standard+.
+
+services:
+  - type: web
+    name: trace-cloud-api
+    runtime: rust
+    plan: starter
+    region: oregon
+    rootDir: merged
+    buildCommand: cargo build --release -p trace-cloud-api
+    startCommand: ./target/release/trace-cloud-api
+    healthCheckPath: /healthz
+    envVars:
+      - key: RUST_LOG
+        value: info,tower_http=info
+      - key: PORT
+        value: "10000"
+      - key: TRACE_CLOUD_DB
+        # Render mounts the persistent disk at /var/data by default; use that
+        # so SQLite survives across deploys. On starter (ephemeral) this falls
+        # back to /tmp — fine for the free-tier demo, wipes on redeploy.
+        value: /var/data/trace-cloud.db
+    disk:
+      name: trace-cloud-data
+      mountPath: /var/data
+      sizeGB: 1

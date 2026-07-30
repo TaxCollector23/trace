@@ -1,28 +1,28 @@
 ---
 title: Limitations
-description: What TraceGuard can and cannot do — honestly.
+description: What Trace can and cannot do — honestly.
 ---
 
-TraceGuard is deliberately honest about its boundaries.
+Trace is deliberately honest about its boundaries.
 
 ## Wrapper-driven monitoring
 
-TraceGuard works best when AI coding agents are launched through:
+Trace works best when AI coding agents are launched through:
 
 ```bash
-trg run <command>
+trace run <command>
 ```
 
-TraceGuard can still observe **some** file changes when tools modify the project
-outside TraceGuard (via the file watcher and Git diff), but **full command
+Trace can still observe **some** file changes when tools modify the project
+outside Trace (via the file watcher and Git diff), but **full command
 guarding and run attribution require using the wrapper**.
 
 ## GUI-based tools
 
-For terminal-based agents, TraceGuard wraps the command directly and can guard
-it. For GUI-based tools, TraceGuard may still watch file changes and capture Git
+For terminal-based agents, Trace wraps the command directly and can guard
+it. For GUI-based tools, Trace may still watch file changes and capture Git
 diffs, but it **cannot block or even see the tool's internal actions**. Command
-guarding applies to the top-level command you pass to `trg run`, not to
+guarding applies to the top-level command you pass to `trace run`, not to
 sub-commands a tool issues on its own.
 
 ## Cost data
@@ -38,7 +38,7 @@ recorded, but there is no checkpoint or rollback.
 
 ## Scope
 
-This is a **local-first MVP**. TraceGuard intentionally does **not** include:
+This is a **local-first MVP**. Trace intentionally does **not** include:
 
 - a desktop app
 - cloud sync or accounts

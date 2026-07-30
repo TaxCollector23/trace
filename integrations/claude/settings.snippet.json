@@ -1,5 +1,5 @@
 {
-  "_comment": "Add this to your Claude Code settings.json (merge with existing 'hooks'). Adjust the absolute path to traceguard-hook.sh.",
+  "_comment": "Add this to your Claude Code settings.json (merge with existing 'hooks'). Adjust the absolute path to trace-hook.sh.",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,7 +7,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.traceguard/integrations/claude/traceguard-hook.sh"
+            "command": "$HOME/.trace/integrations/claude/trace-hook.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.trace/integrations/claude/trace-hook.sh"
           }
         ]
       }

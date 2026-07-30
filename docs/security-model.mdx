@@ -1,9 +1,9 @@
 ---
 title: Security Model
-description: How TraceGuard keeps your data local and safe.
+description: How Trace keeps your data local and safe.
 ---
 
-TraceGuard is local-first and conservative by design.
+Trace is local-first and conservative by design.
 
 ## Network
 
@@ -27,15 +27,6 @@ TraceGuard is local-first and conservative by design.
 - The Vercel landing page and the optional Firebase mirror are static and must
   **not** connect to the local daemon.
 
-## Prompt Compressor
-
-- Compression is local and deterministic by default; prompt text does not leave
-  the machine.
-- Prompt text is only stored when `prompt_history = true` (default; disable to
-  store stats only).
-- Any future LLM-based compression is opt-in and clearly labelled, because
-  prompt text would then leave the machine.
-
 ## Git & rollback
 
 - Rollback is Git-based and always confirmed. Checkpoints use `git stash create`
@@ -45,6 +36,6 @@ TraceGuard is local-first and conservative by design.
 
 | Path | Contents |
 | --- | --- |
-| `~/.traceguard/traceguard.db` | Local SQLite history |
-| `~/.traceguard/daemon.json` | Daemon pid/port/start time |
-| `<project>/.traceguard/` | Per-project config and run logs |
+| `~/.trace/trace.db` | Local SQLite history |
+| `~/.trace/daemon.json` | Daemon pid/port/start time |
+| `<project>/.trace/` | Per-project config and run logs |

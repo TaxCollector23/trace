@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "TraceGuard",
+  "name": "Trace",
   "colors": {
     "primary": "#4493f8",
     "light": "#4493f8",
@@ -15,7 +15,7 @@
         "pages": ["overview", "installation", "quickstart"]
       },
       {
-        "group": "Using TraceGuard",
+        "group": "Using Trace",
         "pages": [
           "cli-commands",
           "local-dashboard",
@@ -24,8 +24,7 @@
           "secret-detection",
           "cost-tracking",
           "patch-review",
-          "rollback",
-          "prompt-compression"
+          "rollback"
         ]
       },
       {
@@ -53,6 +52,6 @@
     ]
   },
   "footerSocials": {
-    "github": "https://github.com/TaxCollector23/TraceGuard"
+    "github": "https://github.com/TaxCollector23/trace"
   }
 }

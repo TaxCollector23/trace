@@ -1,9 +1,9 @@
 {
-  "name": "traceguard-web",
+  "name": "trace-web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "TraceGuard local dashboard (React + Vite). Served by the daemon in production.",
+  "description": "Trace local dashboard (React + Vite). Served by the daemon in production.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

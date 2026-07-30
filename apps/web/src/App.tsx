@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import { Mark } from "./Mark";
 
 const links: [string, string][] = [
   ["/", "Dashboard"],
   ["/timeline", "Session Timeline"],
   ["/patch", "Patch Review"],
   ["/risk", "Command Risk"],
+  ["/judge", "Judge Panel"],
+  ["/prompting", "Prompting Coach"],
   ["/cost", "Token Spend"],
+  ["/analytics", "Trace Analytics"],
+  ["/benchmarks", "Benchmarks"],
   ["/rollback", "Rollback Points"],
-  ["/prompt-compressor", "Prompt Compressor"],
   ["/github", "Integration Status"],
 ];
 
@@ -25,7 +29,8 @@ export default function App() {
     <div className="layout">
       <aside className="sidebar">
         <div className="brand">
-          Trace<span>Guard</span>
+          <Mark size={20} />
+          Trace
         </div>
         <nav className="nav">
           {links.map(([to, label]) => (
@@ -37,7 +42,7 @@ export default function App() {
         <div className="local-note">
           <span className="dot" /> Local only · 127.0.0.1
           <div className="local-sub">Your data never leaves this machine.</div>
-          {version && <div className="local-sub">TraceGuard v{version}</div>}
+          {version && <div className="local-sub">Trace v{version}</div>}
         </div>
       </aside>
       <main className="content">
