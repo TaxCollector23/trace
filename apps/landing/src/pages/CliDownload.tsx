@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../components";
-import { DOWNLOADS, GITHUB_REPO } from "../config";
+import { DOWNLOADS, GITHUB_REPO, LANDING_URL } from "../config";
 
 // Every install one-liner in one place. Copy-to-clipboard is the primary
 // interaction; we don't try to auto-select a tab for the visitor's OS —
@@ -25,15 +25,13 @@ const OPTIONS: Option[] = [
   {
     os: "macOS · Linux",
     method: "curl",
-    command:
-      "curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh",
-  hint: "Downloads the right binary for your arch to ~/.trace/bin/trace and prints PATH instructions.",
+    command: `curl -fsSL ${LANDING_URL}/install.sh | sh`,
+    hint: "Downloads the right binary for your arch to ~/.trace/bin/trace and prints PATH instructions.",
   },
   {
     os: "Windows",
     method: "irm | iex",
-    command:
-      "irm https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.ps1 | iex",
+    command: `irm ${LANDING_URL}/install.ps1 | iex`,
     hint: "Run in PowerShell. Installs to %USERPROFILE%\\.trace\\bin and updates your user PATH.",
   },
 ];

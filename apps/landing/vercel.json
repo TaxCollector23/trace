@@ -3,5 +3,21 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "framework": "vite",
+  "headers": [
+    {
+      "source": "/install.sh",
+      "headers": [
+        { "key": "content-type", "value": "text/plain; charset=utf-8" },
+        { "key": "cache-control", "value": "public, max-age=300, must-revalidate" }
+      ]
+    },
+    {
+      "source": "/install.ps1",
+      "headers": [
+        { "key": "content-type", "value": "text/plain; charset=utf-8" },
+        { "key": "cache-control", "value": "public, max-age=300, must-revalidate" }
+      ]
+    }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }
