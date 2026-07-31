@@ -6,6 +6,7 @@ import Home from "./pages/Home";
 import About from "./pages/About";
 import DesktopDownload from "./pages/DesktopDownload";
 import CliDownload from "./pages/CliDownload";
+import HostedDashboard from "./pages/HostedDashboard";
 import "./styles.css";
 
 const router = createBrowserRouter([
@@ -17,6 +18,7 @@ const router = createBrowserRouter([
       { path: "about", element: <About /> },
       { path: "download", element: <DesktopDownload /> },
       { path: "cli", element: <CliDownload /> },
+      { path: "dashboard", element: <HostedDashboard /> },
     ],
   },
 ]);

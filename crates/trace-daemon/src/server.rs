@@ -69,25 +69,39 @@ async fn security_headers(request: Request, next: Next) -> Response {
 
 /// Explicit origin allow-list, deliberately *not* `CorsLayer::permissive()`.
 ///
-/// The packaged app (Tauri desktop shell, or the daemon serving its own
-/// built dashboard) loads the UI from the same origin as the API
-/// (`http://127.0.0.1:<port>`), so same-origin requests need no CORS grant
-/// at all — browsers don't apply CORS to same-origin fetches. The only
-/// legitimate cross-origin caller is the Vite dev server during local
-/// development, on its own well-known port.
+/// Three trusted origins are allowed to hit this daemon from a browser:
+///   1. Vite dev server on 5173 (local dev of the embedded dashboard).
+///   2. The Trace landing site's hosted /dashboard page, so a visitor
+///      signed into nothing can still open <landing>/dashboard, have
+///      their browser fetch from their own 127.0.0.1 daemon, and see
+///      every local run — no cloud round-trip.
+///   3. Ratify's dashboard, for the "Local Trace runs" tab.
 ///
-/// A wildcard/permissive policy here would mean *any webpage the user has
-/// open in a normal browser tab* — not just this app — could script a fetch
-/// against this daemon: read judge/provider configuration, trigger a git
-/// rollback, kick off doctrine mining against the user's GitHub token, or
-/// spam `/config/judge/test` to burn API credits. Restricting to known
-/// origins makes the browser's CORS preflight fail for anything else,
-/// which closes that off for the practical (browser-based) case.
+/// A wildcard/permissive policy would let *any webpage the user has open
+/// in a normal browser tab* script a fetch against this daemon — read
+/// judge/provider configuration, trigger a git rollback, spam
+/// /config/judge/test to burn API credits. This allow-list closes that.
+///
+/// Override the hosted origins with `TRACE_ALLOWED_ORIGINS` (comma-
+/// separated) when running against a preview deployment or a custom
+/// domain like trace.dev.
 fn dev_origins() -> Vec<HeaderValue> {
-    ["http://localhost:5173", "http://127.0.0.1:5173"]
-        .iter()
-        .filter_map(|o| HeaderValue::from_str(o).ok())
-        .collect()
+    let mut origins: Vec<&str> = vec![
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://landing-one-hazel-88.vercel.app",
+        "https://ratify-zeta-dusky.vercel.app",
+    ];
+    let extra: Vec<String> = std::env::var("TRACE_ALLOWED_ORIGINS")
+        .unwrap_or_default()
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+    for e in &extra {
+        origins.push(e.as_str());
+    }
+    origins.iter().filter_map(|o| HeaderValue::from_str(o).ok()).collect()
 }
 
 /// Build the full application router (API + embedded dashboard).

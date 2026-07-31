@@ -57,85 +57,91 @@ export function Section({
 }
 
 // -- Download menu ----------------------------------------------------------
-// Hoverable nav link. Primary click goes to /download (the on-site page);
-// hover augments with direct one-click downloads for each OS and a link to
-// the CLI page. No OS-detection pill — every option gets equal weight so
-// the menu reads cleanly.
+// Hoverable nav link. Primary click goes to /download; hover reveals a
+// clean, spacious menu with each OS on its own row (macOS/Windows/Linux),
+// plus a "CLI" row to /cli and a "All releases" footer link. No OS
+// detection, no per-row icons — the OS name is the affordance, and hover
+// state is the download hint. A short delay before close prevents the
+// menu vanishing when the cursor briefly crosses a gap.
 
 const OS_ROWS: Array<{ label: string; sub: string; href: string }> = [
   { label: "macOS", sub: "Apple Silicon · .dmg", href: DOWNLOADS.macOS },
   { label: "Windows", sub: "x64 · installer .exe", href: DOWNLOADS.windows },
-  { label: "Linux", sub: ".deb + AppImage", href: DOWNLOADS.linuxDeb },
+  { label: "Linux", sub: ".deb  ·  AppImage", href: DOWNLOADS.linuxDeb },
 ];
 
 export function DownloadMenu() {
   const [open, setOpen] = useState(false);
+  // Small close delay so the menu doesn't blink shut when the cursor
+  // travels from the trigger down to the panel (there's a 8px gap the
+  // browser reports as a mouseleave otherwise).
+  const closeTimer = { current: null as ReturnType<typeof setTimeout> | null };
+  const openNow = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    setOpen(true);
+  };
+  const closeSoon = () => {
+    closeTimer.current = setTimeout(() => setOpen(false), 120);
+  };
 
   return (
-    <div
-      className="relative"
-      onMouseEnter={() => setOpen(true)}
-      onMouseLeave={() => setOpen(false)}
-      onFocus={() => setOpen(true)}
-      onBlur={() => setOpen(false)}
-    >
+    <div className="relative" onMouseEnter={openNow} onMouseLeave={closeSoon}>
       <Link
         to="/download"
-        className="inline-flex items-center gap-1 text-base font-medium text-brand transition-colors hover:text-brand-dim"
+        className="inline-flex h-9 items-center gap-1.5 rounded-full bg-brand px-4 text-sm font-medium text-white shadow-sm transition-transform hover:-translate-y-[1px]"
+        onFocus={openNow}
+        onBlur={closeSoon}
       >
         Download
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden className="opacity-60">
-          <path d="M2 3.5L5 6.5L8 3.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden className="opacity-80">
+          <path d="M2 3.5L5 6.5L8 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </Link>
 
       <AnimatePresence>
         {open && (
           <motion.div
-            initial={{ opacity: 0, y: -6 }}
+            initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.14 }}
-            className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-border bg-white shadow-lg"
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.12 }}
+            className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-border bg-white shadow-[0_12px_36px_-12px_rgba(0,0,0,0.18)]"
+            onMouseEnter={openNow}
+            onMouseLeave={closeSoon}
           >
-            <div className="border-b border-border px-4 py-2 text-[11px] font-medium uppercase tracking-wide text-text-dim">
+            <div className="px-5 pt-4 pb-2 text-[10px] font-semibold uppercase tracking-[0.09em] text-text-dim">
               Desktop app
             </div>
-            <ul>
+            <ul className="px-2 pb-2">
               {OS_ROWS.map((r) => (
                 <li key={r.label}>
                   <a
                     href={r.href}
-                    className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-brand/5"
+                    className="block rounded-lg px-3 py-2.5 transition-colors hover:bg-brand/[0.06]"
                   >
-                    <div>
-                      <div className="text-sm font-medium text-text">{r.label}</div>
-                      <div className="text-xs text-text-dim">{r.sub}</div>
-                    </div>
-                    <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden className="text-text-dim">
-                      <path d="M7 2v8m0 0L4 7m3 3l3-3M2 12h10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                    <div className="text-sm font-medium text-text">{r.label}</div>
+                    <div className="mt-0.5 text-xs text-text-dim">{r.sub}</div>
                   </a>
                 </li>
               ))}
             </ul>
-            <Link
-              to="/cli"
-              className="flex items-center justify-between border-t border-border px-4 py-3 transition-colors hover:bg-brand/5"
-            >
-              <div>
+            <div className="border-t border-border px-5 pt-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.09em] text-text-dim">
+              Command line
+            </div>
+            <div className="px-2 pb-2">
+              <Link
+                to="/cli"
+                className="block rounded-lg px-3 py-2.5 transition-colors hover:bg-brand/[0.06]"
+              >
                 <div className="text-sm font-medium text-text">CLI</div>
-                <div className="text-xs text-text-dim">brew · curl · PowerShell</div>
-              </div>
-              <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden className="text-text-dim">
-                <path d="M5 3l4 4-4 4" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </Link>
+                <div className="mt-0.5 text-xs text-text-dim">brew  ·  curl | sh  ·  irm | iex</div>
+              </Link>
+            </div>
             <a
               href={DOWNLOADS.releases}
               target="_blank"
               rel="noreferrer"
-              className="block border-t border-border px-4 py-2 text-xs text-text-dim transition-colors hover:text-text"
+              className="block border-t border-border px-5 py-2.5 text-xs text-text-dim transition-colors hover:bg-black/[0.02] hover:text-text"
             >
               All releases · checksums →
             </a>
