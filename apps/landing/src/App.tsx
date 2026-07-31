@@ -12,7 +12,15 @@ export default function App() {
             <Mark size={30} />
             Trace
           </Link>
-          <nav className="flex items-center gap-12">
+          <nav className="flex items-center gap-8 md:gap-10">
+            <NavLink
+              to="/dashboard"
+              className={({ isActive }) =>
+                `text-base font-medium transition-colors ${isActive ? "text-text" : "text-text-dim hover:text-text"}`
+              }
+            >
+              Dashboard
+            </NavLink>
             <NavLink
               to="/about"
               className={({ isActive }) =>
@@ -60,8 +68,9 @@ export default function App() {
           <div>
             <div className="mb-3 text-xs font-medium uppercase tracking-wide text-text-dim">Product</div>
             <ul className="space-y-2 text-sm">
-              <li><a className="text-text-dim transition-colors hover:text-text" href="#integrations">Integrations</a></li>
-              <li><Link className="text-text-dim transition-colors hover:text-text" to="/download">Download</Link></li>
+              <li><Link className="text-text-dim transition-colors hover:text-text" to="/dashboard">Dashboard</Link></li>
+              <li><Link className="text-text-dim transition-colors hover:text-text" to="/download">Download desktop</Link></li>
+              <li><Link className="text-text-dim transition-colors hover:text-text" to="/cli">CLI install</Link></li>
               <li><Link className="text-text-dim transition-colors hover:text-text" to="/about">About</Link></li>
             </ul>
           </div>
