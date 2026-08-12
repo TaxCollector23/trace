@@ -31,6 +31,7 @@ pub mod models;
 pub mod paths;
 pub mod policy;
 pub mod prompt_quality;
+pub mod rules_pack;
 pub mod scan;
 pub mod secrets;
 pub mod time;

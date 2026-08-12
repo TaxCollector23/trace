@@ -1,0 +1,82 @@
+# TraceGuard rule pack — versioned, data-driven detection rules.
+#
+# This file ships embedded in the binary as the default pack. It can be
+# overridden at runtime by pointing TRACEGUARD_RULES_PATH at a newer pack,
+# which lets detection coverage improve WITHOUT shipping a new binary
+# (the recurring-value "virus definitions" model).
+#
+# Bump `version` (calendar-versioned) whenever the rules change.
+
+version = "2025.08.1"
+
+# ---------------------------------------------------------------------------
+# Prompt-injection / jailbreak phrases. Matched case-insensitively as
+# substrings against a prompt during `harden`. These are instruction-hijack
+# and evasion patterns an agent prompt should never contain silently.
+# ---------------------------------------------------------------------------
+injection_phrases = [
+  "ignore previous instructions",
+  "ignore all previous instructions",
+  "ignore the above",
+  "disregard the above",
+  "disregard previous instructions",
+  "forget your instructions",
+  "forget all previous",
+  "you are now",
+  "act as if",
+  "developer mode",
+  "do anything now",
+  "no restrictions",
+  "without any restrictions",
+  "bypass your",
+  "bypass all",
+  "reveal your system prompt",
+  "print your instructions",
+  "reveal your instructions",
+  "do not tell the user",
+  "don't tell the user",
+  "without telling",
+  "without asking for permission",
+  "delete the logs",
+  "hide this from",
+  "exfiltrate",
+  "send it to http",
+  "upload the .env",
+  "email the api key",
+  "leak the",
+]
+
+# ---------------------------------------------------------------------------
+# Supplemental command rules (substring, all-of match on the normalized,
+# lowercased command). These are MERGED on top of the compiled built-in
+# guard rules, so operators can extend coverage (e.g. a new CLI) without a
+# code change. `decision` is one of: warn | require_approval | block.
+# ---------------------------------------------------------------------------
+[[command_rules]]
+decision = "require_approval"
+reason = "Helm uninstall removes a release and its resources."
+all_of = ["helm", "uninstall"]
+
+[[command_rules]]
+decision = "require_approval"
+reason = "flushdb/flushall erases a Redis datastore."
+all_of = ["redis-cli", "flush"]
+
+[[command_rules]]
+decision = "block"
+reason = "Overwriting the master boot record destroys the disk."
+all_of = ["dd", "of=/dev/", "bs="]
+
+# ---------------------------------------------------------------------------
+# Supplemental secret patterns (regex). Merged on top of compiled built-ins.
+# `keep` = leading chars retained before `...redacted`.
+# ---------------------------------------------------------------------------
+[[secret_patterns]]
+secret_type = "digitalocean_token"
+keep = 4
+regex = "dop_v1_[a-f0-9]{64}"
+
+[[secret_patterns]]
+secret_type = "hashicorp_vault_token"
+keep = 4
+regex = "hvs\\.[A-Za-z0-9]{24,}"
