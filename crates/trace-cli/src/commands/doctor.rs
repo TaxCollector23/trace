@@ -89,29 +89,6 @@ pub fn run() -> Result<()> {
         ),
     }
 
-    // Judge panel.
-    heading("\nJudge panel:");
-    match trace_core::GlobalConfig::load() {
-        Ok(cfg) => {
-            let configured = cfg.judge.slots.iter().filter(|s| s.api_key.is_some()).count();
-            match cfg.judge.mode {
-                trace_core::JudgeMode::Disabled => line("judge", false, "disabled — set up in the dashboard's Judge Panel to enable"),
-                _ => line(
-                    "judge",
-                    configured > 0,
-                    &format!(
-                        "{:?}, {}/{} provider slot(s) have a key, Model Prompting Mode {}",
-                        cfg.judge.mode,
-                        configured,
-                        cfg.judge.slots.len(),
-                        if cfg.judge.model_prompting_mode { "on" } else { "off" }
-                    ),
-                ),
-            }
-        }
-        Err(e) => line("judge", false, &format!("could not read config: {e}")),
-    }
-
     // Policy engine self-check.
     heading("\nPolicy engine:");
     let report = trace_core::run_policy_eval();

@@ -1,7 +1,7 @@
-# TraceGuard rule pack — versioned, data-driven detection rules.
+# Trace rule pack — versioned, data-driven detection rules.
 #
 # This file ships embedded in the binary as the default pack. It can be
-# overridden at runtime by pointing TRACEGUARD_RULES_PATH at a newer pack,
+# overridden at runtime by pointing TRACE_RULES_PATH at a newer pack,
 # which lets detection coverage improve WITHOUT shipping a new binary
 # (the recurring-value "virus definitions" model).
 #

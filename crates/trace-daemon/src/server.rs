@@ -128,15 +128,12 @@ fn build_router(state: AppState) -> Router {
 pub async fn serve(preferred_port: u16) -> Result<()> {
     let db_path = paths::database_path()?;
     let store = Store::open(&db_path).context("opening database")?;
-    let global_config = trace_core::GlobalConfig::load().context("loading global config")?;
 
     let (listener, port) = bind_available(preferred_port).await?;
     let started_at = trace_core::time::now_rfc3339();
 
     let state = AppState {
         store: Arc::new(Mutex::new(store)),
-        global_config: Arc::new(Mutex::new(global_config)),
-        judge_cooldown: Arc::new(Mutex::new(std::collections::HashMap::new())),
         port,
         started_at: started_at.clone(),
         db_path: db_path.display().to_string(),

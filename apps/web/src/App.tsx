@@ -7,13 +7,12 @@ const links: [string, string][] = [
   ["/timeline", "Session Timeline"],
   ["/patch", "Patch Review"],
   ["/risk", "Command Risk"],
-  ["/judge", "Judge Panel"],
-  ["/prompting", "Prompting Coach"],
   ["/cost", "Token Spend"],
   ["/analytics", "Trace Analytics"],
   ["/benchmarks", "Benchmarks"],
   ["/rollback", "Rollback Points"],
   ["/github", "Integration Status"],
+  ["/ratify", "Ratify"],
 ];
 
 export default function App() {

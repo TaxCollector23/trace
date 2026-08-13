@@ -78,6 +78,15 @@ enum Commands {
     /// Scan the current project and print its detected stack.
     Scan,
 
+    /// Run a file's contents through Trace's detection engines (command guard +
+    /// secret scanner) without executing anything. Exits non-zero on a
+    /// require_approval/block finding — usable as a CI gate. Use `-` to read
+    /// from stdin.
+    Check {
+        /// Path to the file to scan, or `-` for stdin.
+        file: String,
+    },
+
     /// List recent runs.
     Runs,
 
@@ -138,11 +147,7 @@ enum Commands {
         /// `GITHUB_BASE_REF` when not given.
         #[arg(long)]
         range: Option<String>,
-        /// Also run the 3-LLM judge panel (needs provider keys configured).
-        #[arg(long)]
-        judge: bool,
-        /// Exit non-zero on a high-severity policy finding or a judge
-        /// consensus of require_approval/block.
+        /// Exit non-zero on a high-severity policy finding.
         #[arg(long)]
         fail_on_risky: bool,
         /// Write the full structured result to this path as JSON.
@@ -277,6 +282,7 @@ fn real_main() -> Result<()> {
         Commands::Dashboard => commands::dashboard::run(),
         Commands::Doctor => commands::doctor::run(),
         Commands::Scan => commands::scan_cmd::run(),
+        Commands::Check { file } => commands::check::run(&file),
         Commands::Runs => commands::query::runs(),
         Commands::Show { run_id } => commands::query::show(&run_id),
         Commands::Replay { run_id, fast } => commands::replay::run(&run_id, fast),
@@ -296,10 +302,9 @@ fn real_main() -> Result<()> {
         Commands::Rollback { yes } => commands::rollback::run(yes),
         Commands::Update => commands::update::run(),
         Commands::SelfCheck => commands::self_check::run(),
-        Commands::ReviewDiff { range, judge, fail_on_risky, json } => {
+        Commands::ReviewDiff { range, fail_on_risky, json } => {
             commands::review_diff::run(commands::review_diff::ReviewDiffOptions {
                 range,
-                judge,
                 fail_on_risky,
                 json_out: json,
             })

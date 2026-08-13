@@ -3,7 +3,7 @@
 //! Detection coverage that is pure *data* — injection phrases, supplemental
 //! command rules, and extra secret patterns — lives here instead of being
 //! hard-coded. The default pack ships embedded in the binary, but pointing
-//! `TRACEGUARD_RULES_PATH` at a newer `.toml` overrides it at runtime. That is
+//! `TRACE_RULES_PATH` at a newer `.toml` overrides it at runtime. That is
 //! the "virus definitions" model: coverage can improve without users
 //! upgrading the binary.
 //!
@@ -69,7 +69,11 @@ pub struct RulePack {
 const DEFAULT_PACK: &str = include_str!("default_pack.toml");
 
 /// Environment variable that points at an override pack on disk.
-pub const RULES_PATH_ENV: &str = "TRACEGUARD_RULES_PATH";
+pub const RULES_PATH_ENV: &str = "TRACE_RULES_PATH";
+
+/// Legacy env var from the pre-rebrand name, still honored as a fallback so
+/// existing setups keep working.
+pub const RULES_PATH_ENV_LEGACY: &str = "TRACEGUARD_RULES_PATH";
 
 impl RulePack {
     pub fn from_toml_str(s: &str) -> Result<RulePack, String> {
@@ -82,20 +86,27 @@ impl RulePack {
         RulePack::from_toml_str(DEFAULT_PACK).expect("embedded default pack is valid")
     }
 
-    /// Load the active pack: an override from `TRACEGUARD_RULES_PATH` if set and
-    /// valid, otherwise the embedded default. A malformed override falls back to
-    /// the default rather than leaving the tool with no rules.
+    /// Load the active pack: an override from `TRACE_RULES_PATH` (or the legacy
+    /// `TRACEGUARD_RULES_PATH`) if set and valid, otherwise the embedded
+    /// default. A malformed override falls back to the default rather than
+    /// leaving the tool with no rules.
     pub fn load() -> RulePack {
-        if let Ok(path) = std::env::var(RULES_PATH_ENV) {
-            if !path.trim().is_empty() {
-                match std::fs::read_to_string(&path) {
-                    Ok(s) => match RulePack::from_toml_str(&s) {
-                        Ok(pack) => return pack,
-                        Err(e) => eprintln!("traceguard: {e}; using embedded rules"),
-                    },
-                    Err(e) => {
-                        eprintln!("traceguard: cannot read {path}: {e}; using embedded rules")
-                    }
+        let override_path = std::env::var(RULES_PATH_ENV)
+            .ok()
+            .filter(|p| !p.trim().is_empty())
+            .or_else(|| {
+                std::env::var(RULES_PATH_ENV_LEGACY)
+                    .ok()
+                    .filter(|p| !p.trim().is_empty())
+            });
+        if let Some(path) = override_path {
+            match std::fs::read_to_string(&path) {
+                Ok(s) => match RulePack::from_toml_str(&s) {
+                    Ok(pack) => return pack,
+                    Err(e) => eprintln!("trace: {e}; using embedded rules"),
+                },
+                Err(e) => {
+                    eprintln!("trace: cannot read {path}: {e}; using embedded rules")
                 }
             }
         }

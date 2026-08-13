@@ -398,13 +398,12 @@ pub struct RunSummary {
     pub checks_status: Option<String>,
 }
 
-// --- Policy findings, judge verdicts, and prompt events --------------------
-// Storage-layer records for the deterministic policy engine (policy.rs) and
-// the 3-LLM consensus judge (judge.rs). Kept as plain-string severity/decision
-// fields here (rather than the typed enums used in policy.rs/judge.rs/guard.rs)
-// since these are wire/row shapes read straight off SQLite and serialized
-// straight to the dashboard — the typed enums are the source of truth when a
-// finding or verdict is first produced.
+// --- Policy findings --------------------------------------------------------
+// Storage-layer records for the deterministic policy engine (policy.rs). Kept
+// as plain-string severity fields here (rather than the typed enums used in
+// policy.rs/guard.rs) since these are wire/row shapes read straight off SQLite
+// and serialized straight to the dashboard — the typed enums are the source of
+// truth when a finding is first produced.
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PolicyFindingRecord {
@@ -417,69 +416,5 @@ pub struct PolicyFindingRecord {
     pub severity: String,
     pub confidence: f64,
     pub source: String,
-    pub created_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JudgeVoteRecord {
-    pub id: String,
-    pub verdict_id: String,
-    pub provider: String,
-    pub model: String,
-    pub decision: String,
-    pub confidence: f64,
-    pub reasoning: String,
-    pub error: Option<String>,
-    pub created_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JudgeVerdictRecord {
-    pub id: String,
-    pub run_id: String,
-    pub subject: String,
-    pub consensus: String,
-    pub confidence: f64,
-    pub agreement: f64,
-    pub summary: String,
-    /// "agent_prompted" | "flagged_only" — see JudgeSettings::model_prompting_mode.
-    pub action_taken: String,
-    pub created_at: String,
-    #[serde(default)]
-    pub votes: Vec<JudgeVoteRecord>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NewPromptEvent {
-    pub prompt_text: String,
-    pub word_count: i64,
-    /// JSON-encoded array of detected pattern tags, e.g. `["vague","too_short"]`.
-    pub patterns_json: String,
-    pub clarity_score: f64,
-    pub led_to_flag: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PromptEventRecord {
-    pub id: String,
-    pub run_id: String,
-    pub prompt_text: String,
-    pub word_count: i64,
-    pub patterns_json: String,
-    pub clarity_score: f64,
-    pub led_to_flag: bool,
-    pub created_at: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DoctrineRuleRecord {
-    pub id: String,
-    pub project_id: String,
-    pub rule_key: String,
-    pub rule_text: String,
-    pub category: String,
-    pub strength: String,
-    pub confidence: f64,
-    pub supporting_evidence_json: String,
     pub created_at: String,
 }

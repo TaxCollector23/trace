@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import { Reveal, Section, Button } from "../components";
 import HeroDemo from "../HeroDemo";
 import WorksEverywhere from "../WorksEverywhere";
-import { RATIFY_URL } from "../config";
 
 const heroFade = {
   hidden: { opacity: 0, y: 14 },
@@ -73,30 +72,6 @@ export default function Home() {
         <WorksEverywhere />
       </Section>
 
-      {/* ---------- Judge panel ---------- */}
-      <Section
-        id="judge"
-        title="A second opinion before the agent keeps going"
-        lede="A deterministic rules engine catches the obvious stuff instantly — secrets, disabled tests, swallowed errors. For judgment calls, three independent models vote separately and reason together, and can only add caution on top of the rules, never override a block."
-      >
-        <Reveal>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <FeatureCard
-              title="3-model consensus"
-              body="Anthropic, OpenAI, Google — or any OpenAI-compatible model you point it at. No single lab's blind spot decides alone."
-            />
-            <FeatureCard
-              title="Learns your repo's doctrine"
-              body="Mines the rules your team actually enforces from past PR reviews, and weighs violations of those more heavily than generic best practices."
-            />
-            <FeatureCard
-              title="Real, live benchmarks"
-              body="The policy engine's precision and recall against a labeled fixture set, computed fresh — not a marketing snapshot from a past run."
-            />
-          </div>
-        </Reveal>
-      </Section>
-
       {/* ---------- One-line hook install ---------- */}
       <Section
         id="install"
@@ -121,32 +96,83 @@ export default function Home() {
       {/* ---------- Trace Ratification ---------- */}
       <Section
         id="ratification"
-        title="Trace Ratification — the same intelligence, but for pull requests"
-        lede="Connect a GitHub repo and every PR is graded against the same 3-LLM consensus panel Trace runs locally, plus your repository's mined doctrine. Scores are consistent whether the trigger is a local file edit or a git push."
+        title="Ratify a pull request — right from the local dashboard"
+        lede="Connect a GitHub repo and ratify any PR against the exact same policy engine that guards your local edits: secret scanning, risky-change detection, disabled-test checks, and more. Pure pattern matching — no LLM, no API key — so every verdict is instant, free, and identical for everyone."
       >
         <Reveal>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
-              <div className="font-serif text-lg text-text">Same judge, one key</div>
+              <div className="font-serif text-lg text-text">One engine, edit to PR</div>
               <p className="mt-2 text-sm leading-relaxed text-text-dim">
-                One OpenRouter API key unlocks Claude, GPT, Gemini, Llama, DeepSeek, and more —
-                for both the local daemon and the hosted PR grader. Consensus math is shared
-                verbatim between the Rust and TypeScript sides.
+                The same deterministic rules run on a local file edit, in CI via{" "}
+                <span className="font-mono text-[13px]">trace review-diff</span>, and on a
+                GitHub pull request from the dashboard's Ratify tab. Consistent by construction —
+                one implementation, no drift.
               </p>
             </div>
             <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
-              <div className="font-serif text-lg text-text">Confident-dissent escalation</div>
+              <div className="font-serif text-lg text-text">A clear, honest verdict</div>
               <p className="mt-2 text-sm leading-relaxed text-text-dim">
-                A lone 0.95-confident reviewer flagging a committed secret overrides two lukewarm
-                &ldquo;allow&rdquo; votes. Deliberately one-directional — escalation can never talk
-                a majority &ldquo;block&rdquo; down to allow.
+                A PR is <b>block</b> if it trips any high-severity rule, <b>needs review</b> for
+                medium-only, else <b>pass</b> — with every finding, its file, and its severity
+                listed. Reads private repos with a token that only ever touches api.github.com.
               </p>
             </div>
           </div>
-          <div className="mt-6 text-center">
-            <Button variant="secondary" href={RATIFY_URL} target="_blank" rel="noreferrer">
-              Open Trace Ratification →
-            </Button>
+        </Reveal>
+      </Section>
+
+      {/* ---------- Benchmarks ---------- */}
+      <Section
+        id="benchmarks"
+        title="Measured against an adversarial corpus, not vibes"
+        lede="Trace ships a labeled red-team corpus — dangerous commands (including evasions like curl … | sudo bash and base64-piped shells), planted API keys, and unsafe prompts — run through the exact guard, secret, and prompt engines the runtime hook uses. Reproduce every number yourself with `trace self-check`."
+      >
+        <Reveal>
+          <div className="overflow-hidden rounded-2xl border border-border bg-[#0d0d10] p-6 font-mono text-[13px] leading-relaxed text-white">
+            <div className="text-white/40">$ trace self-check</div>
+            <div className="mt-3 text-white/70">Trace red-team detection benchmark</div>
+            <div className="mt-1">
+              <span className="text-emerald-400">59/59</span> threats caught
+              &nbsp;·&nbsp; <span className="text-emerald-400">0</span> false
+              positives &nbsp;·&nbsp; recall{" "}
+              <span className="text-emerald-400">100%</span>
+            </div>
+            <div className="mt-3 space-y-1">
+              <div>
+                <span className="text-emerald-400">[PASS]</span> Command guard
+                &nbsp;&nbsp;&nbsp;&nbsp;35/35 caught · 0 missed · 0 false+ (7 benign)
+              </div>
+              <div>
+                <span className="text-emerald-400">[PASS]</span> Secret detection
+                &nbsp;18/18 caught · 0 missed · 0 false+ (3 benign)
+              </div>
+              <div>
+                <span className="text-emerald-400">[PASS]</span> Prompt risk
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6/6 caught · 0 missed · 0 false+ (2 benign)
+              </div>
+            </div>
+            <div className="mt-3 text-white/40">
+              rule pack 2025.08.1 · 29 injection phrases · 3 command rules · 2
+              secret patterns
+            </div>
+            <div className="mt-3 text-emerald-400">
+              All fixtures and red-team threats passed.
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <FeatureCard
+              title="Evasions, not just the obvious"
+              body="Pipe-to-sudo-shell, download-then-exec, base64-decoded payloads, find -delete, and raw block-device writes are all caught — the tricks that slip past a naive substring blocklist."
+            />
+            <FeatureCard
+              title="Zero false positives"
+              body="Benign look-alikes — a commit message mentioning “drop table”, a docs URL, clean source — stay clean. Recall means nothing if the tool cries wolf on real work."
+            />
+            <FeatureCard
+              title="Runs on every build"
+              body="The corpus is a unit test and a CI gate. A regression that lets a threat through — or trips on something safe — fails the build before it ships."
+            />
           </div>
         </Reveal>
       </Section>
@@ -155,7 +181,7 @@ export default function Home() {
       <Section
         id="dashboard"
         title="Every session, laid out plainly"
-        lede="Timeline, patch review, cost, risk, judge verdicts, prompting coaching, and rollback — one window, updated live."
+        lede="Timeline, patch review, cost, command risk, PR ratification, benchmarks, and rollback — one window, updated live."
       >
         <Reveal>
           <DashboardPreview />
@@ -195,7 +221,7 @@ const SIDEBAR = [
   "Session Timeline",
   "Patch Review",
   "Command Risk",
-  "Judge Panel",
+  "Ratify",
   "Token Spend",
   "Rollback Center",
 ];
@@ -238,10 +264,10 @@ const CHECKPOINTS = [
   { ref: "e02c8ab", time: "1h ago" },
 ];
 
-const JUDGE_VOTES = [
-  { provider: "Anthropic", model: "claude-sonnet-5", decision: "require_approval", note: "Removes an existing auth check without a replacement." },
-  { provider: "OpenAI", model: "gpt-5.1", decision: "require_approval", note: "Same concern — this looks unintentional given the prompt." },
-  { provider: "Google", model: "gemini-2.5-pro", decision: "warn", note: "Could be deliberate; worth a second look either way." },
+const RATIFY_FINDINGS = [
+  { severity: "high", title: "Hardcoded secret in diff", file: "src/config/prod.ts", note: "An AWS access key id was added on line 12." },
+  { severity: "medium", title: "Test file removed", file: "tests/api/users.test.ts", note: "Coverage for a changed endpoint was deleted." },
+  { severity: "low", title: "Debug TODO left in", file: "src/api/pagination.ts", note: "A `// TODO: remove` marker shipped in the change." },
 ];
 
 function DashboardPreview() {
@@ -360,23 +386,27 @@ function DashboardPreview() {
                 </div>
               ))}
             </PageBody>
-          ) : page === "Judge Panel" ? (
-            <PageBody title="OpenCode — 3-model consensus: require approval">
-              {JUDGE_VOTES.map((v, i) => (
+          ) : page === "Ratify" ? (
+            <PageBody title="acme-webapp — ratify PR #142: block">
+              {RATIFY_FINDINGS.map((f, i) => (
                 <div key={i} className="rounded-lg border border-border px-4 py-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-[13px] font-medium text-text">
-                      {v.provider} <span className="font-mono text-[11px] text-text-dim">{v.model}</span>
+                      {f.title} <span className="font-mono text-[11px] text-text-dim">{f.file}</span>
                     </span>
                     <span
                       className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        v.decision === "warn" ? "bg-brand-soft text-brand-dim" : "bg-[#fef3e2] text-[#d97706]"
+                        f.severity === "high"
+                          ? "bg-[#fdeaea] text-[#dc2626]"
+                          : f.severity === "medium"
+                          ? "bg-[#fef3e2] text-[#d97706]"
+                          : "bg-brand-soft text-brand-dim"
                       }`}
                     >
-                      {v.decision.replace("_", " ")}
+                      {f.severity}
                     </span>
                   </div>
-                  <div className="mt-1.5 text-[12px] text-text-dim">{v.note}</div>
+                  <div className="mt-1.5 text-[12px] text-text-dim">{f.note}</div>
                 </div>
               ))}
             </PageBody>

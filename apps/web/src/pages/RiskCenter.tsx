@@ -20,15 +20,10 @@ export default function RiskCenter() {
     () => (current ? api.policyFindings(current) : Promise.resolve([])),
     [current]
   );
-  const judgeQ = useAsync(
-    () => (current ? api.judgeVerdicts(current) : Promise.resolve([])),
-    [current]
-  );
 
   const cmds = cmdsQ.data ?? [];
   const secrets = secretsQ.data ?? [];
   const policyFindings = policyQ.data ?? [];
-  const verdicts = judgeQ.data ?? [];
 
   // Only the meaningful guard decisions; "executed" updates are not risk signals.
   const guarded = cmds.filter((c) =>
@@ -41,9 +36,8 @@ export default function RiskCenter() {
     <div>
       <h1 className="page-title">Command Risk</h1>
       <p className="page-sub">
-        Command decisions, policy-engine findings, 3-LLM judge verdicts,
-        protected-file warnings, and detected secrets for this run. Secret
-        values are always redacted.
+        Command decisions, policy-engine findings, protected-file warnings, and
+        detected secrets for this run. Secret values are always redacted.
       </p>
 
       {runsQ.loading ? (
@@ -85,28 +79,6 @@ export default function RiskCenter() {
                 ))}
               </tbody>
             </table>
-          )}
-
-          <div className="section-title">3-LLM judge verdicts</div>
-          {judgeQ.loading ? (
-            <Loading error={judgeQ.error} variant="cards" rows={1} />
-          ) : verdicts.length === 0 ? (
-            <div className="empty">
-              No judge verdicts for this run — either the judge is disabled, or
-              analysis hasn't run yet.
-            </div>
-          ) : (
-            verdicts.map((v) => (
-              <div key={v.id} className="card" style={{ marginBottom: 12 }}>
-                <div className="run-head">
-                  <span className={`pill ${v.consensus}`}>{v.consensus.replace("_", " ")}</span>
-                  <span className="muted">
-                    {Math.round(v.agreement * 100)}% agreement · {Math.round(v.confidence * 100)}% confidence
-                  </span>
-                </div>
-                <p style={{ margin: "8px 0 0" }}>{v.summary}</p>
-              </div>
-            ))
           )}
 
           <div className="section-title">Command decisions</div>

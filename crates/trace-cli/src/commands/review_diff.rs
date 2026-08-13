@@ -1,15 +1,15 @@
-//! `trace review-diff` — review a diff range with the policy engine (and,
-//! optionally, the judge panel) without needing a registered Trace project
-//! or a running daemon. Built for CI: point it at a git checkout, get a
-//! report and an exit code. This is the same `policy.rs`/`judge.rs` engine
-//! the live daemon uses — CI and the local agent-monitoring path share one
-//! implementation instead of drifting apart.
+//! `trace review-diff` — review a diff range with the deterministic policy
+//! engine without needing a registered Trace project or a running daemon.
+//! Built for CI: point it at a git checkout, get a report and an exit code.
+//! This is the same `policy.rs` engine the live daemon uses — CI and the local
+//! agent-monitoring path share one implementation instead of drifting apart.
+//! Pure pattern matching, so it needs no API key.
 
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
-use trace_core::{git, judge, policy, Decision, GlobalConfig};
+use trace_core::{git, policy};
 
 use crate::colors;
 
@@ -18,14 +18,7 @@ pub struct ReviewDiffOptions {
     /// `GITHUB_BASE_REF` (set by GitHub Actions on `pull_request` events)
     /// when not given, falling back to `HEAD~1...HEAD` for a plain push.
     pub range: Option<String>,
-    /// Run the 3-LLM judge panel in addition to the deterministic policy
-    /// engine. Needs judge provider keys configured (env vars or
-    /// `~/.trace/global.toml`) — degrades to policy-only with a note if none
-    /// are set, rather than failing the whole command.
-    pub judge: bool,
-    /// Exit non-zero when the review finds something worth blocking on: any
-    /// high-severity policy finding, or a judge consensus of
-    /// `require_approval`/`block`.
+    /// Exit non-zero when the review finds a high-severity policy finding.
     pub fail_on_risky: bool,
     /// Write the full structured result here in addition to stdout.
     pub json_out: Option<PathBuf>,
@@ -38,7 +31,6 @@ struct ReviewOutput {
     files_changed: usize,
     policy_findings: Vec<policy::PolicyFinding>,
     high_severity_count: usize,
-    judge_verdict: Option<judge::JudgeVerdict>,
     should_fail: bool,
 }
 
@@ -71,37 +63,7 @@ pub fn run(opts: ReviewDiffOptions) -> Result<()> {
 
     print_policy_report(&findings);
 
-    let mut judge_verdict = None;
-    if opts.judge {
-        let cfg = GlobalConfig::load().unwrap_or_default();
-        if cfg.judge.mode == judge::JudgeMode::Disabled || cfg.judge.slots.iter().all(|s| s.api_key.is_none()) {
-            println!(
-                "\n{}",
-                colors::dim("Judge requested but no provider keys are configured (TRACE_<PROVIDER>_API_KEY) — skipping the panel, policy findings above still apply.")
-            );
-        } else {
-            println!("\n{}", colors::dim("Running the 3-LLM judge panel..."));
-            let ctx = judge::JudgeContext {
-                subject: format!("CI review of {range}"),
-                agent_name: None,
-                user_prompt: None,
-                command: None,
-                files: diffs.clone(),
-                policy_findings: findings.clone(),
-                doctrine_rules: Vec::new(),
-            };
-            let verdict = judge::run_judge(&cfg.judge, &ctx);
-            print_judge_report(&verdict);
-            judge_verdict = Some(verdict);
-        }
-    }
-
-    let should_fail = opts.fail_on_risky
-        && (high_severity_count > 0
-            || judge_verdict
-                .as_ref()
-                .map(|v| matches!(v.consensus, Decision::RequireApproval | Decision::Block))
-                .unwrap_or(false));
+    let should_fail = opts.fail_on_risky && high_severity_count > 0;
 
     let output = ReviewOutput {
         schema: "trace.review/v1",
@@ -109,7 +71,6 @@ pub fn run(opts: ReviewDiffOptions) -> Result<()> {
         files_changed: entries.len(),
         policy_findings: findings,
         high_severity_count,
-        judge_verdict,
         should_fail,
     };
 
@@ -149,22 +110,5 @@ fn print_policy_report(findings: &[policy::PolicyFinding]) {
             policy::Severity::Low => colors::dim("[low]"),
         };
         println!("  {tag} {} — {}", f.title, f.file_path.as_deref().unwrap_or("(no path)"));
-    }
-}
-
-fn print_judge_report(v: &judge::JudgeVerdict) {
-    let consensus = match v.consensus {
-        Decision::Allow => colors::green("allow"),
-        Decision::Warn => colors::yellow("warn"),
-        Decision::RequireApproval => colors::yellow("require_approval"),
-        Decision::Block => colors::red("block"),
-    };
-    println!("Judge panel: {consensus} ({}% agreement, {}% confidence)", (v.agreement * 100.0) as i32, (v.confidence * 100.0) as i32);
-    println!("  {}", v.summary);
-    for vote in &v.votes {
-        match &vote.error {
-            Some(e) => println!("  - {}: failed ({e})", vote.provider),
-            None => println!("  - {}: {} — {}", vote.provider, vote.decision.as_str(), vote.reasoning),
-        }
     }
 }

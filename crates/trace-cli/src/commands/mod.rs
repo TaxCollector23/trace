@@ -1,5 +1,6 @@
 //! Subcommand implementations for the `trace` CLI.
 
+pub mod check;
 pub mod config_cmd;
 pub mod dashboard;
 pub mod doctor;

@@ -1,12 +1,10 @@
 //! Shared server state and the on-disk daemon state file (`~/.trace/daemon.json`).
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
-use trace_core::{paths, GlobalConfig, Store};
+use trace_core::{paths, Store};
 
 /// Application state shared across all request handlers.
 #[derive(Clone)]
@@ -14,18 +12,6 @@ pub struct AppState {
     /// The SQLite store. Wrapped in a mutex because `rusqlite::Connection` is
     /// not `Sync`; critical sections are short and never hold across `.await`.
     pub store: Arc<Mutex<Store>>,
-    /// Judge/key settings, loaded once at startup and mutated through the
-    /// `/api/config/judge` route. Cheap to lock — read on nearly every judge
-    /// call, written only when the user changes settings in the dashboard.
-    pub global_config: Arc<Mutex<GlobalConfig>>,
-    /// Last time the judge panel actually ran, per run id. Enforces a
-    /// cooldown in `hook_check` (see `api.rs`) so a rapid save-loop —
-    /// autosave, a formatter rewriting a file repeatedly, an editor's
-    /// "format on every keystroke" mode — can't fire three paid model calls
-    /// per save. Deliberately in-memory and per-daemon-lifetime: this is a
-    /// spend guardrail, not an audit record, so it doesn't need to survive
-    /// a restart or show up in the database.
-    pub judge_cooldown: Arc<Mutex<HashMap<String, Instant>>>,
     pub port: u16,
     pub started_at: String,
     pub db_path: String,

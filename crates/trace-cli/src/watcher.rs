@@ -152,15 +152,15 @@ fn emit(client: &Client, run_id: &str, event_type: EventType, root: &Path, path:
 
     // Live review, for every wrapped agent — not just Claude Code's hooks.
     // This is the CLI-wrapper path's equivalent of trace-hook.sh's
-    // PostToolUse call: same daemon endpoint, same policy engine, same
-    // judge panel when Model Prompting Mode is on. What it can't do that
-    // the Claude Code hook *can* is inject feedback into the agent's own
-    // context — Trace is watching the filesystem from outside here, not
-    // sitting in the tool-call path — so a "block" response becomes a loud
-    // terminal alert for the human at the keyboard plus a dashboard flag,
-    // not a message the agent itself sees. See ARCHITECTURE.md.
+    // PostToolUse call: same daemon endpoint, same deterministic policy
+    // engine. What it can't do that the Claude Code hook *can* is inject
+    // feedback into the agent's own context — Trace is watching the
+    // filesystem from outside here, not sitting in the tool-call path — so a
+    // "block" response becomes a loud terminal alert for the human at the
+    // keyboard plus a dashboard flag, not a message the agent itself sees.
+    // See ARCHITECTURE.md.
     if matches!(event_type, EventType::FileCreated | EventType::FileModified) {
-        review_live(client, run_id, root, path, &rel);
+        review_live(client, run_id, path, &rel);
     }
 }
 
@@ -169,7 +169,7 @@ fn emit(client: &Client, run_id: &str, event_type: EventType, root: &Path, path:
 /// skipped entirely rather than truncated silently mid-content.
 const MAX_REVIEW_BYTES: u64 = 200 * 1024;
 
-fn review_live(client: &Client, run_id: &str, root: &Path, path: &Path, rel: &str) {
+fn review_live(client: &Client, run_id: &str, path: &Path, rel: &str) {
     let Ok(meta) = std::fs::metadata(path) else { return };
     if !meta.is_file() || meta.len() == 0 || meta.len() > MAX_REVIEW_BYTES {
         return;

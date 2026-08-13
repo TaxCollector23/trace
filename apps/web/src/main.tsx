@@ -10,8 +10,7 @@ import RiskCenter from "./pages/RiskCenter";
 import RollbackCenter from "./pages/RollbackCenter";
 import Analytics from "./pages/Analytics";
 import GitHub from "./pages/GitHub";
-import JudgePanel from "./pages/JudgePanel";
-import PromptCoach from "./pages/PromptCoach";
+import Ratify from "./pages/Ratify";
 import Benchmarks from "./pages/Benchmarks";
 import NotFound from "./pages/NotFound";
 import "./styles.css";
@@ -32,12 +31,11 @@ const router = createHashRouter([
       { path: "cost/:runId", element: <CostCenter /> },
       { path: "risk", element: <RiskCenter /> },
       { path: "risk/:runId", element: <RiskCenter /> },
-      { path: "judge", element: <JudgePanel /> },
-      { path: "prompting", element: <PromptCoach /> },
       { path: "benchmarks", element: <Benchmarks /> },
       { path: "rollback", element: <RollbackCenter /> },
       { path: "analytics", element: <Analytics /> },
       { path: "github", element: <GitHub /> },
+      { path: "ratify", element: <Ratify /> },
       { path: "*", element: <NotFound /> },
     ],
   },

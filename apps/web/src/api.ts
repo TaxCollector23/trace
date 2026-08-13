@@ -174,7 +174,7 @@ export interface AnalyticsSummary {
   by_agent: AgentTokenStats[];
 }
 
-// --- Policy engine + 3-LLM judge (merged in from Ratify) ------------------
+// --- Deterministic policy engine review -----------------------------------
 
 export type Severity = "low" | "medium" | "high";
 export type Decision = "allow" | "warn" | "require_approval" | "block";
@@ -192,95 +192,33 @@ export interface PolicyFindingRecord {
   created_at: string;
 }
 
-export interface JudgeVoteRecord {
-  id: string;
-  verdict_id: string;
-  provider: string;
-  model: string;
-  decision: Decision;
+/** A policy finding as produced fresh by the engine (before it's stored). */
+export interface PolicyFinding {
+  rule_key: string;
+  title: string;
+  description: string;
+  file_path: string | null;
+  severity: Severity;
   confidence: number;
-  reasoning: string;
-  error: string | null;
-  created_at: string;
-}
-
-export interface JudgeVerdictRecord {
-  id: string;
-  run_id: string;
-  subject: string;
-  consensus: Decision;
-  confidence: number;
-  agreement: number;
-  summary: string;
-  action_taken: "agent_prompted" | "flagged_only";
-  created_at: string;
-  votes: JudgeVoteRecord[];
+  source: string;
 }
 
 export interface AnalyzeRunResponse {
-  policy_findings: PolicyFindingRecord[] | Omit<PolicyFindingRecord, "id" | "run_id" | "created_at">[];
-  judge_verdict: JudgeVerdictRecord | null;
-  agent_instruction: string | null;
+  policy_findings: PolicyFinding[];
+  judge_verdict: null;
+  agent_instruction: null;
 }
 
-export type JudgeMode = "disabled" | "own_keys" | "backend_proxy";
+// --- Ratify (deterministic policy review of a GitHub pull request) ---------
 
-export interface ProviderSlot {
-  provider: string;
-  model: string;
-  base_url?: string | null;
-  api_key?: string | null;
-}
+export type RatifyVerdict = "pass" | "review" | "block";
 
-export interface JudgeSettings {
-  mode: JudgeMode;
-  slots: ProviderSlot[];
-  backend_proxy_url?: string | null;
-  backend_proxy_token?: string | null;
-  model_prompting_mode: boolean;
-}
-
-export interface GlobalConfigResponse {
-  judge: JudgeSettings;
-}
-
-export type PromptPattern =
-  | "too_short"
-  | "vague"
-  | "open_ended"
-  | "conflicting"
-  | "no_acceptance_criteria"
-  | "well_scoped";
-
-export interface PromptEventRecord {
-  id: string;
-  run_id: string;
-  prompt_text: string;
-  word_count: number;
-  patterns_json: string;
-  clarity_score: number;
-  led_to_flag: boolean;
-  created_at: string;
-}
-
-// --- Doctrine (mined from PR review history) -------------------------------
-
-export interface DoctrineRuleRecord {
-  id: string;
-  project_id: string;
-  rule_key: string;
-  rule_text: string;
-  category: string;
-  strength: "hard-rule" | "soft-norm" | "likely-preference";
-  confidence: number;
-  supporting_evidence_json: string;
-  created_at: string;
-}
-
-export interface MineDoctrineResponse {
-  rules: DoctrineRuleRecord[];
-  prs_analyzed: number;
-  reason: string | null;
+export interface RatifyReport {
+  pr: number;
+  files_reviewed: number;
+  findings: PolicyFinding[];
+  counts: { high: number; medium: number; low: number };
+  verdict: RatifyVerdict;
 }
 
 // --- Benchmarks --------------------------------------------------------
@@ -300,6 +238,26 @@ export interface PolicyEvalReport {
   results: FixtureResult[];
 }
 
+export interface RedTeamEngineScore {
+  name: string;
+  threats: number;
+  caught: number;
+  downgraded: number;
+  missed: number;
+  benign: number;
+  false_positives: number;
+  recall: number;
+}
+
+export interface RedTeamReport {
+  engines: RedTeamEngineScore[];
+  pack_version: string;
+  injection_phrases: number;
+  command_rules: number;
+  secret_patterns: number;
+  passed: boolean;
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`/api${path}`);
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
@@ -313,16 +271,6 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`POST ${path} failed: ${res.status}`);
-  return res.json() as Promise<T>;
-}
-
-async function put<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`PUT ${path} failed: ${res.status}`);
   return res.json() as Promise<T>;
 }
 
@@ -353,23 +301,12 @@ export const api = {
   testResults: (id: string) => get<TestResult[]>(`/runs/${id}/test-results`),
   rollback: (id: string) => post<{ ok: boolean; git_ref: string }>(`/runs/${id}/rollback`, {}),
   analytics: () => get<AnalyticsSummary>("/analytics"),
-  // Policy engine + 3-LLM judge
+  // Deterministic policy engine review (no API key)
   policyFindings: (id: string) => get<PolicyFindingRecord[]>(`/runs/${id}/policy`),
-  judgeVerdicts: (id: string) => get<JudgeVerdictRecord[]>(`/runs/${id}/judge`),
-  recentJudge: (limit = 50) => get<JudgeVerdictRecord[]>(`/judge/recent?limit=${limit}`),
   analyzeRun: (id: string) => post<AnalyzeRunResponse>(`/runs/${id}/analyze`, {}),
-  judgeConfig: () => get<GlobalConfigResponse>("/config/judge"),
-  saveJudgeConfig: (settings: JudgeSettings) => put<GlobalConfigResponse>("/config/judge", settings),
-  testJudgeSlot: (slot: ProviderSlot) => post<{ ok: boolean; message: string }>("/config/judge/test", slot),
-  // Prompting analytics
-  recordPrompt: (id: string, promptText: string) =>
-    post<{ word_count: number; clarity_score: number; patterns: PromptPattern[] }>(
-      `/runs/${id}/prompt`,
-      { prompt_text: promptText }
-    ),
-  recentPrompts: (limit = 100) => get<PromptEventRecord[]>(`/prompts/recent?limit=${limit}`),
-  // Doctrine
-  projectDoctrine: (projectId: string) => get<DoctrineRuleRecord[]>(`/projects/${projectId}/doctrine`),
-  mineDoctrine: (projectId: string) => post<MineDoctrineResponse>(`/projects/${projectId}/doctrine/mine`, {}),
+  // Ratify: deterministic policy review of a connected repo's pull request
+  ratifyPull: (projectId: string, pr: number) =>
+    get<RatifyReport>(`/github/ratify?project_id=${projectId}&pr=${pr}`),
   benchmarks: () => get<PolicyEvalReport>("/benchmarks"),
+  redteamBenchmarks: () => get<RedTeamReport>("/benchmarks/redteam"),
 };

@@ -48,25 +48,19 @@ pub fn router() -> Router<AppState> {
         .route("/scan", post(scan_project))
         .route("/doctor", get(doctor))
         .route("/analytics", get(analytics))
-        .route("/analytics/coaching", get(coaching_report))
         .route("/benchmarks", get(benchmarks))
-        // Policy engine + judge (merged in from Ratify's review pipeline)
-        .route("/runs/:id/prompt", post(record_prompt))
+        .route("/benchmarks/redteam", get(redteam_benchmarks))
+        // Deterministic policy-engine review (no API key required)
         .route("/runs/:id/analyze", post(analyze_run))
         .route("/runs/:id/hook-check", post(hook_check))
         .route("/runs/:id/policy", get(list_run_policy_findings))
-        .route("/runs/:id/judge", get(list_run_judge_verdicts))
-        .route("/judge/recent", get(recent_judge))
-        .route("/prompts/recent", get(recent_prompts))
-        .route("/config/judge", get(get_judge_config).put(put_judge_config))
-        .route("/config/judge/test", post(test_judge_slot))
-        .route("/projects/:id/doctrine", get(list_project_doctrine))
-        .route("/projects/:id/doctrine/mine", post(mine_project_doctrine))
         // GitHub (reads directly from the repo, including private)
         .route("/github/status", get(gh_status))
         .route("/github/commits", get(gh_commits))
         .route("/github/pulls", get(gh_pulls))
         .route("/github/file", get(gh_file))
+        // Ratify: deterministic policy review of a connected repo's PR
+        .route("/github/ratify", get(gh_ratify))
 }
 
 // --- Error handling -------------------------------------------------------
@@ -502,18 +496,6 @@ async fn analytics(State(state): State<AppState>) -> ApiResult<impl IntoResponse
     Ok(Json(store(&state).analytics_summary()?))
 }
 
-/// Personalized prompt-coaching feedback derived from the user's own recent
-/// prompts — which patterns show up most, which correlate with flagged runs,
-/// and one concrete example from their own history. Deterministic aggregation,
-/// no LLM call; the semantic pass batches through the judge panel elsewhere.
-async fn coaching_report(
-    State(state): State<AppState>,
-    Query(q): Query<LimitQuery>,
-) -> ApiResult<impl IntoResponse> {
-    let events = store(&state).recent_prompt_events(q.limit.unwrap_or(200) as i64)?;
-    Ok(Json(trace_core::build_coaching_report(&events)))
-}
-
 /// Runs the policy engine's own labeled-fixture benchmark fresh on every
 /// call — it's pure computation over in-memory fixtures (no I/O), so
 /// there's nothing to cache or go stale. See `trace-core::eval`.
@@ -521,44 +503,15 @@ async fn benchmarks() -> impl IntoResponse {
     Json(trace_core::run_policy_eval())
 }
 
-// --- Prompt quality ---------------------------------------------------
-
-#[derive(Deserialize)]
-struct PromptBody {
-    prompt_text: String,
+/// Runs the adversarial red-team detection benchmark fresh on every call:
+/// dangerous commands (incl. evasions), planted secrets, and unsafe prompts
+/// through the real guard / secret / prompt engines. Pure computation, no I/O.
+/// See `trace-core::redteam`.
+async fn redteam_benchmarks() -> impl IntoResponse {
+    Json(trace_core::run_redteam_eval())
 }
 
-/// Records a prompt sent to the agent and scores it with the heuristic
-/// prompt-quality analyzer. Called by the CLI adapter at the start of a run,
-/// where the user's instruction is already available.
-async fn record_prompt(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-    Json(body): Json<PromptBody>,
-) -> ApiResult<impl IntoResponse> {
-    let analysis = trace_core::analyze_prompt(&body.prompt_text);
-    let patterns_json = serde_json::to_string(&analysis.patterns).unwrap_or_else(|_| "[]".into());
-    store(&state).add_prompt_event(
-        &id,
-        &NewPromptEvent {
-            prompt_text: body.prompt_text,
-            word_count: analysis.word_count,
-            patterns_json,
-            clarity_score: analysis.clarity_score,
-            led_to_flag: false,
-        },
-    )?;
-    Ok(Json(analysis))
-}
-
-async fn recent_prompts(
-    State(state): State<AppState>,
-    Query(q): Query<LimitQuery>,
-) -> ApiResult<impl IntoResponse> {
-    Ok(Json(store(&state).recent_prompt_events(q.limit.unwrap_or(100))?))
-}
-
-// --- Policy engine + 3-LLM judge (merged in from Ratify) ---------------
+// --- Policy engine review -------------------------------------------------
 
 /// Runs the deterministic policy engine over a run's recorded file changes,
 /// then — if the judge is enabled — runs the 3-LLM consensus panel with
@@ -585,13 +538,12 @@ async fn analyze_run(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> ApiResult<impl IntoResponse> {
-    let (run, file_changes, judge_settings, project_path) = {
+    let (run, file_changes, project_path) = {
         let s = store(&state);
         let run = s.run_by_id(&id)?.ok_or_else(|| ApiError::not_found("run"))?;
         let file_changes = s.list_file_changes(&id)?;
-        let judge_settings = state.global_config.lock().expect("config mutex poisoned").judge.clone();
         let project_path = s.project_by_id(&run.project_id)?.map(|p| p.path);
-        (run, file_changes, judge_settings, project_path)
+        (run, file_changes, project_path)
     };
 
     // The policy engine's checks (secret scanning, TODO detection, etc.) are
@@ -622,61 +574,21 @@ async fn analyze_run(
     let policy_findings = trace_core::run_policy_checks(&diffs);
     store(&state).add_policy_findings(&id, &policy_findings)?;
 
-    let mut response = json!({
+    // Deterministic review only — the policy engine runs with no API key. The
+    // `judge_verdict`/`agent_instruction` fields are retained as `null` for
+    // wire-compatibility with older adapters that still read them.
+    Ok(Json(json!({
         "policy_findings": policy_findings,
         "judge_verdict": null,
         "agent_instruction": null,
-    });
-
-    if judge_settings.mode != trace_core::JudgeMode::Disabled {
-        let doctrine_rules = doctrine_lines(&state, &run.project_id);
-        let ctx = trace_core::JudgeContext {
-            subject: format!("Agent run on {}", run.project_id),
-            agent_name: run.agent_name.clone(),
-            user_prompt: run.user_prompt.clone(),
-            command: Some(run.command.clone()),
-            files: diffs,
-            policy_findings: policy_findings.clone(),
-            doctrine_rules,
-        };
-
-        let model_prompting_mode = judge_settings.model_prompting_mode;
-
-        // Blocking network calls to up to three providers — run off the
-        // async runtime so we don't stall other requests while waiting.
-        let verdict = tokio::task::spawn_blocking(move || trace_core::run_judge(&judge_settings, &ctx))
-            .await
-            .map_err(|e| ApiError {
-                status: StatusCode::INTERNAL_SERVER_ERROR,
-                message: format!("judge task panicked: {e}"),
-            })?;
-
-        let should_prompt_agent = model_prompting_mode
-            && matches!(verdict.consensus, trace_core::Decision::RequireApproval | trace_core::Decision::Block);
-        let action_taken = if should_prompt_agent { "agent_prompted" } else { "flagged_only" };
-
-        store(&state).save_judge_verdict(&id, "run-analysis", &verdict, action_taken)?;
-
-        let agent_instruction = should_prompt_agent.then(|| {
-            format!(
-                "Trace's review panel flagged this action ({}). {} Please stop, re-examine the last change, and address this before continuing.",
-                verdict.consensus.as_str().replace('_', " "),
-                verdict.summary
-            )
-        });
-
-        response = json!({
-            "policy_findings": policy_findings,
-            "judge_verdict": verdict,
-            "agent_instruction": agent_instruction,
-        });
-    }
-
-    Ok(Json(response))
+    })))
 }
 
 #[derive(Deserialize)]
 struct HookCheckBody {
+    /// Accepted for wire-compat with existing agent hooks; no longer used now
+    /// that live review is deterministic-only.
+    #[allow(dead_code)]
     tool_name: String,
     file_path: Option<String>,
     /// Best-effort diff/content snippet for the edit. Optional: some tools
@@ -718,50 +630,15 @@ struct HookCheckResponse {
 /// dashboard-only flagging, or a brief pause per edit in exchange for the
 /// panel being able to tell the agent to stop and fix something before it
 /// keeps building on a mistake.
-/// Minimum time between judge panel invocations for the same run. A rapid
-/// save-loop (autosave, a formatter, an aggressive "format on keystroke"
-/// setup) could otherwise trigger three paid model calls per debounced
-/// file event — this caps the real-money cost of that without turning the
-/// judge off. Policy-engine findings are never throttled: they're free,
-/// local, and instant, so every edit still gets that layer of review even
-/// during a judge cooldown window.
-const JUDGE_COOLDOWN: std::time::Duration = std::time::Duration::from_secs(15);
-
-/// Returns `true` and marks the run as "just judged" if enough time has
-/// passed since the last judge call for this run — false if still cooling
-/// down, in which case the caller should skip the judge and rely on the
-/// (unthrottled) policy engine for this particular edit.
-fn judge_cooldown_elapsed(state: &AppState, run_id: &str) -> bool {
-    let mut cooldowns = state.judge_cooldown.lock().expect("cooldown mutex poisoned");
-    let now = std::time::Instant::now();
-
-    // Opportunistic eviction: this map has no natural upper bound otherwise
-    // (one entry per run id, ever) and the daemon is meant to run for
-    // days/weeks. Piggybacking cleanup on every call keeps it bounded
-    // without a background task — cheap since it only runs on judge calls,
-    // not every request.
-    cooldowns.retain(|_, last| now.duration_since(*last) < JUDGE_COOLDOWN * 4);
-
-    match cooldowns.get(run_id) {
-        Some(last) if now.duration_since(*last) < JUDGE_COOLDOWN => false,
-        _ => {
-            cooldowns.insert(run_id.to_string(), now);
-            true
-        }
-    }
-}
-
 async fn hook_check(
     State(state): State<AppState>,
     Path(id): Path<String>,
     Json(body): Json<HookCheckBody>,
 ) -> ApiResult<impl IntoResponse> {
-    let (run, judge_settings) = {
+    {
         let s = store(&state);
-        let run = s.run_by_id(&id)?.ok_or_else(|| ApiError::not_found("run"))?;
-        let judge_settings = state.global_config.lock().expect("config mutex poisoned").judge.clone();
-        (run, judge_settings)
-    };
+        s.run_by_id(&id)?.ok_or_else(|| ApiError::not_found("run"))?;
+    }
 
     let diff = trace_core::FileDiff {
         filename: body.file_path.clone().unwrap_or_else(|| "(unknown file)".to_string()),
@@ -786,126 +663,16 @@ async fn hook_check(
         consensus: None,
     };
 
-    // Even before the judge runs, deterministic policy findings are worth
-    // echoing to the agent as advisory. The hook script surfaces this at
-    // exit 0 (no block) if the judge is off; if the judge later escalates,
-    // this text becomes part of the blocking message too.
+    // Deterministic policy findings are echoed to the agent as advisory. This
+    // is the whole live-review surface now: fast, local, and needs no API key.
     if !policy_findings.is_empty() {
         response.agent_feedback = Some(format_policy_advisory(&policy_findings));
-    }
-
-    let judge_wanted = judge_settings.model_prompting_mode && judge_settings.mode != trace_core::JudgeMode::Disabled;
-    // Only consult (and thereby reset) the cooldown clock when the judge
-    // would actually run otherwise — an unrelated Bash-only run with the
-    // judge off shouldn't touch this run's cooldown state at all.
-    let judge_allowed_now = judge_wanted && judge_cooldown_elapsed(&state, &id);
-    response.judge_on_cooldown = judge_wanted && !judge_allowed_now;
-
-    if judge_allowed_now {
-        let doctrine_rules = doctrine_lines(&state, &run.project_id);
-        let ctx = trace_core::JudgeContext {
-            subject: format!("{} on {}", body.tool_name, diffs[0].filename),
-            agent_name: run.agent_name.clone(),
-            user_prompt: run.user_prompt.clone(),
-            command: None,
-            files: diffs,
-            policy_findings: policy_findings.clone(),
-            doctrine_rules,
-        };
-        let verdict = tokio::task::spawn_blocking(move || trace_core::run_judge(&judge_settings, &ctx))
-            .await
-            .map_err(|e| ApiError { status: StatusCode::INTERNAL_SERVER_ERROR, message: format!("judge task panicked: {e}") })?;
-
-        let should_block =
-            matches!(verdict.consensus, trace_core::Decision::RequireApproval | trace_core::Decision::Block);
-        let action_taken = if should_block { "agent_prompted" } else { "flagged_only" };
-        store(&state).save_judge_verdict(&id, &format!("live-edit: {}", body.tool_name), &verdict, action_taken)?;
-
-        response.consensus = Some(verdict.consensus.as_str().to_string());
-        // Always fold the panel's reasoning into agent_feedback (not just
-        // on block). A `warn` verdict still contains useful "here's what
-        // could be better" that the hook echoes without exit 2, giving
-        // the agent a self-correction chance before the next edit.
-        if verdict.consensus != trace_core::Decision::Allow {
-            response.agent_feedback = Some(format_agent_feedback(
-                &policy_findings,
-                &verdict,
-                &body.tool_name,
-                body.file_path.as_deref(),
-            ));
-        }
-
-        if should_block {
-            response.block = true;
-            // Legacy `message` field mirrors agent_feedback so older shell
-            // hooks that only read `message` still get the rich text.
-            response.message = response.agent_feedback.clone();
-        }
     }
 
     Ok(Json(response))
 }
 
-/// Produce the multi-line message that the coding agent actually reads
-/// back — no dashboard visit needed. Concrete: every deterministic
-/// finding, every disagreeing reviewer's own reasoning, and a directive
-/// on what to do next.
-fn format_agent_feedback(
-    policy_findings: &[trace_core::PolicyFinding],
-    verdict: &trace_core::JudgeVerdict,
-    tool_name: &str,
-    file_path: Option<&str>,
-) -> String {
-    use trace_core::Decision;
-    let file = file_path.unwrap_or("(unknown file)");
-    let mut lines: Vec<String> = Vec::new();
-    lines.push(format!(
-        "[Trace] {} on {} → panel consensus: {} ({:.0}% confidence, {:.0}% agreement).",
-        tool_name,
-        file,
-        verdict.consensus.as_str().replace('_', " "),
-        verdict.confidence * 100.0,
-        verdict.agreement * 100.0
-    ));
-
-    if !policy_findings.is_empty() {
-        lines.push(String::new());
-        lines.push("Deterministic checks found:".into());
-        for f in policy_findings.iter().take(6) {
-            lines.push(format!("  • [{}] {}: {}", f.severity.as_str(), f.title, f.description));
-        }
-        if policy_findings.len() > 6 {
-            lines.push(format!("  … and {} more", policy_findings.len() - 6));
-        }
-    }
-
-    // Each reviewer's actual reasoning — this is what makes the feedback
-    // *actionable* for the agent rather than a generic "please fix it."
-    let successful: Vec<_> = verdict.votes.iter().filter(|v| v.error.is_none()).collect();
-    if !successful.is_empty() {
-        lines.push(String::new());
-        lines.push("Reviewers said:".into());
-        for v in &successful {
-            let short = v.reasoning.trim();
-            let short: String = short.chars().take(280).collect();
-            if !short.is_empty() {
-                lines.push(format!("  • {} ({:.0}%): {}", v.model, v.confidence * 100.0, short));
-            }
-        }
-    }
-
-    lines.push(String::new());
-    lines.push(match verdict.consensus {
-        Decision::Block => "→ Do not continue with this edit. Revert or rework the change to address the highest-severity issue above, then explain what you changed.".into(),
-        Decision::RequireApproval => "→ Pause here. Explain your rationale in one sentence and wait for confirmation before continuing.".into(),
-        Decision::Warn => "→ Not blocking, but before your next edit, address the issue above or note explicitly why it's acceptable.".into(),
-        Decision::Allow => "→ No action required.".into(),
-    });
-
-    lines.join("\n")
-}
-
-/// Advisory formatting used when the judge didn't run but the deterministic
+/// Advisory formatting for the deterministic
 /// policy engine found things worth telling the agent about. Kept short —
 /// the agent will still be moving forward, so we prioritize signal density.
 fn format_policy_advisory(findings: &[trace_core::PolicyFinding]) -> String {
@@ -923,153 +690,11 @@ fn format_policy_advisory(findings: &[trace_core::PolicyFinding]) -> String {
 /// `"[hard-rule · testing] Every new endpoint needs an integration test."`
 /// Shared by `analyze_run` and `hook_check` so both live-review paths give
 /// the judge panel the same repo-specific context.
-fn doctrine_lines(state: &AppState, project_id: &str) -> Vec<String> {
-    store(state)
-        .list_doctrine_rules(project_id)
-        .unwrap_or_default()
-        .into_iter()
-        .map(|r| format!("[{} · {}] {}", r.strength, r.category, r.rule_text))
-        .collect()
-}
-
-async fn list_project_doctrine(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> ApiResult<impl IntoResponse> {
-    Ok(Json(store(&state).list_doctrine_rules(&id)?))
-}
-
-/// Mines doctrine for a project from its GitHub PR review history and
-/// replaces whatever was previously stored. Entirely server-side: the
-/// project's path is already known (it's registered), so this resolves the
-/// GitHub remote and a read-only token the same way `/api/github/*` does,
-/// then runs the mining pass using one of the judge panel's configured
-/// providers. Returns a clear reason rather than an error when mining can't
-/// produce rules (no remote, no token, no judge provider, no PR history) —
-/// none of those are failures, they're just "nothing to mine yet."
-async fn mine_project_doctrine(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> ApiResult<impl IntoResponse> {
-    let (project, judge_settings) = {
-        let s = store(&state);
-        let project = s.project_by_id(&id)?.ok_or_else(|| ApiError::not_found("project"))?;
-        let judge_settings = state.global_config.lock().expect("config mutex poisoned").judge.clone();
-        (project, judge_settings)
-    };
-
-    let repo_ref = trace_core::git::remote_url(std::path::Path::new(&project.path))
-        .and_then(|u| trace_core::github::parse_remote(&u));
-    let Some(repo_ref) = repo_ref else {
-        return Ok(Json(json!({
-            "rules": [],
-            "prs_analyzed": 0,
-            "reason": "project has no GitHub origin remote",
-        })));
-    };
-
-    let result = tokio::task::spawn_blocking(move || trace_core::mine_doctrine(&repo_ref, &judge_settings, 12))
-        .await
-        .map_err(|e| ApiError { status: StatusCode::INTERNAL_SERVER_ERROR, message: format!("mining task panicked: {e}") })?;
-
-    match result {
-        Ok(mined) => {
-            store(&state).replace_doctrine_rules(&id, &mined.rules)?;
-            let rules = store(&state).list_doctrine_rules(&id)?;
-            Ok(Json(json!({ "rules": rules, "prs_analyzed": mined.prs_analyzed, "reason": null })))
-        }
-        Err(e) => Ok(Json(json!({ "rules": [], "prs_analyzed": 0, "reason": e.to_string() }))),
-    }
-}
-
 async fn list_run_policy_findings(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> ApiResult<impl IntoResponse> {
     Ok(Json(store(&state).list_policy_findings(&id)?))
-}
-
-async fn list_run_judge_verdicts(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> ApiResult<impl IntoResponse> {
-    Ok(Json(store(&state).list_judge_verdicts(&id)?))
-}
-
-async fn recent_judge(
-    State(state): State<AppState>,
-    Query(q): Query<LimitQuery>,
-) -> ApiResult<impl IntoResponse> {
-    Ok(Json(store(&state).recent_judge_verdicts(q.limit.unwrap_or(50))?))
-}
-
-#[derive(Serialize)]
-struct TestSlotResponse {
-    ok: bool,
-    message: String,
-}
-
-/// Verifies one provider slot actually works — real network call, real
-/// response check — before the user commits to saving it. If the request
-/// doesn't include a key (testing an already-saved slot rather than a
-/// freshly-typed one), falls back to whatever's currently stored for that
-/// provider so "test" works without having to retype the key.
-async fn test_judge_slot(
-    State(state): State<AppState>,
-    Json(mut slot): Json<trace_core::judge::ProviderSlot>,
-) -> ApiResult<impl IntoResponse> {
-    if slot.api_key.is_none() {
-        let cfg = state.global_config.lock().expect("config mutex poisoned");
-        slot.api_key = cfg
-            .judge
-            .slots
-            .iter()
-            .find(|s| s.provider == slot.provider)
-            .and_then(|s| s.api_key.clone());
-    }
-
-    let result = tokio::task::spawn_blocking(move || {
-        let agent = ureq::AgentBuilder::new().timeout(std::time::Duration::from_secs(15)).build();
-        trace_core::judge::call_provider_raw(&slot, "Respond with exactly one word: ok", &agent)
-    })
-    .await
-    .map_err(|e| ApiError { status: StatusCode::INTERNAL_SERVER_ERROR, message: format!("test task panicked: {e}") })?;
-
-    Ok(Json(match result {
-        Ok(content) if !content.trim().is_empty() => {
-            TestSlotResponse { ok: true, message: format!("Connected — model responded: \"{}\"", content.trim().chars().take(60).collect::<String>()) }
-        }
-        Ok(_) => TestSlotResponse { ok: false, message: "Connected, but the model returned an empty response.".to_string() },
-        Err(e) => TestSlotResponse { ok: false, message: e.to_string() },
-    }))
-}
-
-async fn get_judge_config(State(state): State<AppState>) -> impl IntoResponse {
-    let cfg = state.global_config.lock().expect("config mutex poisoned");
-    Json(cfg.redacted())
-}
-
-/// Update judge settings. Accepts a full `JudgeSettings` body; a slot with
-/// `api_key: null` keeps its previously stored key (so the redacted GET
-/// response can safely be edited and PUT back without clobbering keys).
-async fn put_judge_config(
-    State(state): State<AppState>,
-    Json(mut body): Json<trace_core::JudgeSettings>,
-) -> ApiResult<impl IntoResponse> {
-    let mut cfg = state.global_config.lock().expect("config mutex poisoned");
-    for (i, slot) in body.slots.iter_mut().enumerate() {
-        if slot.api_key.is_none() {
-            if let Some(existing) = cfg.judge.slots.get(i) {
-                slot.api_key = existing.api_key.clone();
-            }
-        }
-    }
-    cfg.judge = body;
-    cfg.save().map_err(|e| ApiError {
-        status: StatusCode::INTERNAL_SERVER_ERROR,
-        message: e.to_string(),
-    })?;
-    Ok(Json(cfg.redacted()))
 }
 
 // --- GitHub ---------------------------------------------------------------
@@ -1083,6 +708,9 @@ struct GhQuery {
     path: Option<String>,
     #[serde(default)]
     r#ref: Option<String>,
+    /// Pull-request number to ratify (used by `/github/ratify`).
+    #[serde(default)]
+    pr: Option<i64>,
 }
 
 /// Resolve a project's path + git RepoRef + token for GitHub calls.
@@ -1150,4 +778,47 @@ async fn gh_file(
     let content = trace_core::github::get_file(&r, &path, q.r#ref.as_deref(), token.as_deref())
         .map_err(ApiError::from)?;
     Ok(Json(json!({ "path": path, "content": content })))
+}
+
+/// Ratify a pull request on the connected GitHub repo: fetch the PR's changed
+/// files and run the same deterministic policy engine (secret scanning,
+/// risky-change detection, etc.) used across Trace. No LLM, no API key — pure
+/// pattern matching, so every user gets a working verdict. The verdict is
+/// `block` if any high-severity finding, `review` for medium-only, else `pass`.
+async fn gh_ratify(
+    State(state): State<AppState>,
+    Query(q): Query<GhQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let pr = q.pr.ok_or_else(|| ApiError {
+        status: StatusCode::BAD_REQUEST,
+        message: "missing ?pr= (pull-request number)".into(),
+    })?;
+    let (_p, r, token) = gh_repo_ref(&state, &q.project_id)?;
+    let files =
+        trace_core::github::list_pr_files(&r, token.as_deref(), pr).map_err(ApiError::from)?;
+    let findings = trace_core::run_policy_checks(&files);
+
+    let (mut high, mut medium, mut low) = (0usize, 0usize, 0usize);
+    for f in &findings {
+        match f.severity {
+            trace_core::Severity::High => high += 1,
+            trace_core::Severity::Medium => medium += 1,
+            trace_core::Severity::Low => low += 1,
+        }
+    }
+    let verdict = if high > 0 {
+        "block"
+    } else if medium > 0 {
+        "review"
+    } else {
+        "pass"
+    };
+
+    Ok(Json(json!({
+        "pr": pr,
+        "files_reviewed": files.len(),
+        "findings": findings,
+        "counts": { "high": high, "medium": medium, "low": low },
+        "verdict": verdict,
+    })))
 }

@@ -6,8 +6,6 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::judge::JudgeSettings;
-
 /// Project configuration. Kept intentionally small for the MVP.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectConfig {
@@ -82,83 +80,3 @@ impl ProjectConfig {
     }
 }
 
-/// Machine-wide configuration: `~/.trace/global.toml`. Holds settings that
-/// apply across every project, most importantly the judge panel setup.
-/// Provider API keys, when present, live only here (or in environment
-/// variables that override it) — never in the binary, never in a
-/// per-project file that might get committed to a repo.
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-pub struct GlobalConfig {
-    #[serde(default)]
-    pub judge: JudgeSettings,
-}
-
-/// Env var overrides, checked before the file value for each slot. Derived
-/// generically from the provider id (`"deepseek"` -> `TRACE_DEEPSEEK_API_KEY`)
-/// so a newly-added provider slot gets env var support for free — no code
-/// change needed here when someone points a slot at a new lab.
-fn env_key_for(provider: &str) -> Option<String> {
-    let normalized = provider.trim();
-    if normalized.is_empty() {
-        return None;
-    }
-    let upper = normalized.to_uppercase().replace(['-', ' '], "_");
-    // TRACE_-prefixed form wins so a user with e.g. a global OPENAI_API_KEY
-    // for other tools can still point Trace at a different key. Then fall
-    // back to the ecosystem-standard bare form (OPENROUTER_API_KEY,
-    // ANTHROPIC_API_KEY, ...) so a fresh user with one key in .env.local
-    // gets a working panel with zero extra config.
-    for var in [format!("TRACE_{upper}_API_KEY"), format!("{upper}_API_KEY")] {
-        if let Ok(v) = std::env::var(&var) {
-            if !v.is_empty() {
-                return Some(v);
-            }
-        }
-    }
-    None
-}
-
-impl GlobalConfig {
-    /// Load from `~/.trace/global.toml`, applying environment variable
-    /// overrides for provider keys. Returns the default (judge disabled)
-    /// if no file exists yet — first run should never error.
-    pub fn load() -> Result<Self> {
-        let path = crate::paths::global_dir()?.join("global.toml");
-        let mut cfg: GlobalConfig = if path.exists() {
-            let raw = std::fs::read_to_string(&path)
-                .with_context(|| format!("reading global config {}", path.display()))?;
-            toml::from_str(&raw).with_context(|| format!("parsing global config {}", path.display()))?
-        } else {
-            GlobalConfig::default()
-        };
-
-        for slot in &mut cfg.judge.slots {
-            if let Some(env_key) = env_key_for(&slot.provider) {
-                slot.api_key = Some(env_key);
-            }
-        }
-
-        Ok(cfg)
-    }
-
-    /// Persist to `~/.trace/global.toml`. Keys typed in via env vars are
-    /// never written back to disk by this path — only whatever the caller
-    /// explicitly set on `judge.slots[].api_key` before calling `save`.
-    pub fn save(&self) -> Result<()> {
-        let dir = crate::paths::ensure_global_dir()?;
-        let path = dir.join("global.toml");
-        let body = toml::to_string_pretty(self).context("serializing global config")?;
-        std::fs::write(&path, body).with_context(|| format!("writing global config {}", path.display()))?;
-        Ok(())
-    }
-
-    /// A copy safe to send to the frontend: every API key replaced with a
-    /// presence flag instead of the raw value.
-    pub fn redacted(&self) -> GlobalConfig {
-        let mut clone = self.clone();
-        for slot in &mut clone.judge.slots {
-            slot.api_key = slot.api_key.as_ref().map(|_| "••••••••".to_string());
-        }
-        clone
-    }
-}

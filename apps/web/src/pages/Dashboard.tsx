@@ -3,45 +3,20 @@ import { api } from "../api";
 import { StatusBadge, fmtCost, fmtTime, Loading, stagger, useAsync } from "../components";
 
 function IntelStrip() {
-  const cfgQ = useAsync(() => api.judgeConfig());
-  const verdictsQ = useAsync(() => api.recentJudge(20));
-  const promptsQ = useAsync(() => api.recentPrompts(50));
   const benchQ = useAsync(() => api.benchmarks());
+  const redteamQ = useAsync(() => api.redteamBenchmarks());
 
-  if (cfgQ.loading || verdictsQ.loading || promptsQ.loading || benchQ.loading) {
+  if (benchQ.loading || redteamQ.loading) {
     return null; // this strip is a bonus, not worth a loading skeleton delaying the page
   }
 
-  const judgeMode = cfgQ.data?.judge.mode ?? "disabled";
-  const modePromptingOn = cfgQ.data?.judge.model_prompting_mode ?? false;
-  const verdicts = verdictsQ.data ?? [];
-  const flagged = verdicts.filter((v) => v.consensus === "require_approval" || v.consensus === "block").length;
-  const prompts = promptsQ.data ?? [];
-  const avgClarity = prompts.length > 0 ? Math.round(prompts.reduce((s, p) => s + p.clarity_score, 0) / prompts.length) : null;
   const bench = benchQ.data;
+  const rt = redteamQ.data;
+  const rtCaught = rt ? rt.engines.reduce((n, e) => n + e.caught, 0) : 0;
+  const rtThreats = rt ? rt.engines.reduce((n, e) => n + e.threats, 0) : 0;
 
   return (
     <div className="kpis" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginBottom: 26 }}>
-      <Link to="/judge" className="card card-link">
-        <div className="run-head">
-          <b>Judge panel</b>
-          <span className={`pill ${judgeMode === "disabled" ? "" : "allow"}`}>{judgeMode.replace("_", " ")}</span>
-        </div>
-        <p style={{ margin: "8px 0 0" }}>
-          {judgeMode === "disabled"
-            ? "Not configured — set it up to add 3-LLM review on top of the rule-based guard."
-            : `${flagged} of ${verdicts.length} recent verdicts needed a second look. Model Prompting Mode is ${modePromptingOn ? "on" : "off"}.`}
-        </p>
-      </Link>
-      <Link to="/prompting" className="card card-link">
-        <div className="run-head">
-          <b>Prompting coach</b>
-          <span className="muted">{prompts.length} scored</span>
-        </div>
-        <p style={{ margin: "8px 0 0" }}>
-          {avgClarity === null ? "No prompts scored yet." : `Average clarity score: ${avgClarity}/100.`}
-        </p>
-      </Link>
       <Link to="/benchmarks" className="card card-link">
         <div className="run-head">
           <b>Policy engine benchmark</b>
@@ -49,6 +24,25 @@ function IntelStrip() {
         </div>
         <p style={{ margin: "8px 0 0" }}>
           {bench ? `${Math.round(bench.precision * 100)}% precision, ${Math.round(bench.recall * 100)}% recall.` : "—"}
+        </p>
+      </Link>
+      <Link to="/benchmarks" className="card card-link">
+        <div className="run-head">
+          <b>Red-team detection</b>
+          {rt && <span className={`pill ${rt.passed ? "allow" : "block"}`}>{rtCaught}/{rtThreats}</span>}
+        </div>
+        <p style={{ margin: "8px 0 0" }}>
+          {rt ? `${rtThreats} adversarial threats caught, ${rt.engines.reduce((n, e) => n + e.false_positives, 0)} false positives.` : "—"}
+        </p>
+      </Link>
+      <Link to="/ratify" className="card card-link">
+        <div className="run-head">
+          <b>Ratify</b>
+          <span className="muted">GitHub</span>
+        </div>
+        <p style={{ margin: "8px 0 0" }}>
+          Run the deterministic policy engine over a pull request on your
+          connected repo — no API key needed.
         </p>
       </Link>
     </div>

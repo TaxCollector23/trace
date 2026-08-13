@@ -4,6 +4,8 @@ import { Loading, stagger, useAsync } from "../components";
 export default function Benchmarks() {
   const q = useAsync(() => api.benchmarks());
   const report = q.data;
+  const rt = useAsync(() => api.redteamBenchmarks());
+  const redteam = rt.data;
 
   return (
     <div>
@@ -75,6 +77,109 @@ export default function Benchmarks() {
             Want to see the exact fixtures, or add your own? They're in{" "}
             <code>crates/trace-core/src/eval.rs</code> — also runnable from a
             terminal with <code>trace self-check</code>.
+          </p>
+        </>
+      )}
+
+      <h1 className="page-title" style={{ marginTop: 48 }}>
+        Red-team detection
+      </h1>
+      <p className="page-sub">
+        An adversarial corpus — dangerous commands (including evasions like{" "}
+        <code>curl … | sudo bash</code> and base64-piped shells), planted API
+        keys, and unsafe prompts — run through the real command guard, secret
+        scanner, and prompt-risk engine. Recall is how many planted threats were
+        caught; false positives are benign inputs wrongly flagged.
+      </p>
+
+      {rt.loading ? (
+        <Loading error={rt.error} variant="kpis" />
+      ) : !redteam ? (
+        <div className="empty">Could not load red-team results.</div>
+      ) : (
+        <>
+          <div className="kpis">
+            <div className="kpi">
+              <div className="k-val">
+                {redteam.engines.reduce((n, e) => n + e.caught, 0)}/
+                {redteam.engines.reduce((n, e) => n + e.threats, 0)}
+              </div>
+              <div className="k-label">Threats caught</div>
+            </div>
+            <div className="kpi">
+              <div className="k-val">
+                {redteam.engines.reduce((n, e) => n + e.false_positives, 0)}
+              </div>
+              <div className="k-label">False positives</div>
+            </div>
+            <div className="kpi">
+              <div className="k-val">
+                {Math.round(
+                  (redteam.engines.reduce((n, e) => n + e.caught, 0) /
+                    Math.max(
+                      1,
+                      redteam.engines.reduce((n, e) => n + e.threats, 0),
+                    )) *
+                    100,
+                )}
+                %
+              </div>
+              <div className="k-label">Recall</div>
+            </div>
+          </div>
+
+          <div className="section-title" style={{ marginTop: 30 }}>
+            Per-engine results
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Result</th>
+                <th>Engine</th>
+                <th>Caught</th>
+                <th>Missed</th>
+                <th>Downgraded</th>
+                <th>False+</th>
+                <th>Recall</th>
+              </tr>
+            </thead>
+            <tbody>
+              {redteam.engines.map((e, i) => {
+                const clean =
+                  e.missed === 0 &&
+                  e.downgraded === 0 &&
+                  e.false_positives === 0;
+                return (
+                  <tr key={e.name} className="enter" style={stagger(i, 15, 200)}>
+                    <td>
+                      <span className={`pill ${clean ? "allow" : "block"}`}>
+                        {clean ? "pass" : "fail"}
+                      </span>
+                    </td>
+                    <td>{e.name}</td>
+                    <td className="mono">
+                      {e.caught}/{e.threats}
+                    </td>
+                    <td className="mono">{e.missed}</td>
+                    <td className="mono">{e.downgraded}</td>
+                    <td className="mono">
+                      {e.false_positives}/{e.benign}
+                    </td>
+                    <td className="mono">{Math.round(e.recall * 100)}%</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+
+          <p className="note" style={{ marginTop: 14 }}>
+            Rule pack <code>{redteam.pack_version}</code> —{" "}
+            {redteam.injection_phrases} injection phrases,{" "}
+            {redteam.command_rules} supplemental command rules,{" "}
+            {redteam.secret_patterns} extra secret patterns. The corpus lives in{" "}
+            <code>crates/trace-core/src/redteam.rs</code>; reproduce it from a
+            terminal with <code>trace self-check</code> or{" "}
+            <code>cargo run -p trace-core --example redteam_bench</code>.
           </p>
         </>
       )}

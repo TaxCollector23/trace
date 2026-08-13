@@ -4,7 +4,7 @@
 //! the dashboard's Benchmarks card shows.
 
 use anyhow::Result;
-use trace_core::run_policy_eval;
+use trace_core::{run_policy_eval, run_redteam_eval};
 
 use crate::colors;
 
@@ -26,13 +26,44 @@ pub fn run() -> Result<()> {
         println!("  [{status}] {} — expected: {expected}, fired: {:?}", r.name, r.fired_rules);
     }
 
-    if report.passed < report.total {
+    // --- Red-team detection benchmark (guard / secrets / prompt) ---
+    let rt = run_redteam_eval();
+    println!("\n{}", colors::bold("Trace red-team detection benchmark"));
+    println!(
+        "  {}/{} threats caught  ·  {} false positive(s)  ·  recall {:.0}%\n",
+        rt.total_caught(),
+        rt.total_threats(),
+        rt.total_false_positives(),
+        rt.overall_recall() * 100.0
+    );
+    for e in &rt.engines {
+        let clean = e.missed == 0 && e.downgraded == 0 && e.false_positives == 0;
+        let status = if clean { colors::green("PASS") } else { colors::red("FAIL") };
+        println!(
+            "  [{status}] {:<16} {}/{} caught, {} missed, {} downgraded, {} false+ ({} benign)",
+            e.name, e.caught, e.threats, e.missed, e.downgraded, e.false_positives, e.benign
+        );
+    }
+    println!(
+        "  {} rule pack {} · {} injection phrases · {} command rules · {} secret patterns",
+        colors::dim("pack:"),
+        rt.pack_version,
+        rt.injection_phrases,
+        rt.command_rules,
+        rt.secret_patterns
+    );
+
+    let policy_failed = report.passed < report.total;
+    if policy_failed {
         anyhow::bail!(
-            "{} of {} fixtures failed — a policy rule regressed",
+            "{} of {} policy fixtures failed — a policy rule regressed",
             report.total - report.passed,
             report.total
         );
     }
-    println!("\n{}", colors::green("All fixtures passed."));
+    if !rt.passed {
+        anyhow::bail!("a red-team detection engine regressed — see rows above");
+    }
+    println!("\n{}", colors::green("All fixtures and red-team threats passed."));
     Ok(())
 }
