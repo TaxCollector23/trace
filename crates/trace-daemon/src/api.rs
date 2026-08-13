@@ -97,9 +97,12 @@ impl IntoResponse for ApiError {
 
 type ApiResult<T> = Result<T, ApiError>;
 
-/// Lock the store, treating poisoning as a fatal server error.
+/// Lock the store, recovering the guard if a previous handler panicked while
+/// holding the lock. Poisoning means some earlier request died mid-critical
+/// section; the SQLite connection itself is still usable, so we take the guard
+/// back and let the daemon keep serving instead of wedging every future request.
 fn store(state: &AppState) -> MutexGuard<'_, Store> {
-    state.store.lock().expect("store mutex poisoned")
+    state.store.lock().unwrap_or_else(|e| e.into_inner())
 }
 
 // --- Health / state -------------------------------------------------------
@@ -534,6 +537,29 @@ fn normalize_change_status(s: &str) -> String {
     }
 }
 
+/// Count added/removed lines in a unified diff patch, excluding the `+++`/`---`
+/// file headers. Returns `(additions, deletions)`. Used to populate `FileDiff`
+/// on the live-review paths so policy's large-file check has real counts to
+/// work with instead of hardcoded zeros. `None`/empty patches yield `(0, 0)`.
+fn count_diff_lines(patch: Option<&str>) -> (i64, i64) {
+    let Some(patch) = patch else {
+        return (0, 0);
+    };
+    let mut additions = 0i64;
+    let mut deletions = 0i64;
+    for line in patch.lines() {
+        if line.starts_with("+++") || line.starts_with("---") {
+            continue;
+        }
+        if line.starts_with('+') {
+            additions += 1;
+        } else if line.starts_with('-') {
+            deletions += 1;
+        }
+    }
+    (additions, deletions)
+}
+
 async fn analyze_run(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -566,15 +592,19 @@ async fn analyze_run(
 
     let diffs: Vec<trace_core::FileDiff> = file_changes
         .iter()
-        .map(|f| trace_core::FileDiff {
-            filename: f.path.clone(),
-            status: normalize_change_status(&f.change_type),
-            additions: 0,
-            deletions: 0,
-            patch: patches
+        .map(|f| {
+            let patch = patches
                 .get(&f.path)
                 .cloned()
-                .or_else(|| f.diff_summary.clone()),
+                .or_else(|| f.diff_summary.clone());
+            let (additions, deletions) = count_diff_lines(patch.as_deref());
+            trace_core::FileDiff {
+                filename: f.path.clone(),
+                status: normalize_change_status(&f.change_type),
+                additions,
+                deletions,
+                patch,
+            }
         })
         .collect();
 
@@ -648,14 +678,15 @@ async fn hook_check(
             .ok_or_else(|| ApiError::not_found("run"))?;
     }
 
+    let (additions, deletions) = count_diff_lines(body.diff_summary.as_deref());
     let diff = trace_core::FileDiff {
         filename: body
             .file_path
             .clone()
             .unwrap_or_else(|| "(unknown file)".to_string()),
         status: "modified".to_string(),
-        additions: 0,
-        deletions: 0,
+        additions,
+        deletions,
         patch: body.diff_summary.clone(),
     };
     let diffs = vec![diff];
@@ -826,4 +857,156 @@ async fn gh_ratify(
         },
         "verdict": summary.verdict.as_str(),
     })))
+}
+
+// --- Tests ----------------------------------------------------------------
+//
+// These are the first daemon tests. They exercise pure/local handler logic
+// against an in-memory store — no network, no git subprocess, no bound socket
+// — so they stay deterministic and offline. Handlers reached here (hook_check,
+// analyze_run) never touch GitHub or git as long as the run has no
+// `starting_commit` (analyze_run only shells out to git when both a project
+// path and a starting commit are present).
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::{Arc, Mutex};
+    use trace_core::Store;
+
+    fn test_state() -> AppState {
+        AppState {
+            store: Arc::new(Mutex::new(Store::open_in_memory().unwrap())),
+            port: 0,
+            started_at: "1970-01-01T00:00:00Z".to_string(),
+            db_path: ":memory:".to_string(),
+        }
+    }
+
+    /// Insert a project + run and return the run id.
+    fn seed_run(state: &AppState, starting_commit: Option<&str>) -> String {
+        let s = store(state);
+        let project = s
+            .upsert_project(&NewProject {
+                name: "T".into(),
+                path: "/does/not/exist".into(),
+                config_path: "/does/not/exist/c".into(),
+            })
+            .unwrap();
+        let run = s
+            .create_run(&NewRun {
+                project_id: project.id,
+                command: "run".into(),
+                agent_name: None,
+                user_prompt: None,
+                starting_commit: starting_commit.map(|s| s.to_string()),
+            })
+            .unwrap();
+        run.id
+    }
+
+    // A real AWS access-key-shaped secret, split so this source file itself
+    // isn't flagged by scanners scanning the repo.
+    fn planted_secret_patch() -> String {
+        format!("+const key = \"{}\";", concat!("AKIA", "ABCDEFGHIJKLMNOP"))
+    }
+
+    #[test]
+    fn normalize_change_status_maps_git_vocabulary() {
+        assert_eq!(normalize_change_status("created"), "added");
+        assert_eq!(normalize_change_status("deleted"), "removed");
+        // Anything already in GitHub's vocabulary passes through unchanged.
+        assert_eq!(normalize_change_status("modified"), "modified");
+        assert_eq!(normalize_change_status("renamed"), "renamed");
+    }
+
+    #[test]
+    fn count_diff_lines_counts_body_and_ignores_headers() {
+        let patch = "--- a/f.rs\n+++ b/f.rs\n@@ -1,2 +1,3 @@\n+added one\n+added two\n-removed one\n unchanged";
+        assert_eq!(count_diff_lines(Some(patch)), (2, 1));
+        assert_eq!(count_diff_lines(None), (0, 0));
+        assert_eq!(count_diff_lines(Some("")), (0, 0));
+    }
+
+    #[test]
+    fn rollback_default_checkpoint_selection_prefers_latest_inserted() {
+        // Two checkpoints inserted back-to-back (same RFC3339 second in
+        // practice; the rowid tiebreak makes it deterministic regardless).
+        // This mirrors the `rollback` handler's default selection expression.
+        let state = test_state();
+        let run_id = seed_run(&state, None);
+        {
+            let s = store(&state);
+            let project_id = s.list_projects().unwrap()[0].id.clone();
+            for git_ref in ["ref-old", "ref-new"] {
+                s.add_checkpoint(
+                    &run_id,
+                    &NewCheckpoint {
+                        project_id: project_id.clone(),
+                        git_ref: Some(git_ref.to_string()),
+                        checkpoint_type: "auto".into(),
+                    },
+                )
+                .unwrap();
+            }
+        }
+
+        let selected = store(&state)
+            .list_checkpoints(&run_id)
+            .unwrap()
+            .into_iter()
+            .rev()
+            .find_map(|c| c.git_ref);
+        assert_eq!(selected.as_deref(), Some("ref-new"));
+    }
+
+    #[tokio::test]
+    async fn hook_check_persists_secret_finding() {
+        let state = test_state();
+        let run_id = seed_run(&state, None);
+
+        let body = HookCheckBody {
+            tool_name: "Edit".into(),
+            file_path: Some("src/config.rs".into()),
+            diff_summary: Some(planted_secret_patch()),
+        };
+        hook_check(State(state.clone()), Path(run_id.clone()), Json(body))
+            .await
+            .map_err(|e| e.message)
+            .expect("hook_check should succeed offline");
+
+        let findings = store(&state).list_policy_findings(&run_id).unwrap();
+        assert!(
+            findings.iter().any(|f| f.rule_key == "secret-in-diff"),
+            "expected a secret-in-diff finding to be persisted, got: {findings:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn analyze_run_persists_secret_finding_from_diff_summary() {
+        // No starting_commit => analyze_run never shells out to git and falls
+        // back to the stored diff_summary as the patch text. Fully offline.
+        let state = test_state();
+        let run_id = seed_run(&state, None);
+        store(&state)
+            .replace_file_changes(
+                &run_id,
+                &[NewFileChange {
+                    path: "src/config.rs".into(),
+                    change_type: "created".into(),
+                    diff_summary: Some(planted_secret_patch()),
+                }],
+            )
+            .unwrap();
+
+        analyze_run(State(state.clone()), Path(run_id.clone()))
+            .await
+            .map_err(|e| e.message)
+            .expect("analyze_run should succeed offline");
+
+        let findings = store(&state).list_policy_findings(&run_id).unwrap();
+        assert!(
+            findings.iter().any(|f| f.rule_key == "secret-in-diff"),
+            "expected a secret-in-diff finding to be persisted, got: {findings:?}"
+        );
+    }
 }

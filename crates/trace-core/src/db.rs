@@ -517,7 +517,7 @@ impl Store {
     pub fn list_checkpoints(&self, run_id: &str) -> Result<Vec<Checkpoint>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, run_id, project_id, git_ref, checkpoint_type, created_at
-             FROM checkpoints WHERE run_id = ?1 ORDER BY created_at ASC",
+             FROM checkpoints WHERE run_id = ?1 ORDER BY created_at ASC, rowid ASC",
         )?;
         let rows = stmt.query_map(params![run_id], map_checkpoint)?;
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
@@ -825,6 +825,55 @@ mod tests {
             .unwrap();
         assert_eq!(summary.project_name, "My App");
         assert_eq!(summary.run.status, "completed");
+    }
+
+    #[test]
+    fn list_checkpoints_breaks_created_at_ties_by_rowid() {
+        // Two checkpoints sharing the exact same RFC3339-second timestamp must
+        // still order deterministically by insertion (rowid), so the daemon's
+        // "latest checkpoint" (last element) is well-defined. Without the rowid
+        // tiebreak in the ORDER BY, SQLite could return these in either order.
+        let store = Store::open_in_memory().unwrap();
+        let project = store
+            .upsert_project(&NewProject {
+                name: "P".into(),
+                path: "/p".into(),
+                config_path: "/p/c".into(),
+            })
+            .unwrap();
+        let run = store
+            .create_run(&NewRun {
+                project_id: project.id.clone(),
+                command: "run".into(),
+                agent_name: None,
+                user_prompt: None,
+                starting_commit: None,
+            })
+            .unwrap();
+
+        // Insert directly with an identical created_at to force the tie.
+        let ts = "2026-01-01T00:00:00Z";
+        for git_ref in ["ref-first", "ref-second"] {
+            store
+                .conn
+                .execute(
+                    "INSERT INTO checkpoints (id, run_id, project_id, git_ref, checkpoint_type, created_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![new_id(), run.id, project.id, git_ref, "auto", ts],
+                )
+                .unwrap();
+        }
+
+        let checkpoints = store.list_checkpoints(&run.id).unwrap();
+        assert_eq!(checkpoints.len(), 2);
+        // Insertion order is preserved despite the identical timestamp.
+        assert_eq!(checkpoints[0].git_ref.as_deref(), Some("ref-first"));
+        assert_eq!(checkpoints[1].git_ref.as_deref(), Some("ref-second"));
+
+        // This mirrors the daemon's rollback default-checkpoint selection: the
+        // most-recently-inserted checkpoint with a git_ref wins.
+        let latest = checkpoints.into_iter().rev().find_map(|c| c.git_ref);
+        assert_eq!(latest.as_deref(), Some("ref-second"));
     }
 
     #[test]
