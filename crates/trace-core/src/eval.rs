@@ -69,6 +69,33 @@ fn fixtures() -> Vec<Fixture> {
             },
         },
         Fixture {
+            name: "console.log added in a test file (should NOT fire — expected in tests)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/handler.test.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  console.log(result); // debugging the assertion".into()),
+            },
+        },
+        Fixture {
+            name: "Stripe secret key in added line (unified secret engine — was missed by the diff scanner)",
+            expected_rule: Some("secret-in-diff"),
+            diff: FileDiff {
+                filename: "src/payments.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                // Split so no contiguous secret literal exists in source
+                // (defeats push protection); concat! restores it at compile time.
+                patch: Some(
+                    concat!("+const stripe = new Stripe(\"sk", "_live_abcdefghijklmnopqrstuvwx\");")
+                        .into(),
+                ),
+            },
+        },
+        Fixture {
             name: "package.json changed",
             expected_rule: Some("dependency-change-detection"),
             diff: FileDiff {

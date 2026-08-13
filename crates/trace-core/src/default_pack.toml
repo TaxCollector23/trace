@@ -7,7 +7,7 @@
 #
 # Bump `version` (calendar-versioned) whenever the rules change.
 
-version = "2025.08.1"
+version = "2025.08.2"
 
 # ---------------------------------------------------------------------------
 # Prompt-injection / jailbreak phrases. Matched case-insensitively as
@@ -80,3 +80,45 @@ regex = "dop_v1_[a-f0-9]{64}"
 secret_type = "hashicorp_vault_token"
 keep = 4
 regex = "hvs\\.[A-Za-z0-9]{24,}"
+
+# Modern AI-provider and webhook secrets — the coverage an agent-safety tool
+# most needs current. Pure data: no binary rebuild required to add more.
+[[secret_patterns]]
+secret_type = "openrouter_key"
+keep = 6
+regex = "sk-or-v1-[a-f0-9]{48,}"
+
+[[secret_patterns]]
+secret_type = "huggingface_token"
+keep = 4
+regex = "hf_[A-Za-z0-9]{34,}"
+
+[[secret_patterns]]
+secret_type = "xai_key"
+keep = 4
+regex = "xai-[A-Za-z0-9]{60,}"
+
+[[secret_patterns]]
+secret_type = "perplexity_key"
+keep = 4
+regex = "pplx-[A-Za-z0-9]{40,}"
+
+[[secret_patterns]]
+secret_type = "replicate_token"
+keep = 4
+regex = "r8_[A-Za-z0-9]{37,}"
+
+[[secret_patterns]]
+secret_type = "google_oauth_token"
+keep = 6
+regex = "ya29\\.[A-Za-z0-9_-]{60,}"
+
+[[secret_patterns]]
+secret_type = "slack_webhook_url"
+keep = 0
+regex = "https://hooks\\.slack\\.com/services/[A-Za-z0-9/]{40,}"
+
+[[secret_patterns]]
+secret_type = "discord_webhook_url"
+keep = 0
+regex = "https://discord(?:app)?\\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]{40,}"

@@ -115,53 +115,6 @@ static MIGRATION_DIR: Lazy<Regex> = Lazy::new(|| {
 static LOCKFILE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"pnpm-lock\.yaml|package-lock\.json|yarn\.lock").unwrap());
 
-/// (label, pattern). High-precision only — these fire almost exclusively on
-/// real secrets, so false positives should be rare.
-static SECRET_PATTERNS: Lazy<Vec<(&'static str, Regex)>> = Lazy::new(|| {
-    vec![
-        (
-            "AWS access key id",
-            Regex::new(r"\bAKIA[0-9A-Z]{16}\b").unwrap(),
-        ),
-        (
-            "AWS secret access key",
-            Regex::new(r#"(?i)aws_secret_access_key\s*=\s*['"][A-Za-z0-9/+=]{40}['"]"#).unwrap(),
-        ),
-        (
-            "GitHub personal access token",
-            Regex::new(r"\bghp_[A-Za-z0-9]{36,}\b").unwrap(),
-        ),
-        (
-            "GitHub fine-grained PAT",
-            Regex::new(r"\bgithub_pat_[A-Za-z0-9_]{80,}\b").unwrap(),
-        ),
-        (
-            "OpenAI API key",
-            Regex::new(r"\bsk-[A-Za-z0-9]{40,}\b").unwrap(),
-        ),
-        (
-            "Anthropic API key",
-            Regex::new(r"\bsk-ant-[A-Za-z0-9\-_]{50,}\b").unwrap(),
-        ),
-        (
-            "Slack bot token",
-            Regex::new(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b").unwrap(),
-        ),
-        (
-            "OpenRouter API key",
-            Regex::new(r"\bsk-or-v1-[a-f0-9]{60,}\b").unwrap(),
-        ),
-        (
-            "Private key PEM",
-            Regex::new(r"-----BEGIN (RSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----").unwrap(),
-        ),
-        (
-            "Google API key",
-            Regex::new(r"\bAIza[0-9A-Za-z\-_]{35}\b").unwrap(),
-        ),
-    ]
-});
-
 fn check_missing_tests(files: &[FileDiff]) -> Option<PolicyFinding> {
     let sensitive: Vec<&FileDiff> = files
         .iter()
@@ -189,6 +142,12 @@ fn check_missing_tests(files: &[FileDiff]) -> Option<PolicyFinding> {
 fn check_debug_code(files: &[FileDiff]) -> Vec<PolicyFinding> {
     files
         .iter()
+        .filter(|f| {
+            // TODO/console.log/debugger are expected in tests, docs, and
+            // templates — flagging them there is noise, exactly where the other
+            // content rules already stay quiet.
+            !TEST_PATH.is_match(&f.filename) && !DOC_OR_TEMPLATE_PATH.is_match(&f.filename)
+        })
         .filter_map(|f| {
             let patch = f.patch.as_deref()?;
             DEBUG_PATTERN.is_match(patch).then(|| {
@@ -236,20 +195,27 @@ fn check_secrets(files: &[FileDiff]) -> Vec<PolicyFinding> {
             continue;
         }
         let added = added_lines(patch);
-        for (label, re) in SECRET_PATTERNS.iter() {
-            if re.is_match(&added) {
-                out.push(finding(
-                    "secret-in-diff",
-                    format!("Possible {label} committed"),
-                    format!(
-                        "An added line in {} matches the pattern for a {label}. If it's real, rotate immediately and remove from the diff. If it's a fixture, move it under a fixtures/ path.",
-                        f.filename
-                    ),
-                    Some(f.filename.clone()),
-                    Severity::High,
-                    0.9,
-                ));
+        // Reuse the single, maintained secret scanner rather than a parallel
+        // pattern list — otherwise the diff path silently misses providers the
+        // prompt/command path catches. De-dup by type so one file repeating a
+        // key doesn't emit duplicate findings.
+        let mut seen = std::collections::HashSet::new();
+        for hit in crate::secrets::scan_text(&added) {
+            if !seen.insert(hit.secret_type.clone()) {
+                continue;
             }
+            let label = hit.secret_type;
+            out.push(finding(
+                "secret-in-diff",
+                format!("Possible {label} committed"),
+                format!(
+                    "An added line in {} matches the pattern for a {label}. If it's real, rotate immediately and remove from the diff. If it's a fixture, move it under a fixtures/ path.",
+                    f.filename
+                ),
+                Some(f.filename.clone()),
+                Severity::High,
+                0.9,
+            ));
         }
     }
     out
