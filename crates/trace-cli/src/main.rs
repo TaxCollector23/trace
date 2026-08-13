@@ -155,6 +155,17 @@ enum Commands {
         json: Option<std::path::PathBuf>,
     },
 
+    /// Ratify a GitHub pull request against the deterministic policy engine —
+    /// no daemon, no `trace init`, no API key. Run it from a checkout of the
+    /// repo; it resolves the origin remote and a read-only token itself.
+    Ratify {
+        /// Pull-request number to ratify.
+        pr: i64,
+        /// Exit non-zero when the verdict is `block` (a high-severity finding).
+        #[arg(long)]
+        fail_on_risky: bool,
+    },
+
     /// Read directly from the project's GitHub repo (supports private repos).
     Github {
         #[command(subcommand)]
@@ -308,6 +319,9 @@ fn real_main() -> Result<()> {
                 fail_on_risky,
                 json_out: json,
             })
+        }
+        Commands::Ratify { pr, fail_on_risky } => {
+            commands::ratify::run(commands::ratify::RatifyOptions { pr, fail_on_risky })
         }
         Commands::Github { action } => commands::github::run(match action {
             GithubAction::Status => commands::github::GithubCmd::Status,

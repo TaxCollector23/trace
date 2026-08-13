@@ -9,6 +9,7 @@ pub mod init;
 pub mod integrations;
 pub mod hook_install;
 pub mod query;
+pub mod ratify;
 pub mod replay;
 pub mod review_diff;
 pub mod rollback;

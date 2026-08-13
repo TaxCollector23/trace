@@ -797,28 +797,17 @@ async fn gh_ratify(
     let files =
         trace_core::github::list_pr_files(&r, token.as_deref(), pr).map_err(ApiError::from)?;
     let findings = trace_core::run_policy_checks(&files);
-
-    let (mut high, mut medium, mut low) = (0usize, 0usize, 0usize);
-    for f in &findings {
-        match f.severity {
-            trace_core::Severity::High => high += 1,
-            trace_core::Severity::Medium => medium += 1,
-            trace_core::Severity::Low => low += 1,
-        }
-    }
-    let verdict = if high > 0 {
-        "block"
-    } else if medium > 0 {
-        "review"
-    } else {
-        "pass"
-    };
+    let summary = trace_core::ratify_summarize(&findings);
 
     Ok(Json(json!({
         "pr": pr,
         "files_reviewed": files.len(),
         "findings": findings,
-        "counts": { "high": high, "medium": medium, "low": low },
-        "verdict": verdict,
+        "counts": {
+            "high": summary.counts.high,
+            "medium": summary.counts.medium,
+            "low": summary.counts.low,
+        },
+        "verdict": summary.verdict.as_str(),
     })))
 }

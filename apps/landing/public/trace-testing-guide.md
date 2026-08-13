@@ -159,7 +159,20 @@ changed files and returns a verdict:
 > Reading private repos: set `GITHUB_TOKEN`, or run `gh auth login`. The token
 > only ever goes to api.github.com.
 
-### 6b. From the API (scriptable / CI)
+### 6b. From the terminal (`trace ratify`)
+
+No daemon and no `trace init` needed — run it from a checkout of the repo. It
+resolves the `origin` remote and a read-only token itself:
+
+```bash
+./target/debug/trace ratify 4                  # ratify PR #4
+./target/debug/trace ratify 4 --fail-on-risky  # exit non-zero on a "block" verdict (CI gate)
+```
+
+You'll get the findings and a `pass`/`review`/`block` verdict — the exact same
+result the dashboard shows, since both share one implementation.
+
+### 6c. From the API (scriptable / CI)
 
 The dashboard calls one endpoint — you can hit it directly:
 
@@ -219,6 +232,7 @@ cargo run -p trace-core --example redteam_bench   # detailed red-team report
 | Start daemon | `trace daemon start` |
 | Open dashboard | `trace dashboard` |
 | Record a run | `trace init` then `trace run "<cmd>"` |
+| Ratify a PR (terminal) | `trace ratify <pr> [--fail-on-risky]` |
 | Ratify a PR (API) | `GET /api/github/ratify?project_id=…&pr=N` |
 | Ratify a diff in CI | `trace review-diff --fail-on-risky` |
 
