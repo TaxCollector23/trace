@@ -9,9 +9,27 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use serde::Serialize;
-use trace_core::{git, policy};
+use trace_core::{git, policy, ratify_summarize};
 
 use crate::colors;
+
+/// Count added/removed lines in a unified-diff patch, excluding the
+/// `+++`/`---` file headers (which start with `+`/`-` but aren't content).
+fn count_add_del(patch: &str) -> (i64, i64) {
+    let mut add = 0i64;
+    let mut del = 0i64;
+    for line in patch.lines() {
+        if line.starts_with("+++") || line.starts_with("---") {
+            continue;
+        }
+        if line.starts_with('+') {
+            add += 1;
+        } else if line.starts_with('-') {
+            del += 1;
+        }
+    }
+    (add, del)
+}
 
 pub struct ReviewDiffOptions {
     /// A git range like `origin/main...HEAD`. Auto-detected from
@@ -54,27 +72,33 @@ pub fn run(opts: ReviewDiffOptions) -> Result<()> {
 
     let diffs: Vec<policy::FileDiff> = entries
         .iter()
-        .map(|e| policy::FileDiff {
-            filename: e.path.clone(),
-            status: e.change_type.as_diff_status().to_string(),
-            additions: 0,
-            deletions: 0,
-            patch: patches
+        .map(|e| {
+            let patch = patches
                 .get(&e.path)
                 .cloned()
-                .or_else(|| e.diff_summary.clone()),
+                .or_else(|| e.diff_summary.clone());
+            let (additions, deletions) = patch.as_deref().map(count_add_del).unwrap_or((0, 0));
+            policy::FileDiff {
+                filename: e.path.clone(),
+                status: e.change_type.as_diff_status().to_string(),
+                additions,
+                deletions,
+                patch,
+            }
         })
         .collect();
 
     let findings = policy::run_policy_checks(&diffs);
-    let high_severity_count = findings
-        .iter()
-        .filter(|f| f.severity == policy::Severity::High)
-        .count();
+    // Single source of truth for pass/review/block — the same summarizer the
+    // daemon's ratify endpoint and `trace ratify` use, instead of a private
+    // high-severity count.
+    let summary = ratify_summarize(&findings);
+    let high_severity_count = summary.counts.high;
 
     print_policy_report(&findings);
 
-    let should_fail = opts.fail_on_risky && high_severity_count > 0;
+    // `--fail-on-risky` fails the gate on a hard `block` verdict.
+    let should_fail = opts.fail_on_risky && summary.verdict.is_block();
 
     let output = ReviewOutput {
         schema: "trace.review/v1",
@@ -128,5 +152,27 @@ fn print_policy_report(findings: &[policy::PolicyFinding]) {
             f.title,
             f.file_path.as_deref().unwrap_or("(no path)")
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn counts_add_del_excluding_headers() {
+        let patch = "--- a/src/foo.rs\n\
+                     +++ b/src/foo.rs\n\
+                     @@ -1,2 +1,3 @@\n\
+                     +added one\n\
+                     +added two\n\
+                     -removed one\n\
+                      unchanged\n";
+        assert_eq!(count_add_del(patch), (2, 1));
+    }
+
+    #[test]
+    fn counts_empty_patch_as_zero() {
+        assert_eq!(count_add_del(""), (0, 0));
     }
 }

@@ -184,6 +184,28 @@ fn fixtures() -> Vec<Fixture> {
             },
         },
         Fixture {
+            name: "large generated bundle changed (should NOT fire large-single-file-change)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "dist/app.min.js".into(),
+                status: "modified".into(),
+                additions: 900,
+                deletions: 200,
+                patch: Some("+minified bundle churn".into()),
+            },
+        },
+        Fixture {
+            name: "large hand-written source file changed",
+            expected_rule: Some("large-single-file-change"),
+            diff: FileDiff {
+                filename: "src/engine/scheduler.ts".into(),
+                status: "modified".into(),
+                additions: 700,
+                deletions: 100,
+                patch: Some("+export function schedule() {}".into()),
+            },
+        },
+        Fixture {
             name: "clean, unrelated change (nothing should fire)",
             expected_rule: None,
             diff: FileDiff {

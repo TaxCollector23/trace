@@ -114,6 +114,15 @@ static MIGRATION_DIR: Lazy<Regex> = Lazy::new(|| {
 });
 static LOCKFILE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"pnpm-lock\.yaml|package-lock\.json|yarn\.lock").unwrap());
+/// Generated, minified, vendored, or snapshot files. A large line count in
+/// these is expected and not a code-review signal, so `large-single-file-change`
+/// should stay quiet on them the same way it does on lockfiles.
+static GENERATED_FILE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r"(?i)\.min\.(js|css)$|\.map$|\.snap$|\.svg$|(^|/)(dist|build|vendor|node_modules)/|_pb2\.py$|\.pb\.go$|\.generated\.",
+    )
+    .unwrap()
+});
 
 fn check_missing_tests(files: &[FileDiff]) -> Option<PolicyFinding> {
     let sensitive: Vec<&FileDiff> = files
@@ -241,7 +250,11 @@ fn check_removed_tests(files: &[FileDiff]) -> Vec<PolicyFinding> {
 fn check_large_file_change(files: &[FileDiff]) -> Vec<PolicyFinding> {
     files
         .iter()
-        .filter(|f| f.additions + f.deletions > 500 && !LOCKFILE.is_match(&f.filename))
+        .filter(|f| {
+            f.additions + f.deletions > 500
+                && !LOCKFILE.is_match(&f.filename)
+                && !GENERATED_FILE.is_match(&f.filename)
+        })
         .map(|f| {
             finding(
                 "large-single-file-change",

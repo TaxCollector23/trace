@@ -145,7 +145,7 @@ fn emit(client: &Client, run_id: &str, event_type: EventType, root: &Path, path:
     let body = trace_core::models::NewEvent {
         event_type: event_type.as_str().to_string(),
         message: format!("{} {}", verb(event_type), rel),
-        metadata_json: Some(format!("{{\"path\":{:?}}}", rel)),
+        metadata_json: Some(serde_json::json!({ "path": rel }).to_string()),
     };
     // Best-effort: a dropped timeline event must never break a run.
     let _ = client.post(&format!("/api/runs/{run_id}/events"), &body);

@@ -11,6 +11,8 @@
 
 use anyhow::{anyhow, Context, Result};
 use base64::Engine;
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 
 const API: &str = "https://api.github.com";
@@ -89,8 +91,7 @@ pub fn parse_remote(url: &str) -> Option<RepoRef> {
     } else if let Some(r) = u.strip_prefix("http://github.com/") {
         r.to_string()
     } else {
-        let idx = u.find("github.com/")?;
-        u[idx + "github.com/".len()..].to_string()
+        host_anchored_github_path(u)?
     };
     let rest = rest.trim_end_matches('/').trim_end_matches(".git");
     let mut parts = rest.splitn(2, '/');
@@ -100,6 +101,17 @@ pub fn parse_remote(url: &str) -> Option<RepoRef> {
         return None;
     }
     Some(RepoRef { owner, repo })
+}
+
+/// Fallback for URL forms not covered by the explicit prefixes (embedded
+/// credentials, `git://`, etc.). Matches `github.com` only at a real host
+/// boundary: preceded by start-of-string, the scheme's `//`, or userinfo `@`,
+/// and followed by `/` (path) or `:` (scp-style). This rejects lookalike hosts
+/// such as `notgithub.com` and `mygithub.company.com` that a plain substring
+/// search would wrongly accept.
+fn host_anchored_github_path(u: &str) -> Option<String> {
+    static HOST: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?:^|//|@)github\.com[:/](.+)$").unwrap());
+    HOST.captures(u).map(|c| c[1].to_string())
 }
 
 fn build_req(url: &str, token: Option<&str>) -> ureq::Request {
@@ -418,16 +430,74 @@ pub fn list_pr_files(
         token,
         MAX_PR_FILES,
     )?;
-    Ok(files
-        .iter()
-        .map(|f| crate::policy::FileDiff {
-            filename: f["filename"].as_str().unwrap_or("").to_string(),
-            status: f["status"].as_str().unwrap_or("modified").to_string(),
-            additions: f["additions"].as_i64().unwrap_or(0),
-            deletions: f["deletions"].as_i64().unwrap_or(0),
-            patch: f["patch"].as_str().map(|s| s.to_string()),
-        })
-        .collect())
+    // Resolved at most once, only if we actually hit an added file with no
+    // patch. `None` = unresolved yet; `Some(x)` = resolved (x may itself be
+    // `None` if the lookup failed, so we don't retry it per-file).
+    let mut head_ref: Option<Option<String>> = None;
+    let mut out = Vec::with_capacity(files.len());
+    for f in &files {
+        let filename = f["filename"].as_str().unwrap_or("").to_string();
+        let status = f["status"].as_str().unwrap_or("modified").to_string();
+        let additions = f["additions"].as_i64().unwrap_or(0);
+        let deletions = f["deletions"].as_i64().unwrap_or(0);
+        let mut patch = f["patch"].as_str().map(|s| s.to_string());
+
+        // A newly ADDED text file that GitHub returned without a patch (binary
+        // heuristic, or simply too large for the files endpoint to inline)
+        // would otherwise be skipped by every content check — including the
+        // secret scanner. Fetch its content at the PR head and synthesize an
+        // all-added patch so the policy engine still scans it. Bounded: binary
+        // or very large content is skipped rather than scanned.
+        if patch.is_none() && status == "added" && !filename.is_empty() {
+            let hr = head_ref.get_or_insert_with(|| pr_head_ref(r, token, pr_number).ok());
+            if let Some(rf) = hr.as_deref() {
+                if let Ok(content) = get_file(r, &filename, Some(rf), token) {
+                    patch = synthesize_added_patch(&content);
+                }
+            }
+        }
+
+        out.push(crate::policy::FileDiff {
+            filename,
+            status,
+            additions,
+            deletions,
+            patch,
+        });
+    }
+    Ok(out)
+}
+
+/// Upper bound on synthesized content — a single added file larger than this is
+/// skipped rather than pulled into memory and scanned line-by-line.
+const MAX_SYNTH_BYTES: usize = 512 * 1024;
+
+/// Turn a whole file's content into an all-added unified-diff patch so the
+/// policy engine's added-line checks can run on it. Returns `None` when the
+/// content looks binary or exceeds [`MAX_SYNTH_BYTES`].
+fn synthesize_added_patch(content: &str) -> Option<String> {
+    if content.len() > MAX_SYNTH_BYTES {
+        return None;
+    }
+    // A NUL byte is a strong binary signal; `get_file` decodes lossily, so
+    // genuinely binary payloads also carry U+FFFD replacement chars.
+    if content.contains('\0') || content.contains('\u{FFFD}') {
+        return None;
+    }
+    Some(content.lines().map(|l| format!("+{l}\n")).collect())
+}
+
+/// The head commit SHA for a pull request (what the added-file content should
+/// be read at). One extra request, made only when needed.
+fn pr_head_ref(r: &RepoRef, token: Option<&str>, pr_number: i64) -> Result<String> {
+    let v = get_json(
+        &format!("/repos/{}/{}/pulls/{}", r.owner, r.repo, pr_number),
+        token,
+    )?;
+    v["head"]["sha"]
+        .as_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| anyhow!("pull request {pr_number} response missing head.sha"))
 }
 
 /// Read a file's contents from the repo at an optional ref. Works for private
@@ -521,6 +591,25 @@ mod tests {
     #[test]
     fn rejects_non_github() {
         assert!(parse_remote("https://gitlab.com/a/b.git").is_none());
+    }
+
+    #[test]
+    fn rejects_lookalike_hosts() {
+        // The old substring fallback wrongly matched any host containing
+        // "github.com/"; these must all be rejected.
+        assert!(parse_remote("https://notgithub.com/a/b").is_none());
+        assert!(parse_remote("https://notgithub.com/a/b.git").is_none());
+        assert!(parse_remote("https://mygithub.company.com/a/b").is_none());
+        assert!(parse_remote("https://github.com.evil.example/a/b").is_none());
+    }
+
+    #[test]
+    fn parses_embedded_credentials_host() {
+        // A real github.com host behind userinfo still parses via the anchored
+        // fallback (not one of the explicit prefixes).
+        let r = parse_remote("https://x-access-token:tok@github.com/owner/repo.git").unwrap();
+        assert_eq!(r.owner, "owner");
+        assert_eq!(r.repo, "repo");
     }
 
     #[test]
