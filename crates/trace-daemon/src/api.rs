@@ -540,7 +540,9 @@ async fn analyze_run(
 ) -> ApiResult<impl IntoResponse> {
     let (run, file_changes, project_path) = {
         let s = store(&state);
-        let run = s.run_by_id(&id)?.ok_or_else(|| ApiError::not_found("run"))?;
+        let run = s
+            .run_by_id(&id)?
+            .ok_or_else(|| ApiError::not_found("run"))?;
         let file_changes = s.list_file_changes(&id)?;
         let project_path = s.project_by_id(&run.project_id)?.map(|p| p.path);
         (run, file_changes, project_path)
@@ -553,12 +555,14 @@ async fn analyze_run(
     // fall back to the stat summary only if that's genuinely unavailable
     // (e.g. the project isn't a git repo), so this still degrades instead
     // of erroring.
-    let patches: std::collections::HashMap<String, String> = match (&project_path, &run.starting_commit) {
-        (Some(path), Some(from_ref)) => {
-            trace_core::git::patches_by_file(std::path::Path::new(path), from_ref).unwrap_or_default()
-        }
-        _ => Default::default(),
-    };
+    let patches: std::collections::HashMap<String, String> =
+        match (&project_path, &run.starting_commit) {
+            (Some(path), Some(from_ref)) => {
+                trace_core::git::patches_by_file(std::path::Path::new(path), from_ref)
+                    .unwrap_or_default()
+            }
+            _ => Default::default(),
+        };
 
     let diffs: Vec<trace_core::FileDiff> = file_changes
         .iter()
@@ -567,7 +571,10 @@ async fn analyze_run(
             status: normalize_change_status(&f.change_type),
             additions: 0,
             deletions: 0,
-            patch: patches.get(&f.path).cloned().or_else(|| f.diff_summary.clone()),
+            patch: patches
+                .get(&f.path)
+                .cloned()
+                .or_else(|| f.diff_summary.clone()),
         })
         .collect();
 
@@ -637,11 +644,15 @@ async fn hook_check(
 ) -> ApiResult<impl IntoResponse> {
     {
         let s = store(&state);
-        s.run_by_id(&id)?.ok_or_else(|| ApiError::not_found("run"))?;
+        s.run_by_id(&id)?
+            .ok_or_else(|| ApiError::not_found("run"))?;
     }
 
     let diff = trace_core::FileDiff {
-        filename: body.file_path.clone().unwrap_or_else(|| "(unknown file)".to_string()),
+        filename: body
+            .file_path
+            .clone()
+            .unwrap_or_else(|| "(unknown file)".to_string()),
         status: "modified".to_string(),
         additions: 0,
         deletions: 0,
@@ -678,7 +689,12 @@ async fn hook_check(
 fn format_policy_advisory(findings: &[trace_core::PolicyFinding]) -> String {
     let mut out = String::from("[Trace] Deterministic checks:");
     for f in findings.iter().take(6) {
-        out.push_str(&format!("\n  • [{}] {}: {}", f.severity.as_str(), f.title, f.description));
+        out.push_str(&format!(
+            "\n  • [{}] {}: {}",
+            f.severity.as_str(),
+            f.title,
+            f.description
+        ));
     }
     if findings.len() > 6 {
         out.push_str(&format!("\n  … and {} more", findings.len() - 6));

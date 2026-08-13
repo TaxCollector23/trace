@@ -68,18 +68,33 @@ pub struct PromptAnalysis {
 static VAGUE_PHRASES: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?i)\b(fix (it|this)|handle (it|this)|make it (better|work|nicer)|clean (it|this) up|do the (thing|needful)|you know what to do|figure it out)\b").unwrap()
 });
-static HEDGING: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?i)\b(maybe|i guess|not sure|i think|possibly|whatever works|either way)\b").unwrap());
-static ACCEPTANCE_SIGNAL: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?i)\b(should|must|when .* then|so that|make sure|test|verify|expect(ed)?|acceptance)\b").unwrap()
+static HEDGING: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?i)\b(maybe|i guess|not sure|i think|possibly|whatever works|either way)\b")
+        .unwrap()
 });
-static SCOPE_SIGNAL: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"`[^`]+`|\b[A-Za-z_][A-Za-z0-9_]*\.(rs|ts|tsx|js|jsx|py|go|rb)\b|\b[a-z]+(?:[A-Z][a-z]*)+\b").unwrap());
+static ACCEPTANCE_SIGNAL: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r"(?i)\b(should|must|when .* then|so that|make sure|test|verify|expect(ed)?|acceptance)\b",
+    )
+    .unwrap()
+});
+static SCOPE_SIGNAL: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"`[^`]+`|\b[A-Za-z_][A-Za-z0-9_]*\.(rs|ts|tsx|js|jsx|py|go|rb)\b|\b[a-z]+(?:[A-Z][a-z]*)+\b").unwrap()
+});
 static CONFLICT_PAIRS: Lazy<Vec<(Regex, Regex)>> = Lazy::new(|| {
     vec![
-        (Regex::new(r"(?i)\bdon'?t (touch|change|modify)\b").unwrap(), Regex::new(r"(?i)\b(refactor|rewrite|update)\b").unwrap()),
-        (Regex::new(r"(?i)\bas (fast|quick(ly)?) as possible\b").unwrap(), Regex::new(r"(?i)\b(thoroughly|comprehensive(ly)?|exhaustive(ly)?)\b").unwrap()),
-        (Regex::new(r"(?i)\bkeep it simple\b").unwrap(), Regex::new(r"(?i)\b(also add|and also|plus add|extra feature)\b").unwrap()),
+        (
+            Regex::new(r"(?i)\bdon'?t (touch|change|modify)\b").unwrap(),
+            Regex::new(r"(?i)\b(refactor|rewrite|update)\b").unwrap(),
+        ),
+        (
+            Regex::new(r"(?i)\bas (fast|quick(ly)?) as possible\b").unwrap(),
+            Regex::new(r"(?i)\b(thoroughly|comprehensive(ly)?|exhaustive(ly)?)\b").unwrap(),
+        ),
+        (
+            Regex::new(r"(?i)\bkeep it simple\b").unwrap(),
+            Regex::new(r"(?i)\b(also add|and also|plus add|extra feature)\b").unwrap(),
+        ),
     ]
 });
 
@@ -105,7 +120,10 @@ pub fn analyze_prompt(text: &str) -> PromptAnalysis {
         score -= 10.0;
     }
 
-    if CONFLICT_PAIRS.iter().any(|(a, b)| a.is_match(text) && b.is_match(text)) {
+    if CONFLICT_PAIRS
+        .iter()
+        .any(|(a, b)| a.is_match(text) && b.is_match(text))
+    {
         patterns.push(PromptPattern::Conflicting);
         score -= 25.0;
     }

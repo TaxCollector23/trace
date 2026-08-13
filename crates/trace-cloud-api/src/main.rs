@@ -37,7 +37,10 @@ async fn main() -> anyhow::Result<()> {
         )
         .init();
 
-    let port: u16 = std::env::var("PORT").ok().and_then(|s| s.parse().ok()).unwrap_or(10000);
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(10000);
     let db_path = std::env::var("TRACE_CLOUD_DB").unwrap_or_else(|_| "/tmp/trace-cloud.db".into());
 
     let store = db::Store::open(&db_path)?;

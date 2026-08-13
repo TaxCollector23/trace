@@ -200,7 +200,10 @@ pub fn split_diff_by_file(full_diff_text: &str) -> std::collections::HashMap<Str
             }
             // Format: "a/<path> b/<path>" (paths match unless renamed, in
             // which case we still want the *new* path — the last token).
-            current_path = rest.rsplit(' ').next().map(|s| s.trim_start_matches("b/").to_string());
+            current_path = rest
+                .rsplit(' ')
+                .next()
+                .map(|s| s.trim_start_matches("b/").to_string());
         }
         current_chunk.push_str(line);
         current_chunk.push('\n');
@@ -214,7 +217,10 @@ pub fn split_diff_by_file(full_diff_text: &str) -> std::collections::HashMap<Str
 /// Real per-file patch text for every file changed since `from_ref`,
 /// against the current working tree. Complements `diff_against`, which only
 /// returns a stat summary per file.
-pub fn patches_by_file(path: &Path, from_ref: &str) -> Result<std::collections::HashMap<String, String>> {
+pub fn patches_by_file(
+    path: &Path,
+    from_ref: &str,
+) -> Result<std::collections::HashMap<String, String>> {
     let text = full_diff(path, from_ref)?;
     Ok(split_diff_by_file(&text))
 }
@@ -247,7 +253,10 @@ pub fn diff_range(path: &Path, range: &str) -> Result<Vec<DiffEntry>> {
 
 /// Real per-file patch text for a ref range — the range-diff counterpart to
 /// `patches_by_file`.
-pub fn patches_by_file_range(path: &Path, range: &str) -> Result<std::collections::HashMap<String, String>> {
+pub fn patches_by_file_range(
+    path: &Path,
+    range: &str,
+) -> Result<std::collections::HashMap<String, String>> {
     let text = git_stdout(path, &["diff", range])?;
     Ok(split_diff_by_file(&text))
 }

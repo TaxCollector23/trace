@@ -39,22 +39,37 @@ pub fn run(opts: RatifyOptions) -> Result<()> {
         colors::dim(&format!("PR #{} · token: {}", opts.pr, source.as_str()))
     );
 
-    let files = github::list_pr_files(&repo, token.as_deref(), opts.pr)
-        .with_context(|| format!("fetching files for PR #{} (does it exist? is the repo private?)", opts.pr))?;
+    let files = github::list_pr_files(&repo, token.as_deref(), opts.pr).with_context(|| {
+        format!(
+            "fetching files for PR #{} (does it exist? is the repo private?)",
+            opts.pr
+        )
+    })?;
     let findings = run_policy_checks(&files);
     let summary = ratify_summarize(&findings);
 
     if findings.is_empty() {
-        println!("\nPolicy engine: no findings across {} file(s).", files.len());
+        println!(
+            "\nPolicy engine: no findings across {} file(s).",
+            files.len()
+        );
     } else {
-        println!("\nPolicy engine: {} finding(s) across {} file(s)", findings.len(), files.len());
+        println!(
+            "\nPolicy engine: {} finding(s) across {} file(s)",
+            findings.len(),
+            files.len()
+        );
         for f in &findings {
             let tag = match f.severity {
                 trace_core::Severity::High => colors::red("[high]"),
                 trace_core::Severity::Medium => colors::yellow("[medium]"),
                 trace_core::Severity::Low => colors::dim("[low]"),
             };
-            println!("  {tag} {} — {}", f.title, f.file_path.as_deref().unwrap_or("(no path)"));
+            println!(
+                "  {tag} {} — {}",
+                f.title,
+                f.file_path.as_deref().unwrap_or("(no path)")
+            );
         }
     }
 

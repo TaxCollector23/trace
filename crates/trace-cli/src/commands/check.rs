@@ -41,8 +41,7 @@ fn read_source(path: &str) -> Result<String> {
             .context("reading from stdin")?;
         Ok(buf)
     } else {
-        std::fs::read_to_string(Path::new(path))
-            .with_context(|| format!("reading {path}"))
+        std::fs::read_to_string(Path::new(path)).with_context(|| format!("reading {path}"))
     }
 }
 
@@ -57,7 +56,10 @@ pub fn run(path: &str) -> Result<()> {
     let label = if path == "-" { "<stdin>" } else { path };
 
     println!("{}", colors::bold(&format!("Trace check — {label}")));
-    println!("{}\n", colors::dim("real guard + secret engines, no execution"));
+    println!(
+        "{}\n",
+        colors::dim("real guard + secret engines, no execution")
+    );
 
     let mut worst = Decision::Allow;
     let mut flagged = 0usize;
@@ -80,7 +82,11 @@ pub fn run(path: &str) -> Result<()> {
         }
         let tag = paint(res.decision, res.decision.as_str());
         let shown: String = line.chars().take(70).collect();
-        println!("  {}  {}", colors::dim(&format!("L{:<3}", i + 1)), colors::bold(&shown));
+        println!(
+            "  {}  {}",
+            colors::dim(&format!("L{:<3}", i + 1)),
+            colors::bold(&shown)
+        );
         println!("      {tag}  {}", colors::dim(&res.reason));
     }
 
@@ -90,9 +96,16 @@ pub fn run(path: &str) -> Result<()> {
         if rank(Decision::Block) > rank(worst) {
             worst = Decision::Block;
         }
-        println!("\n  {}", colors::red(&format!("{} secret(s) detected:", secrets.len())));
+        println!(
+            "\n  {}",
+            colors::red(&format!("{} secret(s) detected:", secrets.len()))
+        );
         for s in &secrets {
-            println!("      {}  {}", colors::red(&s.secret_type), colors::dim(&s.redacted_value));
+            println!(
+                "      {}  {}",
+                colors::red(&s.secret_type),
+                colors::dim(&s.redacted_value)
+            );
         }
     }
 
@@ -118,7 +131,11 @@ pub fn run(path: &str) -> Result<()> {
 
     // Exit non-zero when anything needs approval or a hard block, so CI can gate.
     if rank(worst) >= rank(Decision::RequireApproval) {
-        anyhow::bail!("check failed: found {} finding(s) at {} or higher", flagged + secrets.len(), Decision::RequireApproval.as_str());
+        anyhow::bail!(
+            "check failed: found {} finding(s) at {} or higher",
+            flagged + secrets.len(),
+            Decision::RequireApproval.as_str()
+        );
     }
     Ok(())
 }

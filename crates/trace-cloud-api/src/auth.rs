@@ -39,15 +39,24 @@ impl IntoResponse for AuthError {
 impl FromRequestParts<AppState> for AuthedUser {
     type Rejection = AuthError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &AppState,
+    ) -> Result<Self, Self::Rejection> {
         let header = parts
             .headers
             .get(axum::http::header::AUTHORIZATION)
             .and_then(|h| h.to_str().ok())
-            .ok_or(AuthError(StatusCode::UNAUTHORIZED, "missing Authorization header"))?;
+            .ok_or(AuthError(
+                StatusCode::UNAUTHORIZED,
+                "missing Authorization header",
+            ))?;
         let token = header
             .strip_prefix("Bearer ")
-            .ok_or(AuthError(StatusCode::UNAUTHORIZED, "expected `Bearer <token>`"))?
+            .ok_or(AuthError(
+                StatusCode::UNAUTHORIZED,
+                "expected `Bearer <token>`",
+            ))?
             .trim();
         if token.is_empty() {
             return Err(AuthError(StatusCode::UNAUTHORIZED, "empty token"));

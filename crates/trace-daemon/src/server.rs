@@ -7,10 +7,10 @@ use std::net::Ipv4Addr;
 use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result};
+use axum::extract::Request;
 use axum::http::{HeaderValue, Method};
 use axum::middleware::{self, Next};
 use axum::response::Response;
-use axum::extract::Request;
 use axum::Router;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
@@ -61,7 +61,10 @@ async fn security_headers(request: Request, next: Next) -> Response {
             "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
         ),
     );
-    headers.insert("x-content-type-options", HeaderValue::from_static("nosniff"));
+    headers.insert(
+        "x-content-type-options",
+        HeaderValue::from_static("nosniff"),
+    );
     headers.insert("x-frame-options", HeaderValue::from_static("DENY"));
     headers.insert("referrer-policy", HeaderValue::from_static("no-referrer"));
     response
@@ -101,7 +104,10 @@ fn dev_origins() -> Vec<HeaderValue> {
     for e in &extra {
         origins.push(e.as_str());
     }
-    origins.iter().filter_map(|o| HeaderValue::from_str(o).ok()).collect()
+    origins
+        .iter()
+        .filter_map(|o| HeaderValue::from_str(o).ok())
+        .collect()
 }
 
 /// Build the full application router (API + embedded dashboard).

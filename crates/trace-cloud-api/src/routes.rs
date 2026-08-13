@@ -24,7 +24,9 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(store: Store) -> Self {
-        AppState { store: Arc::new(store) }
+        AppState {
+            store: Arc::new(store),
+        }
     }
 }
 
@@ -87,7 +89,10 @@ async fn upload_run(
         .store
         .insert_run(&user.user_id, &body)
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    Ok(Json(UploadReceipt { run_id: body.run.id, ok: true }))
+    Ok(Json(UploadReceipt {
+        run_id: body.run.id,
+        ok: true,
+    }))
 }
 
 /// List the current user's runs, most recent first.
@@ -174,7 +179,12 @@ impl utoipa::Modify for SecurityAddon {
         let components = openapi.components.get_or_insert_with(Default::default);
         components.add_security_scheme(
             "bearer_auth",
-            SecurityScheme::Http(HttpBuilder::new().scheme(HttpAuthScheme::Bearer).bearer_format("opaque").build()),
+            SecurityScheme::Http(
+                HttpBuilder::new()
+                    .scheme(HttpAuthScheme::Bearer)
+                    .bearer_format("opaque")
+                    .build(),
+            ),
         );
     }
 }

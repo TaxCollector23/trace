@@ -170,11 +170,15 @@ fn emit(client: &Client, run_id: &str, event_type: EventType, root: &Path, path:
 const MAX_REVIEW_BYTES: u64 = 200 * 1024;
 
 fn review_live(client: &Client, run_id: &str, path: &Path, rel: &str) {
-    let Ok(meta) = std::fs::metadata(path) else { return };
+    let Ok(meta) = std::fs::metadata(path) else {
+        return;
+    };
     if !meta.is_file() || meta.len() == 0 || meta.len() > MAX_REVIEW_BYTES {
         return;
     }
-    let Ok(content) = std::fs::read_to_string(path) else { return }; // binary or non-UTF8: skip
+    let Ok(content) = std::fs::read_to_string(path) else {
+        return;
+    }; // binary or non-UTF8: skip
 
     // The policy engine's checks match on unified-diff-style added lines
     // (see policy.rs::added_lines). The watcher only has "the file's
@@ -198,9 +202,18 @@ fn review_live(client: &Client, run_id: &str, path: &Path, rel: &str) {
         message: Option<String>,
     }
 
-    let body = HookCheckBody { tool_name: "watcher", file_path: rel, diff_summary: synthetic_patch };
-    let resp: Result<HookCheckResp, _> = client.post_json(&format!("/api/runs/{run_id}/hook-check"), &body);
-    if let Ok(HookCheckResp { block: true, message: Some(msg) }) = resp {
+    let body = HookCheckBody {
+        tool_name: "watcher",
+        file_path: rel,
+        diff_summary: synthetic_patch,
+    };
+    let resp: Result<HookCheckResp, _> =
+        client.post_json(&format!("/api/runs/{run_id}/hook-check"), &body);
+    if let Ok(HookCheckResp {
+        block: true,
+        message: Some(msg),
+    }) = resp
+    {
         eprintln!(
             "\n{}\n  {}\n",
             crate::colors::yellow(&format!("⚠ Trace flagged a change in {rel}:")),

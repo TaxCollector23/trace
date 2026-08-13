@@ -47,7 +47,10 @@ struct CloudRun<'a> {
 
 /// Enqueue a sync on a background thread. Returns immediately.
 pub fn enqueue(run_id: String, store: std::sync::Arc<std::sync::Mutex<Store>>) {
-    let (url, token) = match (std::env::var("TRACE_CLOUD_URL"), std::env::var("TRACE_CLOUD_TOKEN")) {
+    let (url, token) = match (
+        std::env::var("TRACE_CLOUD_URL"),
+        std::env::var("TRACE_CLOUD_TOKEN"),
+    ) {
         (Ok(u), Ok(t)) if !u.is_empty() && !t.is_empty() => (u, t),
         _ => return, // opt-in — silent no-op when not configured
     };

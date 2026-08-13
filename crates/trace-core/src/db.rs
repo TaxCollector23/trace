@@ -423,9 +423,9 @@ impl Store {
         let total_runs: i64 = self
             .conn
             .query_row("SELECT COUNT(*) FROM runs", [], |r| r.get(0))?;
-        let first_run_at: Option<String> = self
-            .conn
-            .query_row("SELECT MIN(started_at) FROM runs", [], |r| r.get(0))?;
+        let first_run_at: Option<String> =
+            self.conn
+                .query_row("SELECT MIN(started_at) FROM runs", [], |r| r.get(0))?;
 
         let (avg_per_hour, avg_per_day, avg_per_week, avg_per_month) = match &first_run_at {
             Some(first) if total_runs > 1 => {
@@ -614,7 +614,11 @@ impl Store {
 
     // --- Policy findings (deterministic engine, ported from Ratify) -------
 
-    pub fn add_policy_findings(&self, run_id: &str, findings: &[crate::policy::PolicyFinding]) -> Result<()> {
+    pub fn add_policy_findings(
+        &self,
+        run_id: &str,
+        findings: &[crate::policy::PolicyFinding],
+    ) -> Result<()> {
         for f in findings {
             self.conn.execute(
                 "INSERT INTO policy_findings (id, run_id, rule_key, title, description, file_path, severity, confidence, source, created_at)
@@ -644,7 +648,6 @@ impl Store {
         let rows = stmt.query_map(params![run_id], map_policy_finding)?;
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
-
 }
 
 // --- Row mappers ----------------------------------------------------------

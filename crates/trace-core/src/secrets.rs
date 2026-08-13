@@ -44,7 +44,11 @@ static PATTERNS: Lazy<Vec<Pattern>> = Lazy::new(|| {
         p("groq_api_key", 4, r"gsk_[A-Za-z0-9]{20,}"),
         p("stripe_key", 8, r"[sr]k_(?:live|test)_[A-Za-z0-9]{16,}"),
         p("slack_token", 9, r"xox[baprs]-[A-Za-z0-9\-]{10,}"),
-        p("sendgrid_key", 5, r"SG\.[A-Za-z0-9\-_]{20,}\.[A-Za-z0-9\-_]{20,}"),
+        p(
+            "sendgrid_key",
+            5,
+            r"SG\.[A-Za-z0-9\-_]{20,}\.[A-Za-z0-9\-_]{20,}",
+        ),
         p("npm_token", 7, r"npm_[A-Za-z0-9]{30,}"),
         p("twilio_account_sid", 6, r"AC[0-9a-fA-F]{32}"),
         p(

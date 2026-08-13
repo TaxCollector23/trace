@@ -237,7 +237,11 @@ pub fn list_pulls(r: &RepoRef, token: Option<&str>) -> Result<Vec<PullInfo>> {
 /// Recently *merged* pull requests, most-recently-updated first — the raw
 /// material for doctrine mining. Filters out PRs that were closed without
 /// merging (those don't reflect enforced doctrine, just abandoned work).
-pub fn list_recent_merged_pulls(r: &RepoRef, token: Option<&str>, limit: usize) -> Result<Vec<PullInfo>> {
+pub fn list_recent_merged_pulls(
+    r: &RepoRef,
+    token: Option<&str>,
+    limit: usize,
+) -> Result<Vec<PullInfo>> {
     let v = get_json(
         &format!(
             "/repos/{}/{}/pulls?state=closed&sort=updated&direction=desc&per_page={}",
@@ -289,27 +293,48 @@ fn parse_comments(v: &serde_json::Value) -> Vec<PrComment> {
 
 /// Inline code-review comments on a pull request (the ones attached to a
 /// specific diff line) — usually the highest-signal source for doctrine.
-pub fn list_pr_review_comments(r: &RepoRef, token: Option<&str>, pr_number: i64) -> Result<Vec<PrComment>> {
+pub fn list_pr_review_comments(
+    r: &RepoRef,
+    token: Option<&str>,
+    pr_number: i64,
+) -> Result<Vec<PrComment>> {
     let v = get_json(
-        &format!("/repos/{}/{}/pulls/{}/comments?per_page=100", r.owner, r.repo, pr_number),
+        &format!(
+            "/repos/{}/{}/pulls/{}/comments?per_page=100",
+            r.owner, r.repo, pr_number
+        ),
         token,
     )?;
     Ok(parse_comments(&v))
 }
 
 /// Top-level conversation comments on a pull request (the PR is an issue too).
-pub fn list_pr_issue_comments(r: &RepoRef, token: Option<&str>, pr_number: i64) -> Result<Vec<PrComment>> {
+pub fn list_pr_issue_comments(
+    r: &RepoRef,
+    token: Option<&str>,
+    pr_number: i64,
+) -> Result<Vec<PrComment>> {
     let v = get_json(
-        &format!("/repos/{}/{}/issues/{}/comments?per_page=100", r.owner, r.repo, pr_number),
+        &format!(
+            "/repos/{}/{}/issues/{}/comments?per_page=100",
+            r.owner, r.repo, pr_number
+        ),
         token,
     )?;
     Ok(parse_comments(&v))
 }
 
 /// One changed file in a pull request, in the same shape `policy.rs` expects.
-pub fn list_pr_files(r: &RepoRef, token: Option<&str>, pr_number: i64) -> Result<Vec<crate::policy::FileDiff>> {
+pub fn list_pr_files(
+    r: &RepoRef,
+    token: Option<&str>,
+    pr_number: i64,
+) -> Result<Vec<crate::policy::FileDiff>> {
     let v = get_json(
-        &format!("/repos/{}/{}/pulls/{}/files?per_page=100", r.owner, r.repo, pr_number),
+        &format!(
+            "/repos/{}/{}/pulls/{}/files?per_page=100",
+            r.owner, r.repo, pr_number
+        ),
         token,
     )?;
     Ok(v.as_array()

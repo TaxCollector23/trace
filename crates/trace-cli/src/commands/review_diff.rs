@@ -41,10 +41,15 @@ pub fn run(opts: ReviewDiffOptions) -> Result<()> {
     }
 
     let range = opts.range.unwrap_or_else(default_range);
-    println!("{} {}", colors::bold("Trace review-diff"), colors::dim(&range));
+    println!(
+        "{} {}",
+        colors::bold("Trace review-diff"),
+        colors::dim(&range)
+    );
 
-    let entries = git::diff_range(&root, &range)
-        .with_context(|| format!("computing diff for range `{range}` (does it exist? try `git fetch` first)"))?;
+    let entries = git::diff_range(&root, &range).with_context(|| {
+        format!("computing diff for range `{range}` (does it exist? try `git fetch` first)")
+    })?;
     let patches = git::patches_by_file_range(&root, &range).unwrap_or_default();
 
     let diffs: Vec<policy::FileDiff> = entries
@@ -54,12 +59,18 @@ pub fn run(opts: ReviewDiffOptions) -> Result<()> {
             status: e.change_type.as_diff_status().to_string(),
             additions: 0,
             deletions: 0,
-            patch: patches.get(&e.path).cloned().or_else(|| e.diff_summary.clone()),
+            patch: patches
+                .get(&e.path)
+                .cloned()
+                .or_else(|| e.diff_summary.clone()),
         })
         .collect();
 
     let findings = policy::run_policy_checks(&diffs);
-    let high_severity_count = findings.iter().filter(|f| f.severity == policy::Severity::High).count();
+    let high_severity_count = findings
+        .iter()
+        .filter(|f| f.severity == policy::Severity::High)
+        .count();
 
     print_policy_report(&findings);
 
@@ -81,7 +92,10 @@ pub fn run(opts: ReviewDiffOptions) -> Result<()> {
     }
 
     if should_fail {
-        println!("\n{}", colors::red("Trace review-diff: FAIL (risky change detected)"));
+        println!(
+            "\n{}",
+            colors::red("Trace review-diff: FAIL (risky change detected)")
+        );
         std::process::exit(1);
     }
     println!("\n{}", colors::green("Trace review-diff: OK"));
@@ -109,6 +123,10 @@ fn print_policy_report(findings: &[policy::PolicyFinding]) {
             policy::Severity::Medium => colors::yellow("[medium]"),
             policy::Severity::Low => colors::dim("[low]"),
         };
-        println!("  {tag} {} — {}", f.title, f.file_path.as_deref().unwrap_or("(no path)"));
+        println!(
+            "  {tag} {} — {}",
+            f.title,
+            f.file_path.as_deref().unwrap_or("(no path)")
+        );
     }
 }

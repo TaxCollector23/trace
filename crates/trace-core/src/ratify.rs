@@ -108,7 +108,11 @@ mod tests {
 
     #[test]
     fn any_high_is_block() {
-        let s = summarize(&[finding(Severity::Low), finding(Severity::High), finding(Severity::Medium)]);
+        let s = summarize(&[
+            finding(Severity::Low),
+            finding(Severity::High),
+            finding(Severity::Medium),
+        ]);
         assert_eq!(s.verdict, RatifyVerdict::Block);
         assert!(s.verdict.is_block());
         assert_eq!(s.counts.high, 1);
@@ -116,8 +120,17 @@ mod tests {
 
     #[test]
     fn verdict_serializes_snake_case() {
-        assert_eq!(serde_json::to_value(RatifyVerdict::Block).unwrap(), serde_json::json!("block"));
-        assert_eq!(serde_json::to_value(RatifyVerdict::Review).unwrap(), serde_json::json!("review"));
-        assert_eq!(serde_json::to_value(RatifyVerdict::Pass).unwrap(), serde_json::json!("pass"));
+        assert_eq!(
+            serde_json::to_value(RatifyVerdict::Block).unwrap(),
+            serde_json::json!("block")
+        );
+        assert_eq!(
+            serde_json::to_value(RatifyVerdict::Review).unwrap(),
+            serde_json::json!("review")
+        );
+        assert_eq!(
+            serde_json::to_value(RatifyVerdict::Pass).unwrap(),
+            serde_json::json!("pass")
+        );
     }
 }

@@ -21,9 +21,16 @@ pub fn run() -> Result<()> {
     );
 
     for r in &report.results {
-        let status = if r.passed { colors::green("PASS") } else { colors::red("FAIL") };
+        let status = if r.passed {
+            colors::green("PASS")
+        } else {
+            colors::red("FAIL")
+        };
         let expected = r.expected_rule.as_deref().unwrap_or("(nothing)");
-        println!("  [{status}] {} — expected: {expected}, fired: {:?}", r.name, r.fired_rules);
+        println!(
+            "  [{status}] {} — expected: {expected}, fired: {:?}",
+            r.name, r.fired_rules
+        );
     }
 
     // --- Red-team detection benchmark (guard / secrets / prompt) ---
@@ -38,7 +45,11 @@ pub fn run() -> Result<()> {
     );
     for e in &rt.engines {
         let clean = e.missed == 0 && e.downgraded == 0 && e.false_positives == 0;
-        let status = if clean { colors::green("PASS") } else { colors::red("FAIL") };
+        let status = if clean {
+            colors::green("PASS")
+        } else {
+            colors::red("FAIL")
+        };
         println!(
             "  [{status}] {:<16} {}/{} caught, {} missed, {} downgraded, {} false+ ({} benign)",
             e.name, e.caught, e.threats, e.missed, e.downgraded, e.false_positives, e.benign
@@ -64,6 +75,9 @@ pub fn run() -> Result<()> {
     if !rt.passed {
         anyhow::bail!("a red-team detection engine regressed — see rows above");
     }
-    println!("\n{}", colors::green("All fixtures and red-team threats passed."));
+    println!(
+        "\n{}",
+        colors::green("All fixtures and red-team threats passed.")
+    );
     Ok(())
 }

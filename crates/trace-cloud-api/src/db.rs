@@ -79,7 +79,9 @@ impl Store {
             CREATE INDEX IF NOT EXISTS events_run_idx ON events(run_id, id);
             "#,
         )?;
-        Ok(Store { conn: Mutex::new(conn) })
+        Ok(Store {
+            conn: Mutex::new(conn),
+        })
     }
 
     /// Look up or create a user by opaque bearer token. Kept simple on
@@ -88,14 +90,11 @@ impl Store {
     /// the token → user_id binding.
     pub fn upsert_user_by_token(&self, token: &str) -> Result<String> {
         let c = self.conn.lock().unwrap();
-        if let Some(uid) = c
-            .query_row(
-                "SELECT user_id FROM users WHERE token = ?1",
-                params![token],
-                |r| r.get::<_, String>(0),
-            )
-            .ok()
-        {
+        if let Ok(uid) = c.query_row(
+            "SELECT user_id FROM users WHERE token = ?1",
+            params![token],
+            |r| r.get::<_, String>(0),
+        ) {
             return Ok(uid);
         }
         let uid = uuid::Uuid::new_v4().to_string();
@@ -126,7 +125,10 @@ impl Store {
                 upload.run.completed_at,
             ],
         )?;
-        tx.execute("DELETE FROM events WHERE run_id = ?1", params![upload.run.id])?;
+        tx.execute(
+            "DELETE FROM events WHERE run_id = ?1",
+            params![upload.run.id],
+        )?;
         {
             let mut stmt = tx.prepare(
                 "INSERT INTO events (run_id, event_type, message, metadata_json, created_at)
@@ -176,7 +178,11 @@ impl Store {
         Ok(rows)
     }
 
-    pub fn get_run(&self, user_id: &str, run_id: &str) -> Result<Option<(RunSummary, Vec<CloudEvent>)>> {
+    pub fn get_run(
+        &self,
+        user_id: &str,
+        run_id: &str,
+    ) -> Result<Option<(RunSummary, Vec<CloudEvent>)>> {
         let c = self.conn.lock().unwrap();
         let run = c
             .query_row(

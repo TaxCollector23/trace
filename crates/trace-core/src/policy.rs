@@ -86,7 +86,8 @@ static TEST_PATH: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)\.(test|spec)\.[jt]sx?$|__tests__/|/tests?/").unwrap());
 static DEBUG_PATTERN: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?m)^\+.*\b(TODO|FIXME|console\.log|debugger)\b").unwrap());
-static HANDLER_PATH: Lazy<Regex> = Lazy::new(|| Regex::new(r"/(api|handlers|routes|controllers)/").unwrap());
+static HANDLER_PATH: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"/(api|handlers|routes|controllers)/").unwrap());
 static MANIFEST_PATH: Lazy<Regex> = Lazy::new(|| {
     Regex::new(
         r"^package\.json$|^package-lock\.json$|^pnpm-lock\.yaml$|^yarn\.lock$|requirements\.txt$|go\.mod$|go\.sum$|Cargo\.toml$|Cargo\.lock$|Gemfile$|Gemfile\.lock$|composer\.lock$|Pipfile\.lock$|poetry\.lock$",
@@ -95,18 +96,19 @@ static MANIFEST_PATH: Lazy<Regex> = Lazy::new(|| {
 });
 static FIXTURE_PATH: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)\.(example|sample|fixture|template)\b|/fixtures?/").unwrap());
-static DOC_OR_TEMPLATE_PATH: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?i)\.(md|mdx|txt|example|sample|template)$|/(docs?|examples?)/").unwrap());
+static DOC_OR_TEMPLATE_PATH: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?i)\.(md|mdx|txt|example|sample|template)$|/(docs?|examples?)/").unwrap()
+});
 static LOCALHOST_URL: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"(?i)https?://(localhost|127\.0\.0\.1)(:\d+)?").unwrap());
-static SWALLOWED_CATCH: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"(?m)^\+.*\bcatch\s*\([^)]*\)\s*\{\s*(//[^\n]*|/\*[^*]*\*/)?\s*\}").unwrap());
+static SWALLOWED_CATCH: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?m)^\+.*\bcatch\s*\([^)]*\)\s*\{\s*(//[^\n]*|/\*[^*]*\*/)?\s*\}").unwrap()
+});
 static DB_CALL: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?i)\b(prisma|drizzle|knex|pg|mysql2)\.(query|execute|\$queryRaw|\$executeRaw)\b|\bnew Pool\(|\bawait sql`").unwrap()
 });
-static MIGRATION_PATH: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r"(?i)\.(sql|migration\.[jt]s)$").unwrap()
-});
+static MIGRATION_PATH: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"(?i)\.(sql|migration\.[jt]s)$").unwrap());
 static MIGRATION_DIR: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?i)/(migrations?|drizzle|alembic/versions|prisma/migrations)/").unwrap()
 });
@@ -117,22 +119,46 @@ static LOCKFILE: Lazy<Regex> =
 /// real secrets, so false positives should be rare.
 static SECRET_PATTERNS: Lazy<Vec<(&'static str, Regex)>> = Lazy::new(|| {
     vec![
-        ("AWS access key id", Regex::new(r"\bAKIA[0-9A-Z]{16}\b").unwrap()),
+        (
+            "AWS access key id",
+            Regex::new(r"\bAKIA[0-9A-Z]{16}\b").unwrap(),
+        ),
         (
             "AWS secret access key",
             Regex::new(r#"(?i)aws_secret_access_key\s*=\s*['"][A-Za-z0-9/+=]{40}['"]"#).unwrap(),
         ),
-        ("GitHub personal access token", Regex::new(r"\bghp_[A-Za-z0-9]{36,}\b").unwrap()),
-        ("GitHub fine-grained PAT", Regex::new(r"\bgithub_pat_[A-Za-z0-9_]{80,}\b").unwrap()),
-        ("OpenAI API key", Regex::new(r"\bsk-[A-Za-z0-9]{40,}\b").unwrap()),
-        ("Anthropic API key", Regex::new(r"\bsk-ant-[A-Za-z0-9\-_]{50,}\b").unwrap()),
-        ("Slack bot token", Regex::new(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b").unwrap()),
-        ("OpenRouter API key", Regex::new(r"\bsk-or-v1-[a-f0-9]{60,}\b").unwrap()),
+        (
+            "GitHub personal access token",
+            Regex::new(r"\bghp_[A-Za-z0-9]{36,}\b").unwrap(),
+        ),
+        (
+            "GitHub fine-grained PAT",
+            Regex::new(r"\bgithub_pat_[A-Za-z0-9_]{80,}\b").unwrap(),
+        ),
+        (
+            "OpenAI API key",
+            Regex::new(r"\bsk-[A-Za-z0-9]{40,}\b").unwrap(),
+        ),
+        (
+            "Anthropic API key",
+            Regex::new(r"\bsk-ant-[A-Za-z0-9\-_]{50,}\b").unwrap(),
+        ),
+        (
+            "Slack bot token",
+            Regex::new(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b").unwrap(),
+        ),
+        (
+            "OpenRouter API key",
+            Regex::new(r"\bsk-or-v1-[a-f0-9]{60,}\b").unwrap(),
+        ),
         (
             "Private key PEM",
             Regex::new(r"-----BEGIN (RSA |EC |OPENSSH |ENCRYPTED )?PRIVATE KEY-----").unwrap(),
         ),
-        ("Google API key", Regex::new(r"\bAIza[0-9A-Za-z\-_]{35}\b").unwrap()),
+        (
+            "Google API key",
+            Regex::new(r"\bAIza[0-9A-Za-z\-_]{35}\b").unwrap(),
+        ),
     ]
 });
 
@@ -169,7 +195,10 @@ fn check_debug_code(files: &[FileDiff]) -> Vec<PolicyFinding> {
                 finding(
                     "todo-debug-code",
                     "Debug code or TODO left in diff",
-                    format!("{} contains an added line with TODO, FIXME, console.log, or debugger.", f.filename),
+                    format!(
+                        "{} contains an added line with TODO, FIXME, console.log, or debugger.",
+                        f.filename
+                    ),
                     Some(f.filename.clone()),
                     Severity::Low,
                     0.9,
@@ -180,7 +209,10 @@ fn check_debug_code(files: &[FileDiff]) -> Vec<PolicyFinding> {
 }
 
 fn check_dependency_change(files: &[FileDiff]) -> Option<PolicyFinding> {
-    let manifests: Vec<&FileDiff> = files.iter().filter(|f| MANIFEST_PATH.is_match(&f.filename)).collect();
+    let manifests: Vec<&FileDiff> = files
+        .iter()
+        .filter(|f| MANIFEST_PATH.is_match(&f.filename))
+        .collect();
     if manifests.is_empty() {
         return None;
     }
@@ -197,7 +229,9 @@ fn check_dependency_change(files: &[FileDiff]) -> Option<PolicyFinding> {
 fn check_secrets(files: &[FileDiff]) -> Vec<PolicyFinding> {
     let mut out = Vec::new();
     for f in files {
-        let Some(patch) = f.patch.as_deref() else { continue };
+        let Some(patch) = f.patch.as_deref() else {
+            continue;
+        };
         if FIXTURE_PATH.is_match(&f.filename) {
             continue;
         }
@@ -262,7 +296,9 @@ fn check_large_file_change(files: &[FileDiff]) -> Vec<PolicyFinding> {
 fn check_direct_db_access_in_handler(files: &[FileDiff]) -> Vec<PolicyFinding> {
     let mut out = Vec::new();
     for f in files {
-        let Some(patch) = f.patch.as_deref() else { continue };
+        let Some(patch) = f.patch.as_deref() else {
+            continue;
+        };
         if !HANDLER_PATH.is_match(&f.filename) {
             continue;
         }
@@ -287,7 +323,11 @@ fn check_direct_db_access_in_handler(files: &[FileDiff]) -> Vec<PolicyFinding> {
 fn check_migration_added(files: &[FileDiff]) -> Vec<PolicyFinding> {
     let migrations: Vec<&FileDiff> = files
         .iter()
-        .filter(|f| f.status == "added" && MIGRATION_PATH.is_match(&f.filename) && MIGRATION_DIR.is_match(&f.filename))
+        .filter(|f| {
+            f.status == "added"
+                && MIGRATION_PATH.is_match(&f.filename)
+                && MIGRATION_DIR.is_match(&f.filename)
+        })
         .collect();
     if migrations.is_empty() {
         return Vec::new();
@@ -328,7 +368,9 @@ fn check_swallowed_catch(files: &[FileDiff]) -> Vec<PolicyFinding> {
 fn check_hardcoded_localhost(files: &[FileDiff]) -> Vec<PolicyFinding> {
     let mut out = Vec::new();
     for f in files {
-        let Some(patch) = f.patch.as_deref() else { continue };
+        let Some(patch) = f.patch.as_deref() else {
+            continue;
+        };
         if TEST_PATH.is_match(&f.filename) || DOC_OR_TEMPLATE_PATH.is_match(&f.filename) {
             continue;
         }
@@ -404,6 +446,8 @@ mod tests {
             patch: Some("+doCharge();".into()),
         }];
         let findings = run_policy_checks(&files);
-        assert!(findings.iter().any(|f| f.rule_key == "missing-tests-for-payments-paths"));
+        assert!(findings
+            .iter()
+            .any(|f| f.rule_key == "missing-tests-for-payments-paths"));
     }
 }

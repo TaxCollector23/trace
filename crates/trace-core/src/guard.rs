@@ -68,7 +68,15 @@ fn pipes_into_shell(c: &str) -> bool {
             .unwrap_or("");
         matches!(
             first,
-            "sh" | "bash" | "zsh" | "ksh" | "dash" | "python" | "python3" | "perl" | "ruby" | "node"
+            "sh" | "bash"
+                | "zsh"
+                | "ksh"
+                | "dash"
+                | "python"
+                | "python3"
+                | "perl"
+                | "ruby"
+                | "node"
         )
     })
 }
@@ -293,8 +301,8 @@ pub fn classify(command: &str) -> GuardResult {
 pub fn detect_agent(command: &str) -> Option<String> {
     let first = command.split_whitespace().next()?.to_lowercase();
     let known = [
-        "claude", "cursor", "copilot", "aider", "codex", "gemini", "opencode", "windsurf",
-        "cody", "continue",
+        "claude", "cursor", "copilot", "aider", "codex", "gemini", "opencode", "windsurf", "cody",
+        "continue",
     ];
     if known.contains(&first.as_str()) {
         Some(first)
@@ -409,10 +417,7 @@ mod tests {
             detect_agent("claude fix the bug").as_deref(),
             Some("claude")
         );
-        assert_eq!(
-            detect_agent("windsurf open .").as_deref(),
-            Some("windsurf")
-        );
+        assert_eq!(detect_agent("windsurf open .").as_deref(), Some("windsurf"));
         assert_eq!(detect_agent("opencode plan").as_deref(), Some("opencode"));
         assert_eq!(detect_agent("npm test"), None);
     }

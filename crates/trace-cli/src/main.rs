@@ -313,13 +313,15 @@ fn real_main() -> Result<()> {
         Commands::Rollback { yes } => commands::rollback::run(yes),
         Commands::Update => commands::update::run(),
         Commands::SelfCheck => commands::self_check::run(),
-        Commands::ReviewDiff { range, fail_on_risky, json } => {
-            commands::review_diff::run(commands::review_diff::ReviewDiffOptions {
-                range,
-                fail_on_risky,
-                json_out: json,
-            })
-        }
+        Commands::ReviewDiff {
+            range,
+            fail_on_risky,
+            json,
+        } => commands::review_diff::run(commands::review_diff::ReviewDiffOptions {
+            range,
+            fail_on_risky,
+            json_out: json,
+        }),
         Commands::Ratify { pr, fail_on_risky } => {
             commands::ratify::run(commands::ratify::RatifyOptions { pr, fail_on_risky })
         }

@@ -16,8 +16,8 @@ pub mod cursor;
 pub mod gemini;
 pub mod opencode;
 pub mod terminal;
-pub mod windsurf;
 mod version;
+pub mod windsurf;
 
 use trace_core::adapter::Adapter;
 

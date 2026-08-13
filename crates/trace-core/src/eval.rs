@@ -232,9 +232,23 @@ pub fn run_policy_eval() -> PolicyEvalReport {
         });
     }
 
-    let precision = if tp + fp > 0 { tp as f64 / (tp + fp) as f64 } else { 1.0 };
-    let recall = if tp + fn_ > 0 { tp as f64 / (tp + fn_) as f64 } else { 1.0 };
+    let precision = if tp + fp > 0 {
+        tp as f64 / (tp + fp) as f64
+    } else {
+        1.0
+    };
+    let recall = if tp + fn_ > 0 {
+        tp as f64 / (tp + fn_) as f64
+    } else {
+        1.0
+    };
     let passed = results.iter().filter(|r| r.passed).count();
 
-    PolicyEvalReport { total: results.len(), passed, precision, recall, results }
+    PolicyEvalReport {
+        total: results.len(),
+        passed,
+        precision,
+        recall,
+        results,
+    }
 }

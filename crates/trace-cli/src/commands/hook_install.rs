@@ -89,8 +89,8 @@ fn write_executable(path: &Path, contents: &str) -> Result<()> {
 /// deduped by structural equality.
 fn merge_json_file(path: &Path, patch: &Value) -> Result<bool> {
     let existing = if path.exists() {
-        let raw = fs::read_to_string(path)
-            .with_context(|| format!("reading {}", path.display()))?;
+        let raw =
+            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
         serde_json::from_str(&raw).unwrap_or(Value::Object(Default::default()))
     } else {
         if let Some(parent) = path.parent() {
@@ -271,9 +271,7 @@ fn install_vscode() -> Result<()> {
     // The VS Code extension isn't installable from here — it's an
     // extension the user installs from the marketplace or a .vsix path.
     // We can print the exact command they need.
-    println!(
-        "  VS Code extension isn't scriptable-installable from here (no marketplace ID yet)."
-    );
+    println!("  VS Code extension isn't scriptable-installable from here (no marketplace ID yet).");
     println!(
         "  Once published, install with:  {}",
         colors::bold("code --install-extension trace")
@@ -289,7 +287,11 @@ fn which_bin(name: &str) -> Option<PathBuf> {
     std::env::var_os("PATH").and_then(|paths| {
         std::env::split_paths(&paths).find_map(|dir| {
             let cand = dir.join(name);
-            if cand.is_file() { Some(cand) } else { None }
+            if cand.is_file() {
+                Some(cand)
+            } else {
+                None
+            }
         })
     })
 }
