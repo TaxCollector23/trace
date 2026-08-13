@@ -35,6 +35,15 @@ export default function Ratify() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // Switching projects must clear any prior verdict — otherwise PR #N's result
+  // from the old repo stays on screen, now falsely attributed to the new one.
+  function changeProject(id: string) {
+    setProjectId(id);
+    setReport(null);
+    setErr(null);
+    setPr("");
+  }
+
   async function ratify(prNumber: number) {
     if (!current) return;
     setBusy(true);
@@ -76,7 +85,11 @@ export default function Ratify() {
               <label className="muted" style={{ marginRight: 8 }}>
                 Project:
               </label>
-              <select value={current} onChange={(e) => setProjectId(e.target.value)}>
+              <select
+                aria-label="Project"
+                value={current}
+                onChange={(e) => changeProject(e.target.value)}
+              >
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -95,24 +108,32 @@ export default function Ratify() {
             </div>
           )}
 
-          {/* Ratify a specific PR by number */}
+          {/* Ratify a specific PR by number. Gated on a real GitHub remote so
+              the button can't fire a request that's guaranteed to fail. */}
           <div className="section-title">Ratify by number</div>
-          <div className="btn-row">
+          <form
+            className="btn-row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (pr && status?.repo_ref) ratify(Number(pr));
+            }}
+          >
             <input
               className="num"
               style={{ width: 120 }}
+              aria-label="Pull request number"
               value={pr}
               onChange={(e) => setPr(e.target.value.replace(/[^0-9]/g, ""))}
               placeholder="PR #"
             />
             <button
               className="btn"
-              onClick={() => pr && ratify(Number(pr))}
-              disabled={busy || !current || !pr}
+              type="submit"
+              disabled={busy || !current || !pr || !status?.repo_ref}
             >
               {busy ? "Ratifying…" : "Ratify"}
             </button>
-          </div>
+          </form>
 
           {/* Open PRs, each ratifiable in one click */}
           <div className="section-title">Open pull requests</div>

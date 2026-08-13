@@ -102,26 +102,102 @@ pub fn parse_remote(url: &str) -> Option<RepoRef> {
     Some(RepoRef { owner, repo })
 }
 
-fn get_json(path: &str, token: Option<&str>) -> Result<serde_json::Value> {
-    let url = format!("{API}{path}");
-    let mut req = ureq::get(&url)
+fn build_req(url: &str, token: Option<&str>) -> ureq::Request {
+    let mut req = ureq::get(url)
         .set("User-Agent", UA)
         .set("Accept", "application/vnd.github+json")
         .set("X-GitHub-Api-Version", "2022-11-28");
     if let Some(t) = token {
         req = req.set("Authorization", &format!("Bearer {t}"));
     }
-    match req.call() {
+    req
+}
+
+/// Turn a non-2xx GitHub response into an actionable error: distinguish
+/// auth/permission failures (incl. private-repo 404s) and rate limiting from a
+/// generic API error, so the CLI/dashboard can tell the user what to actually do.
+fn status_error(path: &str, code: u16, resp: ureq::Response) -> anyhow::Error {
+    let rate_remaining = resp
+        .header("x-ratelimit-remaining")
+        .and_then(|v| v.parse::<i64>().ok());
+    let body = resp.into_string().unwrap_or_default();
+    let snippet = body.chars().take(200).collect::<String>();
+    match code {
+        401 | 403 if rate_remaining == Some(0) => anyhow!(
+            "GitHub rate limit exceeded for {path}. Set a token (GITHUB_TOKEN, `gh auth login`, \
+             or ~/.trace/github.json) to raise the limit, or wait for it to reset."
+        ),
+        401 | 403 => anyhow!(
+            "GitHub denied access ({code}) for {path}. Check your token (GITHUB_TOKEN, \
+             `gh auth login`, or ~/.trace/github.json) and that it can read this repo."
+        ),
+        404 => anyhow!(
+            "GitHub returned 404 for {path}. If this is a private repo, the token may be \
+             missing or lack access (GitHub returns 404, not 403, to hide private repos)."
+        ),
+        _ => anyhow!("GitHub API {code} for {path}: {snippet}"),
+    }
+}
+
+fn get_json(path: &str, token: Option<&str>) -> Result<serde_json::Value> {
+    let url = format!("{API}{path}");
+    match build_req(&url, token).call() {
         Ok(resp) => resp.into_json().context("decoding GitHub response"),
-        Err(ureq::Error::Status(code, resp)) => {
-            let body = resp.into_string().unwrap_or_default();
-            Err(anyhow!(
-                "GitHub API {code} for {path}: {}",
-                body.chars().take(200).collect::<String>()
-            ))
-        }
+        Err(ureq::Error::Status(code, resp)) => Err(status_error(path, code, resp)),
         Err(e) => Err(anyhow!("GitHub request failed: {e}")),
     }
+}
+
+/// Parse the `rel="next"` URL from a GitHub `Link` header, if present.
+fn next_link(header: Option<&str>) -> Option<String> {
+    let header = header?;
+    header.split(',').find_map(|part| {
+        if !part.contains("rel=\"next\"") {
+            return None;
+        }
+        let start = part.find('<')?;
+        let end = part.find('>')?;
+        (end > start).then(|| part[start + 1..end].to_string())
+    })
+}
+
+/// GET an array endpoint, following `Link: rel="next"` across pages until the
+/// endpoint is exhausted or `max_items` is reached (a safety bound against a
+/// runaway PR). Returns the concatenated array elements.
+///
+/// This closes a real correctness hole: a single-page fetch of a pull request's
+/// files capped review at 100 files, so a high-severity change (e.g. a
+/// committed secret) in file #101 produced a clean `pass` verdict.
+fn get_json_array_paged(
+    first_path: &str,
+    token: Option<&str>,
+    max_items: usize,
+) -> Result<Vec<serde_json::Value>> {
+    let mut out: Vec<serde_json::Value> = Vec::new();
+    let mut url = format!("{API}{first_path}");
+    loop {
+        let resp = match build_req(&url, token).call() {
+            Ok(r) => r,
+            Err(ureq::Error::Status(code, resp)) => {
+                return Err(status_error(first_path, code, resp))
+            }
+            Err(e) => return Err(anyhow!("GitHub request failed: {e}")),
+        };
+        let next = next_link(resp.header("link"));
+        let page: serde_json::Value = resp.into_json().context("decoding GitHub response")?;
+        if let Some(arr) = page.as_array() {
+            out.extend(arr.iter().cloned());
+        }
+        if out.len() >= max_items {
+            out.truncate(max_items);
+            break;
+        }
+        match next {
+            Some(u) => url = u,
+            None => break,
+        }
+    }
+    Ok(out)
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -325,21 +401,24 @@ pub fn list_pr_issue_comments(
 }
 
 /// One changed file in a pull request, in the same shape `policy.rs` expects.
+/// GitHub caps the PR-files endpoint at 3000 files total; we page through all
+/// of them so the policy engine never reviews only a truncated prefix.
+const MAX_PR_FILES: usize = 3000;
+
 pub fn list_pr_files(
     r: &RepoRef,
     token: Option<&str>,
     pr_number: i64,
 ) -> Result<Vec<crate::policy::FileDiff>> {
-    let v = get_json(
+    let files = get_json_array_paged(
         &format!(
             "/repos/{}/{}/pulls/{}/files?per_page=100",
             r.owner, r.repo, pr_number
         ),
         token,
+        MAX_PR_FILES,
     )?;
-    Ok(v.as_array()
-        .cloned()
-        .unwrap_or_default()
+    Ok(files
         .iter()
         .map(|f| crate::policy::FileDiff {
             filename: f["filename"].as_str().unwrap_or("").to_string(),
@@ -442,5 +521,24 @@ mod tests {
     #[test]
     fn rejects_non_github() {
         assert!(parse_remote("https://gitlab.com/a/b.git").is_none());
+    }
+
+    #[test]
+    fn next_link_extracts_rel_next() {
+        let h = "<https://api.github.com/repositories/1/pulls/2/files?page=2>; rel=\"next\", \
+                 <https://api.github.com/repositories/1/pulls/2/files?page=9>; rel=\"last\"";
+        assert_eq!(
+            next_link(Some(h)).as_deref(),
+            Some("https://api.github.com/repositories/1/pulls/2/files?page=2")
+        );
+    }
+
+    #[test]
+    fn next_link_none_on_last_page() {
+        // Only rel="prev"/rel="first" present (typical of the final page).
+        let h = "<https://api.github.com/x?page=8>; rel=\"prev\", \
+                 <https://api.github.com/x?page=1>; rel=\"first\"";
+        assert_eq!(next_link(Some(h)), None);
+        assert_eq!(next_link(None), None);
     }
 }
