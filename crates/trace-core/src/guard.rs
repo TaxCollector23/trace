@@ -88,6 +88,30 @@ fn rm_targets_root(c: &str) -> bool {
         .any(|t| t == "/" || t == "/*" || t == "/.")
 }
 
+/// True when a `find` command's path operand is the filesystem root `/`.
+///
+/// `find`'s grammar is `find [path...] [expression]`: the path operands come
+/// before the first predicate (a `-flag`). Only the literal `/` is
+/// catastrophic — `find /tmp/cache -delete` targets a subtree and must fall
+/// through to the ordinary "bulk delete via find" approval, not a hard block.
+fn find_targets_root(c: &str) -> bool {
+    let mut toks = c.split_whitespace().skip_while(|t| *t != "find");
+    // Consume the `find` token itself.
+    if toks.next().is_none() {
+        return false;
+    }
+    for t in toks {
+        // The path operands end at the first predicate/option (`-name`, `-delete`, …).
+        if t.starts_with('-') {
+            break;
+        }
+        if t == "/" {
+            return true;
+        }
+    }
+    false
+}
+
 /// Normalize a command for matching: collapse whitespace, lowercase.
 fn normalize(command: &str) -> String {
     command
@@ -243,10 +267,9 @@ fn rules() -> &'static [Rule] {
             decision: Decision::Block,
             reason: "Recursive delete of the filesystem root via find.",
             matches: |c| {
-                contains_all(c, &["find", "/"])
+                c.contains("find")
                     && (c.contains("-delete") || c.contains("-exec rm"))
-                    && !c.contains("find ./")
-                    && !c.contains("find .")
+                    && find_targets_root(c)
             },
         },
         Rule {
@@ -649,5 +672,98 @@ mod tests {
         assert_eq!(detect_agent("windsurf open .").as_deref(), Some("windsurf"));
         assert_eq!(detect_agent("opencode plan").as_deref(), Some("opencode"));
         assert_eq!(detect_agent("npm test"), None);
+    }
+
+    #[test]
+    fn detects_agent_case_insensitively() {
+        // `detect_agent` lowercases the first token, so uppercase and mixed-case
+        // invocations are still recognized (documents current behavior).
+        assert_eq!(detect_agent("CLAUDE fix").as_deref(), Some("claude"));
+        assert_eq!(detect_agent("Cursor .").as_deref(), Some("cursor"));
+        assert_eq!(detect_agent("AiDeR commit").as_deref(), Some("aider"));
+        assert_eq!(detect_agent("COPILOT explain").as_deref(), Some("copilot"));
+        // A non-agent leading token is still not detected regardless of case.
+        assert_eq!(detect_agent("NPM test"), None);
+    }
+
+    // --- `find` root-delete scoping (small behavior fix) ---
+    #[test]
+    fn find_root_delete_is_scoped_to_actual_root() {
+        // Only the literal filesystem root is a hard Block...
+        assert_eq!(classify("find / -delete").decision, Decision::Block);
+        assert_eq!(classify("find / -exec rm {} ;").decision, Decision::Block);
+        // ...a non-root absolute path falls through to the ordinary find approval,
+        // rather than being mis-Blocked as a "filesystem root" wipe.
+        assert_eq!(
+            classify("find /tmp/cache -delete").decision,
+            Decision::RequireApproval
+        );
+        // A relative bulk delete likewise only needs approval.
+        assert_eq!(
+            classify("find . -name '*.tmp' -delete").decision,
+            Decision::RequireApproval
+        );
+    }
+
+    // --- Rule-pack interaction: packs may only ESCALATE, never downgrade ---
+    //
+    // NOTE (limitation): the pack merged into `classify` is the process-wide
+    // `rules_pack::active()` static, loaded once and not injectable from a unit
+    // test. So end-to-end escalation is exercised through the *default* pack
+    // (which ships a `require_approval` rule for `helm uninstall` that the
+    // built-ins don't cover), and the downgrade-protection invariant is proven
+    // against the ranking law the merge relies on, using a hand-built
+    // `PackCommandRule`.
+
+    #[test]
+    fn pack_rule_escalates_above_builtin() {
+        // Built-ins classify `helm uninstall` as Allow (no matching rule); the
+        // default pack escalates it to RequireApproval. Proves a pack verdict
+        // overrides a weaker built-in verdict end-to-end.
+        assert_eq!(
+            classify("helm uninstall my-release").decision,
+            Decision::RequireApproval
+        );
+        // Same, via the pack's redis-cli flush rule.
+        assert_eq!(
+            classify("redis-cli flushall").decision,
+            Decision::RequireApproval
+        );
+    }
+
+    #[test]
+    fn pack_block_can_escalate_a_builtin_warn() {
+        use crate::rules_pack::PackCommandRule;
+        // A plain `rm <file>` is a built-in Warn.
+        assert_eq!(classify("rm notes.txt").decision, Decision::Warn);
+        // A pack `block` rule matching the same command ranks strictly higher,
+        // so the merge in `classify_one` would adopt it (escalation permitted).
+        let esc = PackCommandRule {
+            decision: "block".to_string(),
+            reason: "org policy: never delete notes".to_string(),
+            all_of: vec!["rm".to_string(), "notes.txt".to_string()],
+        };
+        assert!(esc.matches("rm notes.txt"));
+        assert!(rank(esc.decision()) > rank(Decision::Warn));
+    }
+
+    #[test]
+    fn pack_rule_cannot_downgrade_a_builtin_block() {
+        use crate::rules_pack::PackCommandRule;
+        // A stale/hostile pack rule that tries to weaken a catastrophic command.
+        let hostile = PackCommandRule {
+            decision: "allow".to_string(),
+            reason: "hostile downgrade attempt".to_string(),
+            all_of: vec!["rm".to_string(), "-rf".to_string(), "/".to_string()],
+        };
+        assert!(hostile.matches("rm -rf /"));
+        // The merge only replaces the verdict when the pack decision ranks
+        // strictly higher. Block is the maximum rank, so a weaker pack decision
+        // can never win — the invariant that protects against downgrades.
+        assert!(rank(hostile.decision()) < rank(Decision::Block));
+        assert!(rank(Decision::Warn) < rank(Decision::Block));
+        assert!(rank(Decision::RequireApproval) < rank(Decision::Block));
+        // End-to-end, the built-in Block stands.
+        assert_eq!(classify("rm -rf /").decision, Decision::Block);
     }
 }

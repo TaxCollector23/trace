@@ -198,4 +198,160 @@ mod tests {
         assert!(is_env_like_filename("id_rsa"));
         assert!(!is_env_like_filename("src/main.rs"));
     }
+
+    /// Core safety invariant: for every built-in secret type, the persisted
+    /// `redacted_value` must NEVER contain the full secret body. Inputs are
+    /// assembled with `concat!` so no contiguous secret literal exists in
+    /// source (GitHub push protection); the runtime string is unchanged.
+    #[test]
+    fn redaction_never_leaks_the_full_secret() {
+        // (input containing the secret, secret body that must not survive, type)
+        let cases: &[(&str, &str, &str)] = &[
+            (
+                concat!("ANTHROPIC_API_KEY=sk-ant-", "abcdefghij1234567890ABCDEFxyz"),
+                concat!("sk-ant-", "abcdefghij1234567890ABCDEFxyz"),
+                "anthropic_api_key",
+            ),
+            (
+                concat!("OPENAI_API_KEY=sk-", "abcdefghijklmnopqrstuvwx012345"),
+                concat!("sk-", "abcdefghijklmnopqrstuvwx012345"),
+                "openai_api_key",
+            ),
+            (
+                concat!("GITHUB_TOKEN=ghp", "_abcdefghijklmnopqrstuvwx0123"),
+                concat!("ghp", "_abcdefghijklmnopqrstuvwx0123"),
+                "github_token",
+            ),
+            (
+                concat!("GITLAB_TOKEN=glp", "at-abcdefghijklmnopqrst0123"),
+                concat!("glp", "at-abcdefghijklmnopqrst0123"),
+                "gitlab_token",
+            ),
+            (
+                concat!("AWS_ACCESS_KEY_ID=AKIA", "IOSFODNN7EXAMPLE"),
+                concat!("AKIA", "IOSFODNN7EXAMPLE"),
+                "aws_access_key",
+            ),
+            (
+                concat!(
+                    "aws_secret_access_key = wJalrXUtnFEMI",
+                    "/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                ),
+                concat!("wJalrXUtnFEMI", "/K7MDENG/bPxRfiCYEXAMPLEKEY"),
+                "aws_secret_key",
+            ),
+            (
+                concat!("GOOGLE_API_KEY=AIza", "SyC8bQZ9xY2wV4uT6rS0pN1mK3jH5gF7dE9"),
+                concat!("AIza", "SyC8bQZ9xY2wV4uT6rS0pN1mK3jH5gF7dE9"),
+                "google_api_key",
+            ),
+            (
+                concat!("GROQ_API_KEY=gsk", "_abcdefghijklmnopqrstuvwx0123"),
+                concat!("gsk", "_abcdefghijklmnopqrstuvwx0123"),
+                "groq_api_key",
+            ),
+            (
+                concat!("STRIPE_KEY=sk", "_live_abcdefghijklmnopqrst"),
+                concat!("sk", "_live_abcdefghijklmnopqrst"),
+                "stripe_key",
+            ),
+            (
+                concat!("SLACK_TOKEN=xox", "b-123456789012-abcdefghijkl"),
+                concat!("xox", "b-123456789012-abcdefghijkl"),
+                "slack_token",
+            ),
+            (
+                concat!(
+                    "SG",
+                    ".abcdefghijklmnopqrstuv.abcdefghijklmnopqrstuvwxyz01234"
+                ),
+                concat!(
+                    "SG",
+                    ".abcdefghijklmnopqrstuv.abcdefghijklmnopqrstuvwxyz01234"
+                ),
+                "sendgrid_key",
+            ),
+            (
+                concat!("NPM_TOKEN=npm", "_abcdefghijklmnopqrstuvwxyz0123456789"),
+                concat!("npm", "_abcdefghijklmnopqrstuvwxyz0123456789"),
+                "npm_token",
+            ),
+            (
+                concat!("TWILIO_SID=AC", "0123456789abcdef0123456789abcdef"),
+                concat!("AC", "0123456789abcdef0123456789abcdef"),
+                "twilio_account_sid",
+            ),
+            (
+                concat!("-----BEGIN ", "OPENSSH PRIVATE KEY-----"),
+                concat!("-----BEGIN ", "OPENSSH PRIVATE KEY-----"),
+                "private_ssh_key",
+            ),
+            (
+                concat!(
+                    "token=eyJ",
+                    "hbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6y"
+                ),
+                concat!(
+                    "eyJ",
+                    "hbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6y"
+                ),
+                "jwt",
+            ),
+            (
+                concat!("DATABASE_URL=postgres", "://user:pass@localhost:5432/mydb"),
+                concat!("postgres", "://user:pass@localhost:5432/mydb"),
+                "database_url",
+            ),
+            (
+                concat!("Authorization: Bearer ", "abcdefghij1234567890KLMNOPQRST"),
+                "abcdefghij1234567890KLMNOPQRST",
+                "generic_bearer_token",
+            ),
+        ];
+
+        for (input, body, want_type) in cases {
+            let found = scan_text(input);
+            let hit = found
+                .iter()
+                .find(|f| f.secret_type == *want_type)
+                .unwrap_or_else(|| panic!("expected {want_type} to be detected in {input:?}"));
+            // The redaction must not carry the full secret body through.
+            assert!(
+                !hit.redacted_value.contains(body),
+                "{want_type}: redacted_value {:?} leaked the full secret",
+                hit.redacted_value
+            );
+            // And it must be recognizably redacted.
+            assert!(
+                hit.redacted_value.ends_with("...redacted"),
+                "{want_type}: redacted_value {:?} not marked redacted",
+                hit.redacted_value
+            );
+            // No finding for this input may leak the full body either.
+            for f in &found {
+                assert!(
+                    !f.redacted_value.contains(body),
+                    "{}: redacted_value {:?} leaked the full secret",
+                    f.secret_type,
+                    f.redacted_value
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn no_false_positive_on_placeholders_and_prose() {
+        // A plain sentence contains no secret-shaped tokens.
+        assert!(scan_text("Please rotate the API key before Friday's deploy.").is_empty());
+        // A short, clearly-templated bearer placeholder stays below the
+        // token-length threshold and is not flagged.
+        assert!(scan_text("Authorization: Bearer <your-token-here>").is_empty());
+        // NOTE (documented behavior): a long placeholder such as
+        // `Bearer your-token-here-example` (23 body chars) is, by pattern alone,
+        // indistinguishable from a real token and IS conservatively flagged. We
+        // assert that here so the behavior is pinned rather than silently drifting.
+        assert!(scan_text("Authorization: Bearer your-token-here-example")
+            .iter()
+            .any(|f| f.secret_type == "generic_bearer_token"));
+    }
 }

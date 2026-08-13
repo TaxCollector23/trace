@@ -321,3 +321,63 @@ mod split_diff_tests {
         assert!(split_diff_by_file("").is_empty());
     }
 }
+
+#[cfg(test)]
+mod parser_tests {
+    use super::{parse_change_type, parse_numstat};
+    use crate::models::ChangeType;
+
+    #[test]
+    fn parse_change_type_maps_status_codes() {
+        assert_eq!(parse_change_type("A"), ChangeType::Created);
+        assert_eq!(parse_change_type("D"), ChangeType::Deleted);
+        assert_eq!(parse_change_type("M"), ChangeType::Modified);
+        // Renames carry a similarity score (e.g. `R100`); only the leading
+        // letter is inspected.
+        assert_eq!(parse_change_type("R"), ChangeType::Renamed);
+        assert_eq!(parse_change_type("R100"), ChangeType::Renamed);
+        // Copies and unknown/empty codes fall back to Modified.
+        assert_eq!(parse_change_type("C075"), ChangeType::Modified);
+        assert_eq!(parse_change_type(""), ChangeType::Modified);
+    }
+
+    #[test]
+    fn parse_numstat_text_lines() {
+        let numstat = "10\t2\tsrc/main.rs\n0\t5\tREADME.md\n";
+        let map = parse_numstat(numstat);
+        assert_eq!(map.get("src/main.rs").map(String::as_str), Some("+10 -2"));
+        assert_eq!(map.get("README.md").map(String::as_str), Some("+0 -5"));
+        assert_eq!(map.len(), 2);
+    }
+
+    #[test]
+    fn parse_numstat_binary_lines() {
+        // Git emits `-\t-\t<path>` for binary files (no line counts). The parser
+        // still records an entry, surfacing the `-`/`-` counts verbatim.
+        let map = parse_numstat("-\t-\tassets/logo.png\n");
+        assert_eq!(
+            map.get("assets/logo.png").map(String::as_str),
+            Some("+- --")
+        );
+    }
+
+    #[test]
+    fn parse_numstat_ignores_malformed_lines() {
+        // Lines without exactly three tab-separated fields are skipped rather
+        // than panicking (blank lines, headers, truncated output).
+        let map = parse_numstat("garbage\n1\t2\ttoo\tmany\tfields\n\n3\t4\tok.rs\n");
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get("ok.rs").map(String::as_str), Some("+3 -4"));
+    }
+
+    #[test]
+    fn parse_numstat_renamed_path_with_braces() {
+        // `git diff --numstat` (without `-z`) emits a brace-expansion path for a
+        // rename; the third field is stored as-is (keyed to that literal form).
+        let map = parse_numstat("2\t1\tsrc/{old.rs => new.rs}\n");
+        assert_eq!(
+            map.get("src/{old.rs => new.rs}").map(String::as_str),
+            Some("+2 -1")
+        );
+    }
+}
