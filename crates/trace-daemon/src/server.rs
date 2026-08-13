@@ -78,9 +78,9 @@ async fn security_headers(request: Request, next: Next) -> Response {
 ///   3. Ratify's dashboard, for the "Local Trace runs" tab.
 ///
 /// A wildcard/permissive policy would let *any webpage the user has open
-/// in a normal browser tab* script a fetch against this daemon — read
-/// judge/provider configuration, trigger a git rollback, spam
-/// /config/judge/test to burn API credits. This allow-list closes that.
+/// in a normal browser tab* script a fetch against this daemon — read a
+/// user's run history and project paths, or trigger a git rollback. This
+/// allow-list closes that.
 ///
 /// Override the hosted origins with `TRACE_ALLOWED_ORIGINS` (comma-
 /// separated) when running against a preview deployment or a custom

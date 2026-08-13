@@ -24,11 +24,6 @@ export const DOWNLOADS = {
   releases: `${GITHUB_REPO}/releases/latest`,
 } as const;
 
-// Ratify (now branded "Trace Ratification") is a separate hosted product
-// that shares Trace's judge intelligence. Cross-linked from the landing
-// site so a visitor evaluating Trace also sees the GitHub-side surface.
-export const RATIFY_URL = "https://ratify-zeta-dusky.vercel.app/";
-
 // Where install.sh / install.ps1 are served from. We serve them from the
 // landing site itself (see apps/landing/public/) rather than
 // raw.githubusercontent so the pipe-to-shell one-liner shows a URL the

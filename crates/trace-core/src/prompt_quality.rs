@@ -1,15 +1,9 @@
 //! Prompt-quality analysis.
 //!
-//! v1 is a fast, deterministic heuristic pass — no LLM call, so it can run
-//! synchronously on every prompt without adding latency or API cost. It
-//! feeds `prompt_events` for the dashboard's coaching view (`db.rs`).
-//!
-//! This is intentionally not the final word on prompt quality: the plan is
-//! for the dashboard to periodically batch a run's prompts through the same
-//! 3-LLM judge panel (`judge.rs`) for deeper, semantic coaching feedback
-//! ("this conflicts with what you asked two prompts ago") — that pass is
-//! amortized (batched, off the hot path) rather than per-keystroke, unlike
-//! the checks here.
+//! A fast, deterministic heuristic pass — no LLM call, no API cost. `prompt_risks`
+//! is the prompt-risk detector used by the red-team benchmark (embedded
+//! dangerous commands, injection/jailbreak phrases, leaked secrets), and
+//! `analyze_prompt` scores a prompt's clarity heuristically.
 
 use once_cell::sync::Lazy;
 use regex::Regex;

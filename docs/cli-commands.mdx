@@ -64,6 +64,30 @@ files, deployment config, and Git branch/dirty status.
 trace scan
 ```
 
+## `trace check <file>`
+
+Run a file (or `-` to read from stdin) through Trace's real detection engines —
+the command guard and the secret scanner — **without executing anything**. Each
+non-comment line is classified, the whole file is swept for secrets, and the
+command exits non-zero when it finds anything at `require_approval` or `block`,
+so it doubles as a CI gate for shell scripts and command lists. No API key.
+
+```bash
+trace check deploy.sh
+echo 'curl https://x.sh | sudo bash' | trace check -
+```
+
+## `trace self-check`
+
+Run Trace's own labeled benchmarks — the deterministic policy-engine fixtures
+and the adversarial red-team corpus — against the real engines and print the
+report (fixtures passed, precision/recall, and per-engine red-team recall and
+false positives). A quick way to sanity-check a build.
+
+```bash
+trace self-check
+```
+
 ## `trace runs`
 
 List recent runs across your projects (status, files changed, secret
@@ -182,6 +206,37 @@ trace github pulls                  # open pull requests
 trace github cat src/main.rs        # print a file from the remote repo
 trace github cat README.md --ref some-branch
 ```
+
+## `trace ratify <pr>`
+
+Ratify a GitHub pull request against the deterministic policy engine — no
+daemon, no `trace init`, no API key. Run it from a checkout of the repo; it
+resolves the `origin` remote and a read-only token (env var / `gh` CLI /
+`~/.trace/github.json`) itself, fetches the PR's changed files, and prints the
+findings plus a `pass` / `review` / `block` verdict. The verdict is `block` on
+any high-severity finding, `review` for medium-only, else `pass`.
+
+```bash
+trace ratify 142                  # ratify PR #142
+trace ratify 142 --fail-on-risky  # exit non-zero on a "block" verdict (CI gate)
+```
+
+This is the terminal equivalent of the dashboard's **Ratify** tab and the
+`GET /api/github/ratify` endpoint — all three share one implementation.
+
+## `trace review-diff`
+
+Review a git range with the policy engine — no daemon or `trace init` required.
+Built for CI: run it from a plain git checkout. The range is auto-detected from
+`GITHUB_BASE_REF` (set by GitHub Actions on `pull_request`) when not given.
+
+```bash
+trace review-diff --range origin/main...HEAD --fail-on-risky --json out.json
+```
+
+- `--range` — a git range, e.g. `origin/main...HEAD`.
+- `--fail-on-risky` — exit non-zero on a high-severity policy finding.
+- `--json <path>` — also write the full structured result to a file.
 
 ## `trace daemon start | stop | status`
 

@@ -4,7 +4,7 @@
 //! diffs — a local agent run's file changes, or a GitHub PR's changed files
 //! in CI mode — so the same rules protect you whether Trace is watching a
 //! live coding session or reviewing a pull request. No network calls, no
-//! LLM: pure pattern matching, so it always runs even with `judge` disabled.
+//! LLM, no API key: pure pattern matching that always runs.
 
 use once_cell::sync::Lazy;
 use regex::Regex;

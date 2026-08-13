@@ -4,8 +4,8 @@ Two ready-to-use surfaces plus an App skeleton.
 
 ## GitHub Action (`action.yml`)
 
-Run Trace's policy engine — and, optionally, the 3-LLM judge panel — in CI
-and upload a **sanitized** summary artifact.
+Run Trace's **deterministic** policy engine in CI and upload a **sanitized**
+summary artifact. No API key required — the engine is pure pattern matching.
 
 ```yaml
 # .github/workflows/trace.yml
@@ -21,28 +21,20 @@ jobs:
         with:
           checks: "npm run build, npm test"
           fail-on-risky: "true"
-          enable-judge: "true"
-        env:
-          # Any of the three (or more — see the Judge Panel in the
-          # dashboard for adding providers). Only set the ones you use.
-          TRACE_ANTHROPIC_API_KEY: ${{ secrets.TRACE_ANTHROPIC_API_KEY }}
-          TRACE_OPENAI_API_KEY: ${{ secrets.TRACE_OPENAI_API_KEY }}
-          TRACE_GOOGLE_API_KEY: ${{ secrets.TRACE_GOOGLE_API_KEY }}
 ```
 
 The action installs `trace` (unless `install: "false"`) and runs
-`trace review-diff` — the same deterministic policy engine and judge panel
-the local daemon uses, not a separate implementation — over the PR's diff.
-Falls back to a crude grep-based heuristic if `trace` couldn't be installed,
-so the action still does something useful rather than failing outright.
+`trace review-diff` — the same deterministic policy engine the local daemon
+uses, not a separate implementation — over the PR's diff. Falls back to a
+crude grep-based heuristic if `trace` couldn't be installed, so the action
+still does something useful rather than failing outright.
 
 The scan (`scripts/ci-scan.sh`) writes two files:
-- `trace-summary.json` — counts only (files changed, finding counts, judge
-  consensus, check status). Safe to glance at in a PR comment bot later.
+- `trace-summary.json` — counts only (files changed, finding counts, check
+  status). Safe to glance at in a PR comment bot later.
 - `trace-review.json` — the full structured result from `trace review-diff`
-  (finding titles/descriptions, judge votes and reasoning). Still never
-  includes raw secret values — the policy engine redacts those at the
-  source (see `trace-core/src/policy.rs`).
+  (finding titles/descriptions). Still never includes raw secret values — the
+  policy engine redacts those at the source (see `trace-core/src/policy.rs`).
 
 Neither file ever contains raw project file contents or your local SQLite
 database.
@@ -50,12 +42,20 @@ database.
 ## Running it yourself, outside the Action
 
 ```bash
-trace review-diff --range origin/main...HEAD --judge --fail-on-risky --json trace-review.json
+trace review-diff --range origin/main...HEAD --fail-on-risky --json trace-review.json
 ```
 
 Works from any git checkout — no `trace init`, no daemon required. Useful
 for testing what CI will see before you push, or wiring into a different CI
 system entirely.
+
+To review a **GitHub pull request** by number instead of a local diff, use:
+
+```bash
+trace ratify <pr-number> --fail-on-risky
+```
+
+which fetches the PR's files from GitHub and runs the same engine.
 
 ## GitHub App (`app/`)
 

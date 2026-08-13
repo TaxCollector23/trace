@@ -19,12 +19,10 @@ process it launches, and every hook `claude` fires inherits them.
   with the rule-based guard and blocks it (exit code 2) on a `block`
   decision. Unchanged from before.
 - **`PostToolUse` (Edit / Write / MultiEdit / NotebookEdit)** — sends the
-  edit to Trace's live review path: the deterministic policy engine always
-  runs; the 3-LLM judge panel additionally runs when **Model Prompting
-  Mode** is on in the dashboard's Judge Panel. If the panel lands on
-  `require_approval` or `block`, the hook exits 2 with the panel's reasoning
-  on stderr — Claude Code shows this to the agent as feedback on that edit,
-  which is what prompts it to stop and reconsider before continuing.
+  edit to Trace's live review path, where the deterministic policy engine
+  scans it (secret detection, risky-change checks, etc.). Any findings are
+  recorded on the run and echoed to the agent as advisory feedback on stderr.
+  This path needs no API key.
 
 ### Install
 
@@ -48,18 +46,11 @@ process it launches, and every hook `claude` fires inherits them.
 - If Claude wasn't launched via `trace run` (no `TRACE_RUN_ID` in its
   environment), the `PostToolUse` path is a no-op too — there's no run to
   attach the review to. `PreToolUse` command guarding still works either way.
-- **Model Prompting Mode off (default):** every edit still goes through the
-  deterministic policy engine and any findings land on the dashboard, but
-  nothing is sent back to the agent and nothing blocks — the existing
-  rollback path is how you undo something that slipped through. This keeps
-  editing fast.
-- **Model Prompting Mode on:** the 3-LLM judge panel runs on every
-  file-editing tool call. This adds real latency per edit (the panel is
-  three model round-trips) in exchange for Trace being able to actually
-  interrupt the agent when it's about to compound a mistake. Turn it on for
-  higher-stakes sessions, off for fast iteration — see the Judge Panel page
-  in the dashboard.
+- Every edit goes through the deterministic policy engine and any findings
+  land on the dashboard (and are echoed to the agent as advisory feedback).
+  The engine is fast, local, and needs no API key. Nothing that slips through
+  is irreversible — the rollback path is how you undo it.
+- `PreToolUse` command guarding blocks a `block`-classified command outright
+  (exit 2) before it runs.
 
-The hook only talks to `127.0.0.1`; nothing leaves the machine except the
-judge panel's own calls to whichever LLM providers you've configured (see
-Judge Panel → Judge settings for the two key-supply modes).
+The hook only ever talks to `127.0.0.1` — nothing leaves the machine.

@@ -43,22 +43,6 @@ interface Event {
   created_at: string;
 }
 
-interface CoachingPattern {
-  pattern: string;
-  occurrences: number;
-  share: number;
-  flag_rate: number;
-  advice: string;
-  example: string | null;
-}
-interface CoachingReport {
-  sample_size: number;
-  avg_clarity: number;
-  overall_flag_rate: number;
-  patterns: CoachingPattern[];
-  headline: string;
-}
-
 async function probePort(port: number): Promise<boolean> {
   try {
     const r = await fetch(`http://127.0.0.1:${port}/api/health`, { cache: "no-store" });
@@ -206,7 +190,6 @@ function useApi<T>(port: number | null, path: string, deps: unknown[] = []) {
 function Connected({ port, onDisconnect }: { port: number; onDisconnect: () => void }) {
   const [selectedRun, setSelectedRun] = useState<string | null>(null);
   const runsQ = useApi<RunSummary[]>(port, "/runs?limit=100");
-  const coachingQ = useApi<CoachingReport>(port, "/analytics/coaching?limit=200");
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.4fr_1fr]">
@@ -221,7 +204,6 @@ function Connected({ port, onDisconnect }: { port: number; onDisconnect: () => v
         {selectedRun && <RunDetail port={port} runId={selectedRun} />}
       </div>
       <div className="space-y-6">
-        <Coaching data={coachingQ.data} error={coachingQ.error} loading={coachingQ.loading} />
         <ConnectionCard port={port} onDisconnect={onDisconnect} />
       </div>
     </div>
@@ -330,49 +312,6 @@ function RunDetail({ port, runId }: { port: number; runId: string }) {
             </li>
           ))}
         </ol>
-      )}
-    </div>
-  );
-}
-
-function Coaching({ data, error, loading }: { data: CoachingReport | null; error: string | null; loading: boolean }) {
-  return (
-    <div className="rounded-2xl border border-border bg-white">
-      <div className="border-b border-border px-5 py-3">
-        <div className="text-xs font-semibold uppercase tracking-wide text-text-dim">Prompt coaching</div>
-      </div>
-      {loading && <div className="p-6 text-sm text-text-dim">Loading…</div>}
-      {error && <div className="p-6 text-sm text-red-700">{error}</div>}
-      {data && data.sample_size === 0 && (
-        <div className="p-6 text-sm text-text-dim">
-          Runs a few prompts through <code className="rounded bg-black/5 px-1.5 py-0.5 text-xs">trace run</code> — coaching lights up
-          once your history has patterns worth pointing to.
-        </div>
-      )}
-      {data && data.sample_size > 0 && (
-        <div className="p-5">
-          <div className="text-sm font-medium text-text">{data.headline}</div>
-          <div className="mt-1 text-xs text-text-dim">
-            {data.sample_size} prompts sampled · {(data.overall_flag_rate * 100).toFixed(0)}% overall flag rate ·{" "}
-            {data.avg_clarity.toFixed(0)}/100 avg clarity
-          </div>
-          <ul className="mt-5 space-y-4">
-            {data.patterns.slice(0, 4).map((p) => (
-              <li key={p.pattern}>
-                <div className="flex items-baseline justify-between">
-                  <div className="text-sm font-medium text-text">{p.pattern.replace(/_/g, " ")}</div>
-                  <div className="text-xs text-text-dim">
-                    {p.occurrences}× · {(p.flag_rate * 100).toFixed(0)}% flagged
-                  </div>
-                </div>
-                <div className="mt-1 text-xs text-text-dim">{p.advice}</div>
-                {p.example && (
-                  <div className="mt-1 truncate text-xs italic text-text-dim">&ldquo;{p.example}&rdquo;</div>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
       )}
     </div>
   );

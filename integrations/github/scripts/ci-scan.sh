@@ -2,8 +2,8 @@
 # Trace CI scan.
 #
 # When the `trace` binary is available, delegates to `trace review-diff` —
-# the same policy engine (and, optionally, judge panel) the local daemon
-# uses — and folds its findings into trace-summary.json. Falls back to a
+# the same deterministic policy engine the local daemon uses (no API key
+# required) — and folds its findings into trace-summary.json. Falls back to a
 # crude grep-based heuristic when `trace` isn't installed, so this action
 # still does *something* useful without requiring an install step, and
 # never hard-fails just because the binary is missing.
@@ -11,12 +11,10 @@ set -euo pipefail
 
 CHECKS=""
 FAIL_ON_RISKY="false"
-ENABLE_JUDGE="false"
 while [ $# -gt 0 ]; do
   case "$1" in
     --checks) CHECKS="$2"; shift 2 ;;
     --fail-on-risky) FAIL_ON_RISKY="$2"; shift 2 ;;
-    --enable-judge) ENABLE_JUDGE="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -34,32 +32,27 @@ NUM_FILES=$(printf '%s\n' "$CHANGED_FILES" | grep -c . || true)
 
 POLICY_FINDINGS=0
 HIGH_SEVERITY=0
-JUDGE_CONSENSUS="not_run"
 REVIEW_FAILED="false"
 
 if command -v trace >/dev/null 2>&1; then
-  echo "Trace: using 'trace review-diff' (policy engine$([ "$ENABLE_JUDGE" = "true" ] && echo " + judge panel"))"
-  JUDGE_FLAG=""
-  [ "$ENABLE_JUDGE" = "true" ] && JUDGE_FLAG="--judge"
+  echo "Trace: using 'trace review-diff' (deterministic policy engine)"
   FAIL_FLAG=""
   [ "$FAIL_ON_RISKY" = "true" ] && FAIL_FLAG="--fail-on-risky"
 
   set +e
   # shellcheck disable=SC2086
-  trace review-diff --range "$RANGE" $JUDGE_FLAG $FAIL_FLAG --json trace-review.json
+  trace review-diff --range "$RANGE" $FAIL_FLAG --json trace-review.json
   REVIEW_EXIT=$?
   set -e
 
   if [ -f trace-review.json ]; then
     POLICY_FINDINGS=$(grep -o '"rule_key"' trace-review.json | wc -l | tr -d ' ')
     HIGH_SEVERITY=$(grep -o '"severity":"high"' trace-review.json | wc -l | tr -d ' ')
-    JUDGE_CONSENSUS=$(sed -n 's/.*"consensus":"\([a-z_]*\)".*/\1/p' trace-review.json | head -1)
-    [ -z "$JUDGE_CONSENSUS" ] && JUDGE_CONSENSUS="disabled"
   fi
   [ "$REVIEW_EXIT" != "0" ] && REVIEW_FAILED="true"
 else
   echo "Trace: 'trace' binary not found on PATH — falling back to basic heuristics."
-  echo "For the full policy engine + judge panel, install it first, e.g.:"
+  echo "For the full policy engine, install it first, e.g.:"
   echo "  curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh"
 
   DIFF=$(git diff "$RANGE" 2>/dev/null || echo "")
@@ -70,7 +63,6 @@ else
     || true)
   POLICY_FINDINGS=$((RISKY + ${SECRET_HITS:-0}))
   HIGH_SEVERITY=${SECRET_HITS:-0}
-  JUDGE_CONSENSUS="unavailable"
   [ "$FAIL_ON_RISKY" = "true" ] && [ "$POLICY_FINDINGS" -gt 0 ] && REVIEW_FAILED="true"
 fi
 
@@ -92,12 +84,11 @@ fi
 # --- Sanitized summary (no file contents, no secret values) ---
 cat > trace-summary.json <<EOF
 {
-  "schema": "trace.summary/v2",
+  "schema": "trace.summary/v3",
   "commit": "${GITHUB_SHA:-unknown}",
   "files_changed": ${NUM_FILES:-0},
   "policy_findings": ${POLICY_FINDINGS:-0},
   "high_severity_findings": ${HIGH_SEVERITY:-0},
-  "judge_consensus": "${JUDGE_CONSENSUS}",
   "checks_status": "${CHECK_STATUS}"
 }
 EOF

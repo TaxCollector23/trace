@@ -7,11 +7,9 @@
 #   PreToolUse (Bash)        -> classify the command with the rule-based
 #                                guard; block (exit 2) on a "block" decision.
 #   PostToolUse (Edit/Write/  -> send the edit to Trace's live review path
-#     MultiEdit)                (deterministic policy engine, and — only
-#                                when Model Prompting Mode is on — the 3-LLM
-#                                judge panel). If the panel says to stop,
-#                                exit 2 so Claude Code shows the reason back
-#                                to the agent as feedback on that tool call.
+#     MultiEdit)                (the deterministic policy engine — no API key).
+#                                Findings are recorded and echoed back to the
+#                                agent as advisory feedback on that tool call.
 #
 # If the daemon is not running, every path here is a no-op and never blocks
 # Claude — this hook only ever adds friction when Trace is actively watching.
@@ -79,9 +77,8 @@ case "$EVENT" in
     [ -n "$RUN_ID" ] || exit 0  # not launched via `trace run` — nothing to attach this to
 
     FILE_PATH=$(json_get file_path)
-    # Coarse content signal for the policy engine / judge — whichever of
-    # these the tool used. Truncated; this is a review signal, not a full
-    # patch.
+    # Coarse content signal for the policy engine — whichever of these the
+    # tool used. Truncated; this is a review signal, not a full patch.
     DIFF=$(json_get new_string)
     [ -n "$DIFF" ] || DIFF=$(json_get content)
     DIFF=$(printf '%s' "$DIFF" | head -c 4000)
@@ -101,28 +98,25 @@ case "$EVENT" in
     if [ "$HAVE_JQ" = "1" ]; then
       BLOCK=$(printf '%s' "$RESP" | jq -r '.block // false')
       FEEDBACK=$(printf '%s' "$RESP" | jq -r '.agent_feedback // .message // empty')
-      CONSENSUS=$(printf '%s' "$RESP" | jq -r '.consensus // empty')
     else
       # Best-effort without jq — breaks on messages with escaped quotes.
-      # Install jq for reliable multi-line feedback with per-model reasoning.
+      # Install jq for reliable multi-line feedback.
       BLOCK=$(printf '%s' "$RESP" | sed -n 's/.*"block"[: ]*\(true\|false\).*/\1/p')
       FEEDBACK=$(printf '%s' "$RESP" | sed -n 's/.*"message"[: ]*"\(.*\)","policy.*/\1/p')
-      CONSENSUS=$(printf '%s' "$RESP" | sed -n 's/.*"consensus"[: ]*"\([a-z_]*\)".*/\1/p')
     fi
 
     if [ "$BLOCK" = "true" ]; then
       # Blocking path: exit 2 surfaces the message back to Claude Code as
-      # feedback on the tool call. `agent_feedback` includes each reviewer's
-      # specific reasoning, so the model sees exactly what to fix — the
-      # whole point of Model Prompting Mode.
-      echo "${FEEDBACK:-Trace's review panel flagged this edit. Please re-examine it before continuing.}" >&2
+      # feedback on the tool call so the model sees exactly what to fix.
+      echo "${FEEDBACK:-Trace flagged this edit. Please re-examine it before continuing.}" >&2
       exit 2
     fi
 
-    # Non-blocking advisory: policy engine or judge returned warn. Echo to
-    # stderr and exit 0 so the agent sees the feedback (and can self-correct
-    # on its next tool call) without being interrupted.
-    if [ -n "${FEEDBACK:-}" ] && [ "${CONSENSUS:-allow}" != "allow" ]; then
+    # Non-blocking advisory: the deterministic policy engine found something
+    # worth telling the agent about. Echo to stderr and exit 0 so the agent
+    # sees the feedback (and can self-correct on its next tool call) without
+    # being interrupted.
+    if [ -n "${FEEDBACK:-}" ]; then
       echo "$FEEDBACK" >&2
     fi
     exit 0

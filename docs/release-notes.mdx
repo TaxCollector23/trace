@@ -3,6 +3,33 @@ title: Release Notes
 description: Trace changelog.
 ---
 
+## v1.2 — Fully deterministic: no API key, add Ratify
+
+- **Removed every LLM feature.** The 3-LLM judge panel, Model Prompting Mode,
+  the prompting coach, and PR-history "doctrine" mining are gone. Trace now runs
+  entirely on its deterministic engines (command guard, secret scanner, policy
+  engine) and **requires no AI/LLM API key** anywhere.
+- **Ratify** — run the deterministic policy engine over a GitHub pull request's
+  files and get a `pass` / `review` / `block` verdict, from the dashboard's new
+  **Ratify** tab, the new `trace ratify <pr>` command, or
+  `GET /api/github/ratify`. All three share one implementation.
+- **`trace check <file>`** — scan any file or script (or stdin) through the
+  guard + secret scanner without executing it; non-zero exit on
+  require_approval/block for CI gating.
+- **Red-team benchmark** — an adversarial corpus (dangerous commands incl.
+  evasions, planted secrets, unsafe prompts) run through the real engines and
+  scored for recall / false positives, surfaced in `trace self-check`,
+  `GET /api/benchmarks/redteam`, and the dashboard's **Benchmarks** page.
+- Hardened the command guard against evasions (pipe-to-sudo-shell,
+  download-then-exec, base64-to-shell, `find … -delete`, raw block-device
+  writes) and expanded the secret-detector provider set.
+- `trace review-diff` and the GitHub CI Action are now policy-engine only
+  (the `--judge` flag and `enable-judge` input were removed).
+- Rule-pack override env var renamed `TRACEGUARD_RULES_PATH` → `TRACE_RULES_PATH`
+  (the legacy name is still honored).
+- Dashboard nav updated: the Judge Panel and Prompting Coach pages are gone;
+  a **Ratify** page is added. Token Spend (cost tracking) is unchanged.
+
 ## v1.1 — Rebrand to Trace, TraceCompress removed
 
 - Renamed the project from **TraceGuard** to **Trace**. The binary is now

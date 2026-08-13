@@ -18,12 +18,11 @@ is no account, and your project data stays on your machine by default.
 
 AI agents can edit files, run commands, touch secrets, change dependencies,
 break builds, and spend API money — often faster than you can follow. Trace
-gives you a reliable, local record of those actions, a deterministic rules
-engine that catches the obvious problems instantly, and — when you want a
-second opinion on a judgment call — a panel of three independent models that
-vote separately and can tell the agent to stop and fix something before you
-ever see it. It does not replace your agent and it does not write code for
-you — it watches, judges, and lets you undo.
+gives you a reliable, local record of those actions and a **deterministic**
+detection engine — a command guard, a secret scanner, and a policy engine —
+that catches the obvious problems instantly. It's pure pattern matching, so it
+runs in microseconds and needs **no AI/LLM API key**. It does not replace your
+agent and it does not write code for you — it watches, flags, and lets you undo.
 
 ## Install
 
@@ -81,8 +80,10 @@ only). Roll back a run's changes with `trace rollback`.
 | `trace config show \| set` | View or change project configuration. |
 | `trace integrations [status]` | List integrations or check what is live. |
 | `trace github <status\|commits\|pulls\|cat>` | Read directly from the repo (incl. private). |
-| `trace review-diff [--range] [--judge] [--fail-on-risky] [--json]` | Review a diff range with the policy engine (and, optionally, the judge panel) — no daemon or `trace init` required. What CI uses. |
-| `trace self-check` | Run the policy engine's own labeled-fixture benchmark and print precision/recall. |
+| `trace check <file>` | Run a file (or `-` for stdin) through the command guard + secret scanner; non-zero exit on require_approval/block. A CI gate for scripts. |
+| `trace ratify <pr> [--fail-on-risky]` | Ratify a GitHub pull request against the policy engine — no daemon, no `trace init`, no API key. |
+| `trace review-diff [--range] [--fail-on-risky] [--json]` | Review a diff range with the policy engine — no daemon or `trace init` required. What CI uses. |
+| `trace self-check` | Run the policy + red-team benchmarks against the real engines and print recall / precision. |
 | `trace update` | Update the `trace` binary to the latest release. |
 | `trace daemon start \| stop \| status` | Manage the local daemon. |
 | `trace --help` / `trace --version` | Help and version. |
@@ -91,11 +92,11 @@ only). Roll back a run's changes with `trace rollback`.
 
 Served by the Rust daemon at `http://127.0.0.1:<port>` (prefers `8757`, falls
 back to the next free port). Sections: **Dashboard** (with a live status strip
-for the judge panel, prompting coach, and benchmark), **Run Timeline**,
-**Patch Review** (with a Git diff view), **Cost Center**, **Risk Center**
-(command decisions, policy findings, judge verdicts), **Judge Panel** (3-model
-settings, per-slot connection testing, doctrine mining), **Prompting Coach**,
-**Benchmarks**, **Rollback Center**, and **GitHub** status. It has clean
+for the policy + red-team benchmarks and Ratify), **Session Timeline**,
+**Patch Review** (with a Git diff view), **Token Spend**, **Command Risk**
+(command decisions, policy findings, secret warnings), **Trace Analytics**,
+**Benchmarks**, **Rollback Points**, **Integration Status**, and **Ratify**
+(deterministic PR review against a connected GitHub repo). It has clean
 empty/loading/error states, status badges, and a clear local-only notice. No
 fake data in production.
 
@@ -106,36 +107,29 @@ fake data in production.
 - Agent run timeline and Git checkpointing
 - Patch review grounded in the real Git diff
 - File-change tracking with a debounced watcher
-- Rule-based command guarding (allow / warn / require approval / block)
+- **Rule-based command guarding** (allow / warn / require approval / block) —
+  understands evasions the naive blocklist misses: pipe-to-shell
+  (`curl … | sudo bash`), download-then-exec, base64-decoded payloads,
+  `find … -delete`, raw block-device writes, DB drops
 - **Deterministic policy engine** — secret detection, missing tests on
-  sensitive paths, swallowed errors, direct DB access in handlers,
-  hardcoded localhost, dependency/lockfile changes, and more, with a real
-  labeled-fixture benchmark (`trace self-check` / the dashboard's
-  **Benchmarks** page) proving precision and recall rather than asserting it
-- **3-LLM judge panel** — three independently-configured models (any
-  OpenAI-compatible provider works: Anthropic, OpenAI, Google, DeepSeek,
-  Mistral, xAI, Groq, local Ollama, …) vote and reason together on judgment
-  calls the deterministic rules can't settle alone. Can only escalate
-  caution on top of the rule-based guard, never override a block. Retries
-  once on a transient failure; a per-run cooldown caps API spend from rapid
-  save loops.
-- **Model Prompting Mode** — when on, a `require_approval`/`block` verdict is
-  sent back to the coding agent as corrective feedback (full support for
-  Claude Code via its hook system; other wrapped agents get a live terminal
-  alert plus a dashboard flag, since they don't expose an equivalent hook
-  surface yet). When off, verdicts are recorded to the dashboard only — the
-  existing rollback path is how you undo something that slipped through.
-- **Doctrine mining** — learns the rules a repo's reviewers actually enforce
-  from its own merged-PR comment history, and weighs violations of those
-  more heavily than generic best practices in the judge panel's reasoning
-- **Prompting coach** — scores every prompt sent to an agent for clarity
-  (too short, vague, conflicting, no acceptance criteria, well-scoped) and
-  surfaces the recurring habits worth fixing
-- **CI review** — `trace review-diff` runs the same policy+judge engine from
-  a bare git checkout, no daemon needed; the GitHub Action installs and runs
-  it automatically
+  sensitive paths, swallowed errors, hardcoded localhost, dependency/lockfile
+  changes, and more, with a real labeled-fixture benchmark (`trace self-check`
+  / the dashboard's **Benchmarks** page) proving precision and recall rather
+  than asserting it. **No API key required — it's pure pattern matching.**
+- **Red-team benchmark** — an adversarial corpus (dangerous commands incl.
+  evasions, planted API keys, unsafe prompts) run through the *real* engines
+  and scored for recall and false positives, surfaced in `trace self-check`,
+  the API, and the dashboard
+- **Ratify** — run the policy engine over a GitHub pull request's files and get
+  a `pass` / `review` / `block` verdict, from the dashboard, `trace ratify <pr>`,
+  or the API. No key.
+- **`trace check`** — scan any file or script through the guard + secret
+  scanner without executing it; non-zero exit for CI gating
+- **CI review** — `trace review-diff` runs the same deterministic engine from a
+  bare git checkout, no daemon needed; the GitHub Action installs and runs it
+  automatically
 - Local secret detection with redaction (raw secrets are never stored)
-- Cost tracking with honest partial-data handling
+- Cost/token tracking with honest partial-data handling
 - Build/test result recording and deterministic failure diagnosis
 - Rollback center backed by Git
 - Local SQLite history
@@ -151,7 +145,7 @@ Each lives under `integrations/` and connects to the local daemon.
 - **Codex** — CLI wrapper adapter (`integrations/codex`)
 - **Cursor** — MCP server exposing Trace tools (`integrations/cursor`)
 - **VS Code** — lightweight extension bridging to the daemon (`integrations/vscode`)
-- **GitHub** — App + Action running the real policy+judge engine
+- **GitHub** — App + Action running the deterministic policy engine
   (`trace review-diff`) and posting sanitized summaries (`integrations/github`)
 
 GUI tools are observed via file changes and Git diffs; full command guarding
@@ -164,9 +158,11 @@ requires supported hooks or running through `trace run`.
 - **Daemon** (Axum) owns the local API, SQLite persistence, and dashboard
   serving — bound to `127.0.0.1` only.
 - **Core** holds shared models, guard rules, the deterministic policy engine,
-  the 3-LLM judge panel, doctrine mining, prompting analytics, secret rules,
-  cost estimation, git inspection, and the database schema.
+  the secret scanner, the Ratify verdict logic, the benchmark corpora, cost
+  estimation, git/GitHub inspection, and the database schema. All deterministic.
 - **Web** is visualization only.
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the full, module-by-module reference.
 - **SQLite** (`~/.trace/trace.db`) stores local history.
 - **Git** provides checkpoints and rollback.
 
@@ -241,22 +237,17 @@ daemon.
 
 - The local daemon binds only to `127.0.0.1` — never the local network.
 - CORS is an explicit origin allow-list (the Vite dev server only), not a
-  wildcard — a permissive policy on a localhost daemon holding provider keys
-  and able to trigger rollbacks would let *any webpage the user has open*
-  script requests against it. Same-origin requests (the packaged app itself)
-  don't need a CORS grant at all.
-- Raw secrets are never stored; detected secrets are redacted.
+  wildcard — a permissive policy on a localhost daemon able to trigger
+  rollbacks would let *any webpage the user has open* script requests against
+  it. Same-origin requests (the packaged app itself) don't need a CORS grant.
+- **No AI/LLM API key is ever required or stored.** Every detection is
+  deterministic pattern matching; no request path calls a model provider.
+- Raw secrets are never stored; detected secrets are redacted at the point of
+  detection.
 - No cloud upload by default; project data stays on your machine.
-- **Judge provider keys**: two modes. `OwnKeys` — keys read from
-  `~/.trace/global.toml` or `TRACE_<PROVIDER>_API_KEY` env vars, sent only
-  directly to that provider, never bundled into the app or sent to Trace's
-  own servers. `BackendProxy` — a Trace-hosted endpoint holds the keys and
-  meters usage instead. Keys are redacted before any config is sent to the
-  dashboard UI.
-- **Doctrine mining** uses the same read-only GitHub token as the `github`
-  commands (env var / `gh` CLI / config file) to read a repo's own PR review
-  history — nothing is written back to GitHub, and mining is only ever
-  triggered explicitly from the dashboard, never automatically.
+- **GitHub token** (for `trace github`, `trace ratify`, and the CI action) is
+  read-only, resolved from an env var / the `gh` CLI / `~/.trace/github.json`,
+  and only ever sent to `api.github.com`. Nothing is written back to GitHub.
 - GitHub integration uploads only sanitized summaries — never raw files,
   secrets, or the local SQLite database.
 - Git is required for reliable checkpoints and rollback.
@@ -268,20 +259,15 @@ See [docs/security-model.mdx](docs/security-model.mdx).
 - Full command guarding and run attribution require the `trace run` wrapper or
   supported hooks. GUI tools are otherwise observed only via file changes and
   Git diffs.
-- **Live agent feedback** (the judge panel telling an agent to stop and fix
-  something mid-session) is only fully wired for Claude Code, which has a
-  hook system Trace can inject into. Other wrapped agents (Cursor, Aider,
-  Codex, OpenCode, Gemini) get the same live policy+judge review, but a
-  block surfaces as a terminal alert to the human plus a dashboard flag —
-  not something the agent itself sees — because those tools don't expose an
-  equivalent hook surface yet.
-- The judge panel costs real API calls per provider; Model Prompting Mode
-  trades edit latency for that live-review capability, and is off by
-  default for that reason. A 15-second per-run cooldown caps spend from
-  rapid save loops.
-- Doctrine mining reads a repo's PR review history via a personal/CLI token,
-  not a GitHub App — fine for local, user-triggered mining; an org-wide
-  automatic version would need the App infrastructure this doesn't include.
+- **Live agent feedback** (surfacing a finding back into the agent's own
+  context mid-session) is only fully wired for Claude Code, which has a hook
+  system Trace can inject into. Other wrapped agents (Cursor, Aider, Codex,
+  OpenCode, Gemini) get the same live policy review, but findings surface as a
+  terminal alert to the human plus a dashboard flag — not something the agent
+  itself sees — because those tools don't expose an equivalent hook surface yet.
+- Ratify reads a repo's PR files via a personal/CLI token, not a GitHub App —
+  fine for local, user-triggered ratification; an org-wide automatic version
+  would need App infrastructure this doesn't include.
 - Cost is "unavailable" unless usage is routed through a proxy or imported.
 - Rollback requires a Git repository.
 
@@ -304,7 +290,7 @@ See [docs/limitations.mdx](docs/limitations.mdx).
 
 - Live agent-feedback delivery for adapters beyond Claude Code, bounded by
   what each tool's own hook/plugin surface actually exposes
-- GitHub App-based doctrine mining for org-wide, automatic rule updates
+- GitHub App-based Ratify for org-wide, automatic PR checks
 - Transparent local cost proxy for live token capture
 - Signed release artifacts and notarized desktop builds
 - Optional (explicitly requested) enterprise features: org policy files, central

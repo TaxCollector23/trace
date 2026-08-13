@@ -92,7 +92,7 @@ export default function CliDownload() {
         <h1 className="font-serif text-4xl text-text">Install the Trace CLI</h1>
         <p className="mt-4 text-lg text-text-dim">
           The full <code className="rounded bg-black/5 px-1.5 py-0.5 text-sm">trace</code> binary
-          — daemon, dashboard, hook installer, judge panel, everything. One command per
+          — daemon, dashboard, hook installer, PR ratification, everything. One command per
           platform.
         </p>
       </div>

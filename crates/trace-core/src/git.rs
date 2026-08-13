@@ -222,7 +222,7 @@ pub fn patches_by_file(path: &Path, from_ref: &str) -> Result<std::collections::
 /// Diff between two refs (e.g. `origin/main...HEAD`), independent of the
 /// working tree — what CI uses to review a pull request from a plain
 /// checkout, no GitHub API calls required. Mirrors `diff_against`'s output
-/// shape so both paths can feed the same policy/judge pipeline.
+/// shape so both paths can feed the same policy engine.
 pub fn diff_range(path: &Path, range: &str) -> Result<Vec<DiffEntry>> {
     let mut entries: Vec<DiffEntry> = Vec::new();
     let name_status = git_stdout(path, &["diff", "--name-status", "-M", range])?;
