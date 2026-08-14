@@ -17,6 +17,8 @@
   --red-soft: #fdecec;
   --yellow: #d97706;
   --yellow-soft: #fef3e2;
+  /* Darker amber for small text on light — #d97706 fails WCAG AA at 11px. */
+  --yellow-text: #8a4b06;
   --purple: #7c3aed;
   --purple-soft: #f2ebfd;
   /* Platypi (tall serif) for headings, Geist for everything else. */
@@ -128,14 +130,28 @@ a:hover { text-decoration: underline; }
 .badge.running { background: var(--brand-soft); color: var(--brand-dim); border-color: #cfe0fb; }
 .badge.completed { background: var(--green-soft); color: var(--green-dim); border-color: #c8ecd6; }
 .badge.failed { background: var(--red-soft); color: var(--red); border-color: #f7d3d3; }
-.badge.blocked { background: var(--yellow-soft); color: var(--yellow); border-color: #fbe3b8; }
+.badge.blocked { background: var(--yellow-soft); color: var(--yellow-text); border-color: #fbe3b8; }
 .badge.rolled_back { background: var(--purple-soft); color: var(--purple); border-color: #e2d1fb; }
 
 .pill { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: var(--bg-elev-2); color: var(--text-dim); font-weight: 600; }
 .pill.allow, .pill.created, .pill.passed { color: var(--green-dim); }
-.pill.warn, .pill.require_approval { color: var(--yellow); }
+.pill.warn, .pill.require_approval { color: var(--yellow-text); background: var(--yellow-soft); }
 .pill.block, .pill.deleted, .pill.failed { color: var(--red); }
 .pill.modified { color: var(--brand-dim); }
+
+/* Keyboard skip link: off-screen until focused, then visible top-left. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--brand);
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+.skip-link:focus { left: 8px; top: 8px; }
 
 /* ---------- Timeline ---------- */
 .timeline { border-left: 2px solid var(--border); margin-left: 8px; padding-left: 20px; }

@@ -81,9 +81,9 @@ export default function Benchmarks() {
         </>
       )}
 
-      <h1 className="page-title" style={{ marginTop: 48 }}>
+      <h2 className="page-title" style={{ marginTop: 48 }}>
         Red-team detection
-      </h1>
+      </h2>
       <p className="page-sub">
         An adversarial corpus — dangerous commands (including evasions like{" "}
         <code>curl … | sudo bash</code> and base64-piped shells), planted API

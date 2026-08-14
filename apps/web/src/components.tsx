@@ -64,12 +64,26 @@ export function Loading({
   error,
   variant = "text",
   rows = 3,
+  onRetry,
 }: {
   error?: string | null;
   variant?: LoadingVariant;
   rows?: number;
+  onRetry?: () => void;
 }) {
-  if (error) return <div className="empty">Could not load data: {error}</div>;
+  if (error)
+    return (
+      <div className="empty" role="alert">
+        Could not load data: {error}
+        {onRetry && (
+          <div style={{ marginTop: 12 }}>
+            <button className="btn" onClick={onRetry}>
+              Retry
+            </button>
+          </div>
+        )}
+      </div>
+    );
 
   if (variant === "kpis") {
     return (
@@ -126,6 +140,7 @@ export function RunPicker({
         Run:
       </label>
       <select
+        aria-label="Run"
         value={current ?? ""}
         onChange={(e) => navigate(`${base}/${e.target.value}`)}
       >
@@ -143,7 +158,12 @@ export function RunPicker({
 }
 
 /** Render a unified diff with line-level coloring. */
+/** Above this many lines, a diff is truncated with an expander so a huge PR
+ * doesn't emit tens of thousands of DOM nodes and freeze the tab. */
+const DIFF_LINE_CAP = 800;
+
 export function DiffView({ diff }: { diff: string }) {
+  const [expanded, setExpanded] = useState(false);
   if (!diff.trim()) {
     return (
       <div className="empty">
@@ -152,23 +172,32 @@ export function DiffView({ diff }: { diff: string }) {
       </div>
     );
   }
-  const lines = diff.split("\n");
+  const allLines = diff.split("\n");
+  const truncated = !expanded && allLines.length > DIFF_LINE_CAP;
+  const lines = truncated ? allLines.slice(0, DIFF_LINE_CAP) : allLines;
   return (
-    <pre className="diff">
-      {lines.map((line, i) => {
-        let cls = "";
-        if (line.startsWith("+++") || line.startsWith("---")) cls = "meta";
-        else if (line.startsWith("@@")) cls = "hunk";
-        else if (line.startsWith("+")) cls = "add";
-        else if (line.startsWith("-")) cls = "del";
-        else if (line.startsWith("diff ") || line.startsWith("index ")) cls = "meta";
-        return (
-          <div key={i} className={cls}>
-            {line || " "}
-          </div>
-        );
-      })}
-    </pre>
+    <>
+      <pre className="diff">
+        {lines.map((line, i) => {
+          let cls = "";
+          if (line.startsWith("+++") || line.startsWith("---")) cls = "meta";
+          else if (line.startsWith("@@")) cls = "hunk";
+          else if (line.startsWith("+")) cls = "add";
+          else if (line.startsWith("-")) cls = "del";
+          else if (line.startsWith("diff ") || line.startsWith("index ")) cls = "meta";
+          return (
+            <div key={i} className={cls}>
+              {line || " "}
+            </div>
+          );
+        })}
+      </pre>
+      {truncated && (
+        <button className="btn" onClick={() => setExpanded(true)}>
+          Show full diff ({allLines.length.toLocaleString()} lines)
+        </button>
+      )}
+    </>
   );
 }
 

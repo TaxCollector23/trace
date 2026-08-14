@@ -12,13 +12,19 @@ export default function RollbackCenter() {
   const runsQ = useAsync(() => api.runs());
   const rowsQ = useAsync<Row[]>(async () => {
     const runs = runsQ.data ?? [];
-    const rows: Row[] = [];
-    for (const run of runs) {
-      const cps = await api.checkpoints(run.id);
-      const cp = [...cps].reverse().find((c) => c.git_ref);
-      if (cp) rows.push({ run, checkpoint: cp });
-    }
-    return rows;
+    // Fetch every run's checkpoints in parallel and tolerate individual
+    // failures — one bad request must not blank the whole table.
+    const settled = await Promise.allSettled(
+      runs.map(async (run): Promise<Row | null> => {
+        const cps = await api.checkpoints(run.id);
+        const cp = [...cps].reverse().find((c) => c.git_ref);
+        return cp ? { run, checkpoint: cp } : null;
+      })
+    );
+    return settled
+      .filter((r): r is PromiseFulfilledResult<Row | null> => r.status === "fulfilled")
+      .map((r) => r.value)
+      .filter((r): r is Row => r !== null);
   }, [runsQ.data]);
 
   const [busy, setBusy] = useState<string | null>(null);
@@ -54,13 +60,26 @@ export default function RollbackCenter() {
       </p>
 
       {message && (
-        <div className="note" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div
+          className="note"
+          role="status"
+          aria-live="polite"
+          style={{ display: "flex", alignItems: "center", gap: 8 }}
+        >
           {message}
         </div>
       )}
 
       {runsQ.loading || rowsQ.loading ? (
-        <Loading error={runsQ.error ?? rowsQ.error} />
+        <Loading
+          error={runsQ.error ?? rowsQ.error}
+          variant="table"
+          rows={3}
+          onRetry={() => {
+            runsQ.reload();
+            rowsQ.reload();
+          }}
+        />
       ) : rows.length === 0 ? (
         <div className="empty">
           Rollback requires Git and a checkpoint created before a monitored run.

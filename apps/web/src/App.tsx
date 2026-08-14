@@ -11,7 +11,7 @@ const links: [string, string][] = [
   ["/analytics", "Trace Analytics"],
   ["/benchmarks", "Benchmarks"],
   ["/rollback", "Rollback Points"],
-  ["/github", "Integration Status"],
+  ["/github", "GitHub"],
   ["/ratify", "Ratify"],
 ];
 
@@ -26,12 +26,15 @@ export default function App() {
 
   return (
     <div className="layout">
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
       <aside className="sidebar">
         <div className="brand">
           <Mark size={20} />
           Trace
         </div>
-        <nav className="nav">
+        <nav className="nav" aria-label="Primary">
           {links.map(([to, label]) => (
             <NavLink key={to} to={to} end={to === "/"}>
               {label}
@@ -44,7 +47,7 @@ export default function App() {
           {version && <div className="local-sub">Trace v{version}</div>}
         </div>
       </aside>
-      <main className="content">
+      <main className="content" id="main">
         <Outlet />
       </main>
     </div>

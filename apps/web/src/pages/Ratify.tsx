@@ -169,9 +169,13 @@ export default function Ratify() {
           )}
 
           {/* Result */}
-          {err && <div className="empty">Error: {err}</div>}
+          {err && (
+            <div className="empty" role="alert">
+              Error: {err}
+            </div>
+          )}
           {report && (
-            <>
+            <div role="status" aria-live="polite">
               <div className="section-title" style={{ marginTop: 30 }}>
                 Verdict for PR #{report.pr}
               </div>
@@ -241,7 +245,7 @@ export default function Ratify() {
                   </tbody>
                 </table>
               )}
-            </>
+            </div>
           )}
         </>
       )}

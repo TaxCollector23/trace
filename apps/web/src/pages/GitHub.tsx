@@ -27,6 +27,14 @@ export default function GitHub() {
   const [fileErr, setFileErr] = useState<string | null>(null);
   const [fileBusy, setFileBusy] = useState(false);
 
+  // Switching projects must drop the previously-read file — otherwise repo A's
+  // file contents linger on screen while the header shows repo B.
+  function changeProject(id: string) {
+    setProjectId(id);
+    setFileContent(null);
+    setFileErr(null);
+  }
+
   async function readFile() {
     if (!current) return;
     setFileBusy(true);
@@ -66,7 +74,11 @@ export default function GitHub() {
               <label className="muted" style={{ marginRight: 8 }}>
                 Project:
               </label>
-              <select value={current} onChange={(e) => setProjectId(e.target.value)}>
+              <select
+                aria-label="Project"
+                value={current}
+                onChange={(e) => changeProject(e.target.value)}
+              >
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -78,7 +90,14 @@ export default function GitHub() {
 
           {/* Status */}
           {statusQ.loading ? (
-            <Loading error={statusQ.error} variant="cards" rows={1} />
+            <Loading error={statusQ.error} variant="cards" rows={1} onRetry={statusQ.reload} />
+          ) : statusQ.error ? (
+            <div className="empty" role="alert">
+              Couldn't reach the daemon for GitHub status: {statusQ.error}
+              <div style={{ marginTop: 12 }}>
+                <button className="btn" onClick={statusQ.reload}>Retry</button>
+              </div>
+            </div>
           ) : status ? (
             <div className="card">
               <div className="run-meta" style={{ marginTop: 0 }}>
@@ -124,6 +143,13 @@ export default function GitHub() {
             <div className="empty">No commits (or not authorized).</div>
           ) : (
             <table>
+              <thead>
+                <tr>
+                  <th>SHA</th>
+                  <th>Message</th>
+                  <th>Author</th>
+                </tr>
+              </thead>
               <tbody>
                 {(commitsQ.data ?? []).map((c, i) => (
                   <tr key={c.sha} className="enter" style={stagger(i, 20, 160)}>
@@ -144,6 +170,13 @@ export default function GitHub() {
             <div className="empty">No open pull requests.</div>
           ) : (
             <table>
+              <thead>
+                <tr>
+                  <th>PR</th>
+                  <th>Title</th>
+                  <th>Author</th>
+                </tr>
+              </thead>
               <tbody>
                 {(pullsQ.data ?? []).map((p, i) => (
                   <tr key={p.number} className="enter" style={stagger(i, 20, 160)}>
@@ -162,19 +195,34 @@ export default function GitHub() {
 
           {/* File reader */}
           <div className="section-title">Read a file from the repo</div>
-          <div className="btn-row">
+          <form
+            className="btn-row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (current && status?.repo_ref) readFile();
+            }}
+          >
             <input
               className="num"
               style={{ width: 320 }}
+              aria-label="File path in repo"
               value={filePath}
               onChange={(e) => setFilePath(e.target.value)}
               placeholder="path/in/repo.ts"
             />
-            <button className="btn" onClick={readFile} disabled={fileBusy || !current}>
+            <button
+              className="btn"
+              type="submit"
+              disabled={fileBusy || !current || !status?.repo_ref}
+            >
               {fileBusy ? "Reading…" : "Read file"}
             </button>
-          </div>
-          {fileErr && <div className="empty">Error: {fileErr}</div>}
+          </form>
+          {fileErr && (
+            <div className="empty" role="alert">
+              Error: {fileErr}
+            </div>
+          )}
           {fileContent !== null && (
             <pre className="diff" style={{ whiteSpace: "pre" }}>
               {fileContent}
