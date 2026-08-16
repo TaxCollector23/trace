@@ -139,6 +139,17 @@ static CORS_WILDCARD: Lazy<Regex> = Lazy::new(|| {
     )
     .unwrap()
 });
+// MD5/SHA-1 are broken for security use (collisions); flag them for hashing.
+static WEAK_CRYPTO: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r#"(?i)createhash\s*\(\s*[\x22\x27](?:md5|sha1)|hashlib\.(?:md5|sha1)\s*\(|messagedigest\.getinstance\s*\(\s*[\x22\x27](?:md5|sha-?1)"#,
+    )
+    .unwrap()
+});
+// Deserializing untrusted data with these APIs can execute arbitrary code.
+static INSECURE_DESERIALIZE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"(?i)\b(?:c?pickle\.loads?|marshal\.loads?|unserialize)\s*\(").unwrap()
+});
 
 fn check_missing_tests(files: &[FileDiff]) -> Option<PolicyFinding> {
     let sensitive: Vec<&FileDiff> = files
@@ -432,6 +443,52 @@ fn check_cors_wildcard(files: &[FileDiff]) -> Vec<PolicyFinding> {
     out
 }
 
+fn check_weak_crypto(files: &[FileDiff]) -> Vec<PolicyFinding> {
+    let mut out = Vec::new();
+    for f in files {
+        let Some(patch) = f.patch.as_deref() else {
+            continue;
+        };
+        if TEST_PATH.is_match(&f.filename) || DOC_OR_TEMPLATE_PATH.is_match(&f.filename) {
+            continue;
+        }
+        if WEAK_CRYPTO.is_match(&added_lines(patch)) {
+            out.push(finding(
+                "weak-crypto",
+                "Weak hash algorithm (MD5/SHA-1)",
+                format!("{} uses MD5 or SHA-1, which are broken for security use. Use SHA-256+ for integrity, and bcrypt/scrypt/argon2 for passwords.", f.filename),
+                Some(f.filename.clone()),
+                Severity::Medium,
+                0.75,
+            ));
+        }
+    }
+    out
+}
+
+fn check_insecure_deserialization(files: &[FileDiff]) -> Vec<PolicyFinding> {
+    let mut out = Vec::new();
+    for f in files {
+        let Some(patch) = f.patch.as_deref() else {
+            continue;
+        };
+        if TEST_PATH.is_match(&f.filename) || DOC_OR_TEMPLATE_PATH.is_match(&f.filename) {
+            continue;
+        }
+        if INSECURE_DESERIALIZE.is_match(&added_lines(patch)) {
+            out.push(finding(
+                "insecure-deserialization",
+                "Insecure deserialization of untrusted data",
+                format!("{} deserializes with pickle/marshal/unserialize, which can execute arbitrary code on untrusted input. Use a safe format (e.g. JSON) or a vetted deserializer.", f.filename),
+                Some(f.filename.clone()),
+                Severity::High,
+                0.8,
+            ));
+        }
+    }
+    out
+}
+
 /// Run every deterministic rule over a set of file diffs. Pure, synchronous,
 /// no I/O — safe to call on every file-change event without rate limits.
 pub fn run_policy_checks(files: &[FileDiff]) -> Vec<PolicyFinding> {
@@ -448,6 +505,8 @@ pub fn run_policy_checks(files: &[FileDiff]) -> Vec<PolicyFinding> {
     findings.extend(check_hardcoded_localhost(files));
     findings.extend(check_command_injection(files));
     findings.extend(check_cors_wildcard(files));
+    findings.extend(check_weak_crypto(files));
+    findings.extend(check_insecure_deserialization(files));
     findings
 }
 
@@ -498,6 +557,47 @@ mod tests {
             "app.use(cors({ origin: \"https://app.example.com\" }))",
         ));
         assert!(!ok.iter().any(|f| f.rule_key == "cors-wildcard"));
+    }
+
+    #[test]
+    fn weak_crypto_fires_on_python_and_java_variants() {
+        assert!(run_policy_checks(&one(
+            "app/util.py",
+            "digest = hashlib.sha1(data).hexdigest()"
+        ))
+        .iter()
+        .any(|f| f.rule_key == "weak-crypto"));
+        assert!(run_policy_checks(&one(
+            "src/Hash.java",
+            "MessageDigest.getInstance(\"SHA-1\")"
+        ))
+        .iter()
+        .any(|f| f.rule_key == "weak-crypto"));
+        // sha256 is fine.
+        assert!(
+            !run_policy_checks(&one("app/util.py", "hashlib.sha256(data).hexdigest()"))
+                .iter()
+                .any(|f| f.rule_key == "weak-crypto")
+        );
+    }
+
+    #[test]
+    fn insecure_deserialization_fires_on_marshal_and_php_but_not_json() {
+        assert!(
+            run_policy_checks(&one("app/cache.py", "v = marshal.loads(blob)"))
+                .iter()
+                .any(|f| f.rule_key == "insecure-deserialization")
+        );
+        assert!(
+            run_policy_checks(&one("src/api.php", "$o = unserialize($_POST['d']);"))
+                .iter()
+                .any(|f| f.rule_key == "insecure-deserialization")
+        );
+        assert!(
+            !run_policy_checks(&one("app/cache.py", "v = json.loads(blob)"))
+                .iter()
+                .any(|f| f.rule_key == "insecure-deserialization")
+        );
     }
 
     #[test]

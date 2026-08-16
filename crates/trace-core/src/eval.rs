@@ -253,6 +253,50 @@ fn fixtures() -> Vec<Fixture> {
             },
         },
         Fixture {
+            name: "MD5 used for hashing (weak crypto)",
+            expected_rule: Some("weak-crypto"),
+            diff: FileDiff {
+                filename: "src/auth/hash.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  const h = crypto.createHash(\"md5\").update(pw).digest(\"hex\");".into()),
+            },
+        },
+        Fixture {
+            name: "SHA-256 used for hashing (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/auth/hash.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  const h = crypto.createHash(\"sha256\").update(pw).digest(\"hex\");".into()),
+            },
+        },
+        Fixture {
+            name: "pickle.loads on request data (insecure deserialization)",
+            expected_rule: Some("insecure-deserialization"),
+            diff: FileDiff {
+                filename: "app/api/views.py".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+    obj = pickle.loads(request.body)".into()),
+            },
+        },
+        Fixture {
+            name: "json.loads (safe) — should NOT fire deserialization",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "app/api/views.py".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+    obj = json.loads(request.body)".into()),
+            },
+        },
+        Fixture {
             name: "clean, unrelated change (nothing should fire)",
             expected_rule: None,
             diff: FileDiff {
