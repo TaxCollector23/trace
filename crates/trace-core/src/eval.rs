@@ -206,6 +206,53 @@ fn fixtures() -> Vec<Fixture> {
             },
         },
         Fixture {
+            name: "template literal interpolated into exec() (command injection)",
+            expected_rule: Some("command-injection-risk"),
+            diff: FileDiff {
+                filename: "src/api/repos.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  exec(`git clone ${req.query.repo}`);".into()),
+            },
+        },
+        Fixture {
+            name: "exec() with a static string (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/api/build.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  execSync(\"npm run build\");".into()),
+            },
+        },
+        Fixture {
+            name: "wildcard CORS origin header",
+            expected_rule: Some("cors-wildcard"),
+            diff: FileDiff {
+                filename: "src/server/cors.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  res.setHeader(\"Access-Control-Allow-Origin\", \"*\");".into()),
+            },
+        },
+        Fixture {
+            name: "explicit CORS origin (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/server/cors.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some(
+                    "+  res.setHeader(\"Access-Control-Allow-Origin\", \"https://app.example.com\");"
+                        .into(),
+                ),
+            },
+        },
+        Fixture {
             name: "clean, unrelated change (nothing should fire)",
             expected_rule: None,
             diff: FileDiff {

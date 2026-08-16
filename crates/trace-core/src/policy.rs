@@ -123,6 +123,22 @@ static GENERATED_FILE: Lazy<Regex> = Lazy::new(|| {
     )
     .unwrap()
 });
+// Shell exec fed an INTERPOLATED string — the classic command-injection shape.
+// High precision: a static-string `exec("ls")` is ignored; only a JS template
+// literal containing `${…}` or a Python f-string handed to a shell fires.
+static CMD_INJECTION: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r"(?i)\b(?:exec|execsync|spawn|spawnsync)\s*\(\s*`[^`]*\$\{|\b(?:os\.system|subprocess\.(?:call|run|popen))\s*\(\s*f[\x22\x27]",
+    )
+    .unwrap()
+});
+// A wildcard CORS policy lets any origin call the API with credentials.
+static CORS_WILDCARD: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r#"(?i)access-control-allow-origin[\x22\x27]?\s*[:,]\s*[\x22\x27]?\*|\borigin\s*:\s*[\x22\x27]\*[\x22\x27]|\borigin\s*:\s*true\b"#,
+    )
+    .unwrap()
+});
 
 fn check_missing_tests(files: &[FileDiff]) -> Option<PolicyFinding> {
     let sensitive: Vec<&FileDiff> = files
@@ -368,6 +384,54 @@ fn check_hardcoded_localhost(files: &[FileDiff]) -> Vec<PolicyFinding> {
     out
 }
 
+fn check_command_injection(files: &[FileDiff]) -> Vec<PolicyFinding> {
+    let mut out = Vec::new();
+    for f in files {
+        let Some(patch) = f.patch.as_deref() else {
+            continue;
+        };
+        if TEST_PATH.is_match(&f.filename) || DOC_OR_TEMPLATE_PATH.is_match(&f.filename) {
+            continue;
+        }
+        let added = added_lines(patch);
+        if CMD_INJECTION.is_match(&added) {
+            out.push(finding(
+                "command-injection-risk",
+                "Interpolated string passed to a shell",
+                format!("{} builds a shell command from an interpolated/formatted string (exec/system with a template literal or f-string). If any part is user-controlled this is command injection — pass args as an array, or validate/escape.", f.filename),
+                Some(f.filename.clone()),
+                Severity::High,
+                0.85,
+            ));
+        }
+    }
+    out
+}
+
+fn check_cors_wildcard(files: &[FileDiff]) -> Vec<PolicyFinding> {
+    let mut out = Vec::new();
+    for f in files {
+        let Some(patch) = f.patch.as_deref() else {
+            continue;
+        };
+        if TEST_PATH.is_match(&f.filename) || DOC_OR_TEMPLATE_PATH.is_match(&f.filename) {
+            continue;
+        }
+        let added = added_lines(patch);
+        if CORS_WILDCARD.is_match(&added) {
+            out.push(finding(
+                "cors-wildcard",
+                "Wildcard CORS policy",
+                format!("{} sets a wildcard CORS origin (`*` or `origin: true`), letting any site call this API. Restrict it to an explicit allow-list.", f.filename),
+                Some(f.filename.clone()),
+                Severity::Medium,
+                0.75,
+            ));
+        }
+    }
+    out
+}
+
 /// Run every deterministic rule over a set of file diffs. Pure, synchronous,
 /// no I/O — safe to call on every file-change event without rate limits.
 pub fn run_policy_checks(files: &[FileDiff]) -> Vec<PolicyFinding> {
@@ -382,12 +446,59 @@ pub fn run_policy_checks(files: &[FileDiff]) -> Vec<PolicyFinding> {
     findings.extend(check_migration_added(files));
     findings.extend(check_swallowed_catch(files));
     findings.extend(check_hardcoded_localhost(files));
+    findings.extend(check_command_injection(files));
+    findings.extend(check_cors_wildcard(files));
     findings
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn one(filename: &str, added: &str) -> Vec<FileDiff> {
+        vec![FileDiff {
+            filename: filename.into(),
+            status: "modified".into(),
+            additions: 1,
+            deletions: 0,
+            patch: Some(format!("+{added}")),
+        }]
+    }
+
+    #[test]
+    fn command_injection_fires_on_python_fstring_but_not_static() {
+        let hit = run_policy_checks(&one("app/tasks.py", "os.system(f\"rm -rf {path}\")"));
+        assert!(hit.iter().any(|f| f.rule_key == "command-injection-risk"));
+        let subprocess = run_policy_checks(&one(
+            "app/tasks.py",
+            "subprocess.run(f\"convert {name}.png out.jpg\")",
+        ));
+        assert!(subprocess
+            .iter()
+            .any(|f| f.rule_key == "command-injection-risk"));
+        // A static command string must not fire.
+        let clean = run_policy_checks(&one("app/tasks.py", "os.system(\"ls -la\")"));
+        assert!(!clean.iter().any(|f| f.rule_key == "command-injection-risk"));
+    }
+
+    #[test]
+    fn cors_wildcard_fires_on_config_variants_but_not_explicit() {
+        for added in [
+            "app.use(cors({ origin: \"*\" }))",
+            "app.use(cors({ origin: true }))",
+        ] {
+            let hit = run_policy_checks(&one("src/server.ts", added));
+            assert!(
+                hit.iter().any(|f| f.rule_key == "cors-wildcard"),
+                "should fire: {added}"
+            );
+        }
+        let ok = run_policy_checks(&one(
+            "src/server.ts",
+            "app.use(cors({ origin: \"https://app.example.com\" }))",
+        ));
+        assert!(!ok.iter().any(|f| f.rule_key == "cors-wildcard"));
+    }
 
     #[test]
     fn detects_secret_in_added_line() {
