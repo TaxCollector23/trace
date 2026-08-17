@@ -7,7 +7,7 @@
 #
 # Bump `version` (calendar-versioned) whenever the rules change.
 
-version = "2025.08.3"
+version = "2025.08.4"
 
 # ---------------------------------------------------------------------------
 # Prompt-injection / jailbreak phrases. Matched case-insensitively as
@@ -161,3 +161,53 @@ title = "Open redirect from user input"
 description = "res.redirect() is passed a value derived from req.query/params/body. An attacker can supply an arbitrary destination and use your domain to phish — validate the target against an allow-list of internal paths."
 severity = "medium"
 regex = "(?i)res\\.redirect\\([^)\\n]*req\\.(?:query|params|body)"
+
+# SSRF: a server-side fetch whose URL argument is built from request input.
+# High precision: requires a user-input marker (req.query/params/body or a
+# framework request object) inside the call — a fetch to a static string URL
+# does not fire.
+[[policy_rules]]
+rule_key = "ssrf-risk"
+title = "Server-side fetch to a URL built from user input"
+description = "A server-side HTTP call (fetch/axios/requests/urllib) is given a URL derived from request input. An attacker can point it at internal metadata endpoints or intranet hosts (SSRF) — validate the target against an allow-list of hosts and reject non-public addresses."
+severity = "high"
+regex = "(?i)(?:fetch|axios\\.(?:get|post|put|delete)|requests\\.(?:get|post|put|delete)|urllib\\.request\\.urlopen)\\s*\\(\\s*[^)\\n]*(?:req\\.(?:query|params|body)|request\\.(?:args|form|json|values|GET|POST))"
+
+# Weak randomness for a security value: Math.random()/random.random()/randint
+# used on a line that also names a token/secret/otp/password. High precision: a
+# plain Math.random() (jitter, sampling) with no security keyword does not fire.
+[[policy_rules]]
+rule_key = "weak-random-security"
+title = "Security value built from weak randomness"
+description = "A token, secret, OTP, or password is derived from Math.random()/random.random()/random.randint(), which are not cryptographically secure and are predictable. Use a CSPRNG (crypto.randomBytes / secrets module) for anything security-sensitive."
+severity = "medium"
+regex = "(?i)(?:Math\\.random\\s*\\(\\s*\\)|random\\.random\\s*\\(\\s*\\)|random\\.randint\\s*\\()[^\\n]*\\b(?:token|secret|otp|password|passwd|api[_-]?key|session[_-]?id)\\b|\\b(?:token|secret|otp|password|passwd|api[_-]?key|session[_-]?id)\\b[^\\n]*(?:Math\\.random\\s*\\(\\s*\\)|random\\.random\\s*\\(\\s*\\)|random\\.randint\\s*\\()"
+
+# Insecure cookie flags: secure:false, httpOnly:false, or SameSite=None. High
+# precision: a cookie set with secure:true, httpOnly:true does not fire.
+[[policy_rules]]
+rule_key = "insecure-cookie"
+title = "Cookie set with insecure flags"
+description = "A cookie is configured with secure:false, httpOnly:false, or SameSite=None, weakening its protection against interception or theft. Set secure:true and httpOnly:true, and avoid SameSite=None unless the cookie is also secure and cross-site by design."
+severity = "medium"
+regex = "(?i)secure\\s*:\\s*false|httponly\\s*:\\s*false|samesite\\s*:\\s*[\\x22\\x27]?none"
+
+# Hardcoded database password: an inline quoted password literal on a line that
+# also names a database/connection. High precision: `password: process.env.*`
+# (no quoted literal) does not fire, and test/doc paths are skipped.
+[[policy_rules]]
+rule_key = "hardcoded-db-password"
+title = "Hardcoded database password"
+description = "A database connection is given an inline string password. Hardcoded credentials leak in source control and cannot be rotated — load the password from an environment variable or secrets manager."
+severity = "high"
+regex = "(?i)(?:password|passwd|pwd)\\s*[:=]\\s*[\\x22\\x27][^\\x22\\x27\\n]{6,}[\\x22\\x27][^\\n]*\\b(?:db|database|postgres|postgresql|mysql|mongodb|mongo|connection|conn|pool)\\b|\\b(?:db|database|postgres|postgresql|mysql|mongodb|mongo|connection|conn|pool)\\b[^\\n]*(?:password|passwd|pwd)\\s*[:=]\\s*[\\x22\\x27][^\\x22\\x27\\n]{6,}[\\x22\\x27]"
+
+# Child process spawned with shell:true — turns argument arrays into a shell
+# command line, re-opening command injection. High precision: shell:false (or no
+# shell option) does not fire.
+[[policy_rules]]
+rule_key = "insecure-shell-spawn"
+title = "Child process spawned with shell: true"
+description = "spawn/execFile is called with { shell: true }, which runs the command through a shell and re-enables command injection via argument metacharacters. Drop the shell option (pass args as an array) or sanitize inputs against an allow-list."
+severity = "medium"
+regex = "(?i)\\b(?:spawn|spawnsync|execfile|execfilesync)\\s*\\([^\\n]*shell\\s*:\\s*true"

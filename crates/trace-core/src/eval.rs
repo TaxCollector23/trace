@@ -416,6 +416,143 @@ fn fixtures() -> Vec<Fixture> {
             },
         },
         Fixture {
+            name: "fetch to a URL built from req.query (pack: ssrf-risk)",
+            expected_rule: Some("ssrf-risk"),
+            diff: FileDiff {
+                filename: "src/api/proxy.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some(
+                    "+  const r = await fetch(\"https://api.example.com/u/\" + req.query.url);"
+                        .into(),
+                ),
+            },
+        },
+        Fixture {
+            name: "fetch to a static URL string (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/api/proxy.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some(
+                    "+  const r = await fetch(\"https://api.example.com/v1/health\");".into(),
+                ),
+            },
+        },
+        Fixture {
+            name: "OTP derived from Math.random() (pack: weak-random-security)",
+            expected_rule: Some("weak-random-security"),
+            diff: FileDiff {
+                filename: "src/auth/otp.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some(
+                    "+  const otp = String(Math.random()).slice(2, 8);".into(),
+                ),
+            },
+        },
+        Fixture {
+            name: "Math.random() used for jitter (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/net/retry.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  const jitter = Math.random() * 100;".into()),
+            },
+        },
+        Fixture {
+            name: "cookie set with secure: false (pack: insecure-cookie)",
+            expected_rule: Some("insecure-cookie"),
+            diff: FileDiff {
+                filename: "src/routes/session.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some(
+                    "+  res.cookie(\"sid\", id, { httpOnly: true, secure: false });".into(),
+                ),
+            },
+        },
+        Fixture {
+            name: "cookie with secure + httpOnly true (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/routes/session.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some(
+                    "+  res.cookie(\"sid\", id, { httpOnly: true, secure: true, sameSite: \"lax\" });"
+                        .into(),
+                ),
+            },
+        },
+        Fixture {
+            name: "inline db password literal (pack: hardcoded-db-password)",
+            expected_rule: Some("hardcoded-db-password"),
+            diff: FileDiff {
+                filename: "src/db/config.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                // Split the password-shaped literal so no contiguous secret
+                // exists in source; concat! restores it at compile time.
+                patch: Some(
+                    concat!(
+                        "+  const db = new Client({ host, password: \"hunter",
+                        "2pass\" });"
+                    )
+                    .into(),
+                ),
+            },
+        },
+        Fixture {
+            name: "db password read from env (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/db/pool.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some(
+                    "+  const pool = new Pool({ connectionString: process.env.DATABASE_URL, password: process.env.DB_PASSWORD });"
+                        .into(),
+                ),
+            },
+        },
+        Fixture {
+            name: "child process spawned with shell: true (pack: insecure-shell-spawn)",
+            expected_rule: Some("insecure-shell-spawn"),
+            diff: FileDiff {
+                filename: "src/tasks/runner.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some(
+                    "+  const p = spawn(\"sh\", [\"-c\", cmd], { shell: true });".into(),
+                ),
+            },
+        },
+        Fixture {
+            name: "child process spawned with shell: false (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/tasks/runner.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some(
+                    "+  const p = spawn(\"ls\", [\"-la\"], { shell: false });".into(),
+                ),
+            },
+        },
+        Fixture {
             name: "clean, unrelated change (nothing should fire)",
             expected_rule: None,
             diff: FileDiff {
