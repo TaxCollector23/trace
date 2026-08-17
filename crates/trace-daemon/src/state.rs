@@ -9,20 +9,22 @@ use trace_core::{paths, Store};
 /// Application state shared across all request handlers.
 #[derive(Clone)]
 pub struct AppState {
-    /// The SQLite store. Wrapped in a mutex because `rusqlite::Connection` is
-    /// not `Sync`; critical sections are short and never hold across `.await`.
+    /// The SQLite store. Wrapped in a `Mutex` because `Store` holds a bare
+    /// `rusqlite::Connection`, which is `Send` but deliberately **`!Sync`** (its
+    /// `&self` methods use interior mutability). Critical sections are short and
+    /// never held across `.await`.
     ///
-    /// CONTENTION NOTE: this is a plain `Mutex`, so *every* request — reads
-    /// included — serializes on it; concurrent GETs can't proceed in parallel.
-    /// An `RwLock<Store>` (read guards for GET handlers, write guards for
-    /// mutations) would let reads run concurrently. It was deliberately not
-    /// done here: the store handle is also cloned into `cloud_sync::enqueue`
-    /// (`Arc<Mutex<Store>>`) and constructed in `server.rs`, so the migration
-    /// would have to change those modules too — out of scope for this pass. In
-    /// practice contention is mild: the daemon binds to 127.0.0.1 with a small
-    /// number of local clients and each critical section is a short SQLite call.
-    /// Revisit as one atomic change (state + api + server + cloud_sync) if local
-    /// read throughput ever becomes a bottleneck.
+    /// This is NOT swappable for `RwLock<Store>`: `RwLock<T>: Sync` requires
+    /// `T: Sync`, and handing out `&Store` to multiple reader threads at once
+    /// is exactly what makes a single SQLite `Connection` unsound — Rust rejects
+    /// it (`AppState` would stop being `Send + Sync` and every axum handler
+    /// fails to compile). The `Mutex` is forced by rusqlite's threading model,
+    /// not an arbitrary choice. True concurrent reads would require making
+    /// `Store` itself `Sync` — a connection-pool refactor in `trace-core`
+    /// (e.g. r2d2/deadpool, one connection per reader) — which is a much larger
+    /// change than a lock swap. In practice contention is mild anyway: the
+    /// daemon binds to 127.0.0.1 for a few local clients and each critical
+    /// section is a short SQLite call.
     pub store: Arc<Mutex<Store>>,
     pub port: u16,
     pub started_at: String,
