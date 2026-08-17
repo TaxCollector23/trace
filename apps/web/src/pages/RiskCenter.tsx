@@ -1,9 +1,17 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api";
+import type { Severity } from "../api";
 import { Loading, RunPicker, stagger, useAsync } from "../components";
+
+// High → low. Drives both the default sort and the filter-chip order.
+const SEVERITY_ORDER: Severity[] = ["high", "medium", "low"];
+const SEVERITY_RANK: Record<Severity, number> = { high: 0, medium: 1, low: 2 };
+type SeverityFilter = "all" | Severity;
 
 export default function RiskCenter() {
   const { runId } = useParams();
+  const [sevFilter, setSevFilter] = useState<SeverityFilter>("all");
   const runsQ = useAsync(() => api.runs());
   const runs = runsQ.data ?? [];
   const current = runId ?? runs[0]?.id;
@@ -24,6 +32,21 @@ export default function RiskCenter() {
   const cmds = cmdsQ.data ?? [];
   const secrets = secretsQ.data ?? [];
   const policyFindings = policyQ.data ?? [];
+
+  // Per-severity counts across all findings (independent of the active filter).
+  const sevCounts = policyFindings.reduce(
+    (acc, f) => {
+      acc[f.severity] += 1;
+      return acc;
+    },
+    { high: 0, medium: 0, low: 0 } as Record<Severity, number>
+  );
+
+  // Filter by chip, then sort high → low so the riskiest findings surface first.
+  const shownFindings = policyFindings
+    .filter((f) => sevFilter === "all" || f.severity === sevFilter)
+    .slice()
+    .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
 
   // Only the meaningful guard decisions; "executed" updates are not risk signals.
   const guarded = cmds.filter((c) =>
@@ -54,31 +77,57 @@ export default function RiskCenter() {
           ) : policyFindings.length === 0 ? (
             <div className="empty">No deterministic policy findings for this run.</div>
           ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Severity</th>
-                  <th>Finding</th>
-                  <th>File</th>
-                </tr>
-              </thead>
-              <tbody>
-                {policyFindings.map((f, i) => (
-                  <tr key={f.id} className="enter" style={stagger(i, 20, 160)}>
-                    <td>
-                      <span className={`pill ${f.severity === "high" ? "block" : f.severity === "medium" ? "require_approval" : ""}`}>
-                        {f.severity}
-                      </span>
-                    </td>
-                    <td>
-                      <b>{f.title}</b>
-                      <div className="muted" style={{ fontSize: 12.5 }}>{f.description}</div>
-                    </td>
-                    <td className="mono">{f.file_path ?? "—"}</td>
-                  </tr>
+            <>
+              <div className="sev-bar" role="group" aria-label="Filter findings by severity">
+                <button
+                  type="button"
+                  className={`sev-chip ${sevFilter === "all" ? "active" : ""}`}
+                  aria-pressed={sevFilter === "all"}
+                  onClick={() => setSevFilter("all")}
+                >
+                  All <span className="sev-count">{policyFindings.length}</span>
+                </button>
+                {SEVERITY_ORDER.map((sev) => (
+                  <button
+                    key={sev}
+                    type="button"
+                    className={`sev-chip ${sevFilter === sev ? "active" : ""}`}
+                    aria-pressed={sevFilter === sev}
+                    onClick={() => setSevFilter(sev)}
+                  >
+                    {sev.charAt(0).toUpperCase() + sev.slice(1)}{" "}
+                    <span className="sev-count">{sevCounts[sev]}</span>
+                  </button>
                 ))}
-              </tbody>
-            </table>
+              </div>
+              {shownFindings.length === 0 ? (
+                <div className="empty">No {sevFilter} findings for this run.</div>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Severity</th>
+                      <th>Finding</th>
+                      <th>File</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shownFindings.map((f, i) => (
+                      <tr key={f.id} className="enter" style={stagger(i, 20, 160)}>
+                        <td>
+                          <span className={`pill sev-${f.severity}`}>{f.severity}</span>
+                        </td>
+                        <td>
+                          <b>{f.title}</b>
+                          <div className="muted finding-desc">{f.description}</div>
+                        </td>
+                        <td className="mono">{f.file_path ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </>
           )}
 
           <div className="section-title">Command decisions</div>
