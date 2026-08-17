@@ -1,7 +1,7 @@
 import { useState } from "react";
-import type { Project, RatifyReport } from "../api";
+import type { Project, RatifyReport, Severity } from "../api";
 import { api } from "../api";
-import { Loading, stagger, useAsync } from "../components";
+import { Loading, SourceBadge, stagger, useAsync } from "../components";
 
 const VERDICT_PILL: Record<RatifyReport["verdict"], string> = {
   pass: "allow",
@@ -13,6 +13,19 @@ const VERDICT_LABEL: Record<RatifyReport["verdict"], string> = {
   pass: "pass",
   review: "needs review",
   block: "block",
+};
+
+// High → low, so the riskiest findings are grouped first.
+const SEVERITY_ORDER: Severity[] = ["high", "medium", "low"];
+const SEVERITY_LABEL: Record<Severity, string> = {
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+const SEVERITY_PILL: Record<Severity, string> = {
+  high: "block",
+  medium: "warn",
+  low: "",
 };
 
 export default function Ratify() {
@@ -209,41 +222,50 @@ export default function Ratify() {
                   Clean — the policy engine found nothing to flag in this PR.
                 </div>
               ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Severity</th>
-                      <th>Rule</th>
-                      <th>Finding</th>
-                      <th>File</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {report.findings.map((f, i) => (
-                      <tr key={`${f.rule_key}-${i}`} className="enter" style={stagger(i, 15, 200)}>
-                        <td>
-                          <span
-                            className={`pill ${
-                              f.severity === "high"
-                                ? "block"
-                                : f.severity === "medium"
-                                ? "warn"
-                                : ""
-                            }`}
-                          >
-                            {f.severity}
-                          </span>
-                        </td>
-                        <td className="mono">{f.rule_key}</td>
-                        <td>
-                          <b>{f.title}</b>
-                          <div className="muted">{f.description}</div>
-                        </td>
-                        <td className="mono">{f.file_path ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                // Grouped High → Medium → Low; empty groups are omitted so a
+                // PR that only trips medium rules shows just the Medium group.
+                SEVERITY_ORDER.map((sev) => {
+                  const group = report.findings.filter((f) => f.severity === sev);
+                  if (group.length === 0) return null;
+                  return (
+                    <div key={sev}>
+                      <div className="section-title">
+                        <span className={`pill ${SEVERITY_PILL[sev]}`}>
+                          {SEVERITY_LABEL[sev]}
+                        </span>{" "}
+                        {SEVERITY_LABEL[sev]} severity{" "}
+                        <span className="muted">({group.length})</span>
+                      </div>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Finding</th>
+                            <th>File</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.map((f, i) => (
+                            <tr
+                              key={`${f.rule_key}-${i}`}
+                              className="enter"
+                              style={stagger(i, 15, 200)}
+                            >
+                              <td>
+                                <span className="finding-head">
+                                  <b>{f.title}</b>
+                                  <span className="rule-key">{f.rule_key}</span>
+                                  <SourceBadge source={f.source} />
+                                </span>
+                                <div className="muted finding-desc">{f.description}</div>
+                              </td>
+                              <td className="mono">{f.file_path ?? "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })
               )}
             </div>
           )}

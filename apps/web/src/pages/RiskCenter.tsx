@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { api } from "../api";
 import type { Severity } from "../api";
-import { Loading, RunPicker, stagger, useAsync } from "../components";
+import { Loading, RunPicker, SourceBadge, stagger, useAsync } from "../components";
 
 // High → low. Drives both the default sort and the filter-chip order.
 const SEVERITY_ORDER: Severity[] = ["high", "medium", "low"];
@@ -118,7 +118,11 @@ export default function RiskCenter() {
                           <span className={`pill sev-${f.severity}`}>{f.severity}</span>
                         </td>
                         <td>
-                          <b>{f.title}</b>
+                          <span className="finding-head">
+                            <b>{f.title}</b>
+                            <span className="rule-key">{f.rule_key}</span>
+                            <SourceBadge source={f.source} />
+                          </span>
                           <div className="muted finding-desc">{f.description}</div>
                         </td>
                         <td className="mono">{f.file_path ?? "—"}</td>

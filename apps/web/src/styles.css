@@ -345,6 +345,13 @@ a:hover { text-decoration: underline; }
 .pill.sev-medium { color: var(--yellow-text); background: var(--yellow-soft); text-transform: uppercase; letter-spacing: 0.4px; }
 .pill.sev-low { color: var(--text-dim); background: var(--bg-elev-2); text-transform: uppercase; letter-spacing: 0.4px; }
 
+.finding-head {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .finding-desc {
   font-size: 12.5px;
   line-height: 1.5;
@@ -396,6 +403,22 @@ a:hover { text-decoration: underline; }
 .pill.warn, .pill.require_approval { color: var(--yellow-text); background: var(--yellow-soft); }
 .pill.block, .pill.deleted, .pill.failed { color: var(--red); }
 .pill.modified { color: var(--brand-dim); }
+
+/* Subtle marker for findings sourced from the updatable rule pack. */
+.pill.source-pack {
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  font-size: 10px;
+  padding: 1px 6px;
+  vertical-align: middle;
+}
+
+/* Rule key shown next to a finding title so users can look it up / tune it. */
+.rule-key {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
 
 /* Keyboard skip link: off-screen until focused, then visible top-left. */
 .skip-link {

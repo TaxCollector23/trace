@@ -40,6 +40,18 @@ export function StatusBadge({ status }: { status: RunStatus }) {
   return <span className={`badge ${status}`}>{status.replace("_", " ")}</span>;
 }
 
+/** Subtle tag marking which findings come from the updatable rule pack
+ * (`policy-pack`) versus a built-in engine rule (`policy-engine`). Only the
+ * pack rules get a badge, so the common built-in case stays unadorned. */
+export function SourceBadge({ source }: { source: string }) {
+  if (source !== "policy-pack") return null;
+  return (
+    <span className="pill source-pack" title="From the updatable rule pack">
+      pack
+    </span>
+  );
+}
+
 export function fmtTime(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
