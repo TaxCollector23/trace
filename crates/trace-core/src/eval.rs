@@ -340,6 +340,81 @@ fn fixtures() -> Vec<Fixture> {
                 patch: Some("+  const rows = await db.query(\"SELECT * FROM users WHERE id = $1\", [userId]);".into()),
             },
         },
+        // --- Data-driven pack rules (source = "policy-pack") -------------
+        Fixture {
+            name: "path.join built from request input (pack: path-traversal)",
+            expected_rule: Some("path-traversal"),
+            diff: FileDiff {
+                filename: "src/api/files.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  const p = path.join(uploadDir, req.params.file);".into()),
+            },
+        },
+        Fixture {
+            name: "path.join with a static filename (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/api/files.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  const p = path.join(uploadDir, \"avatar.png\");".into()),
+            },
+        },
+        Fixture {
+            name: "jwt.sign with an inline string secret (pack: hardcoded-jwt-secret)",
+            expected_rule: Some("hardcoded-jwt-secret"),
+            diff: FileDiff {
+                filename: "src/auth/token.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                // Split the secret-shaped literal so no contiguous secret
+                // exists in source; concat! restores it at compile time.
+                patch: Some(
+                    concat!(
+                        "+  const token = jwt.sign(payload, \"s3cr3t",
+                        "-signing-key\");"
+                    )
+                    .into(),
+                ),
+            },
+        },
+        Fixture {
+            name: "jwt.sign reading the secret from env (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/auth/token.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  const token = jwt.sign(payload, process.env.JWT_SECRET);".into()),
+            },
+        },
+        Fixture {
+            name: "res.redirect from req.query (pack: open-redirect)",
+            expected_rule: Some("open-redirect"),
+            diff: FileDiff {
+                filename: "src/routes/auth.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  res.redirect(req.query.returnTo);".into()),
+            },
+        },
+        Fixture {
+            name: "res.redirect to a static internal path (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/routes/auth.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  res.redirect(\"/dashboard\");".into()),
+            },
+        },
         Fixture {
             name: "clean, unrelated change (nothing should fire)",
             expected_rule: None,

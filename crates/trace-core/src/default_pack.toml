@@ -7,7 +7,7 @@
 #
 # Bump `version` (calendar-versioned) whenever the rules change.
 
-version = "2025.08.2"
+version = "2025.08.3"
 
 # ---------------------------------------------------------------------------
 # Prompt-injection / jailbreak phrases. Matched case-insensitively as
@@ -122,3 +122,42 @@ regex = "https://hooks\\.slack\\.com/services/[A-Za-z0-9/]{40,}"
 secret_type = "discord_webhook_url"
 keep = 0
 regex = "https://discord(?:app)?\\.com/api/webhooks/[0-9]+/[A-Za-z0-9_-]{40,}"
+
+# ---------------------------------------------------------------------------
+# Data-driven policy rules (the "virus definitions" model for the deterministic
+# policy engine). Each rule's `regex` is matched against the added (`+`-prefixed)
+# lines of a file diff. `severity` is one of: low | medium | high. `skip_test_doc`
+# defaults to true, matching the built-in checks that stay quiet on test/doc
+# paths. Findings from these rules carry `source = "policy-pack"`.
+#
+# High-precision only: each regex requires a user-input marker (e.g. req.*) or an
+# inline literal, so hardcoded-safe forms (env vars, constants) don't fire.
+# ---------------------------------------------------------------------------
+
+# Path traversal: a filesystem path built from request input, either containing
+# a `../` segment next to `req.params|query|body`, or passed through
+# `path.join(...)` with request input inside the join.
+[[policy_rules]]
+rule_key = "path-traversal"
+title = "Path built from user input with traversal"
+description = "A filesystem path is built from request input (path.join with req.*, or a ../ segment combined with req.params/query/body). An attacker can escape the intended directory — resolve and validate the path stays within an allow-listed root."
+severity = "high"
+regex = "(?i)path\\.join\\([^)\\n]*req\\.(?:params|query|body)|\\.\\./[^\\n]*req\\.(?:params|query|body)|req\\.(?:params|query|body)[^\\n]*\\.\\./"
+
+# Hardcoded JWT secret: jwt.sign/verify handed an inline string literal as the
+# key, or a `secret: "..."` assignment on a line that also mentions jwt.
+[[policy_rules]]
+rule_key = "hardcoded-jwt-secret"
+title = "Hardcoded JWT signing secret"
+description = "A JWT is signed/verified with an inline string secret (or a secret literal assigned near jwt). Hardcoded signing keys leak in source control and can't be rotated — load the secret from an environment variable or secrets manager."
+severity = "high"
+regex = "(?i)jwt\\.(?:sign|verify)\\s*\\([^)\\n]*,\\s*[\"'][^\"'\\n]{8,}[\"']|jwt[^\\n]*secret\\s*[:=]\\s*[\"'][^\"'\\n]{8,}|secret\\s*[:=]\\s*[\"'][^\"'\\n]{8,}[^\\n]*jwt"
+
+# Open redirect: res.redirect() whose argument interpolates request input,
+# letting an attacker craft a link that bounces the victim to any site.
+[[policy_rules]]
+rule_key = "open-redirect"
+title = "Open redirect from user input"
+description = "res.redirect() is passed a value derived from req.query/params/body. An attacker can supply an arbitrary destination and use your domain to phish — validate the target against an allow-list of internal paths."
+severity = "medium"
+regex = "(?i)res\\.redirect\\([^)\\n]*req\\.(?:query|params|body)"

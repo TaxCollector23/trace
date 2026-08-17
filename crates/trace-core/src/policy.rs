@@ -72,6 +72,18 @@ fn finding(
     }
 }
 
+impl Severity {
+    /// Parse a pack rule's severity string. Unknown values fall back to Medium
+    /// so a typo never silently drops a rule to Low or crashes.
+    fn from_pack_str(s: &str) -> Severity {
+        match s.to_ascii_lowercase().as_str() {
+            "low" => Severity::Low,
+            "high" => Severity::High,
+            _ => Severity::Medium,
+        }
+    }
+}
+
 fn added_lines(patch: &str) -> String {
     patch
         .lines()
@@ -552,6 +564,50 @@ fn check_sql_injection(files: &[FileDiff]) -> Vec<PolicyFinding> {
     out
 }
 
+/// Apply the active rule pack's data-driven `[[policy_rules]]` over each file's
+/// added lines. This is the "virus definitions" model for the policy engine:
+/// coverage can ship as pack data (or a `TRACE_RULES_PATH` override) without a
+/// binary rebuild. Findings are tagged `source = "policy-pack"` to distinguish
+/// them from the built-in `policy-engine` checks. De-duped by rule_key+file so
+/// a rule never double-fires on one file.
+fn check_pack_policy_rules(files: &[FileDiff]) -> Vec<PolicyFinding> {
+    let rules = crate::rules_pack::active_policy_rules();
+    if rules.is_empty() {
+        return Vec::new();
+    }
+    let mut out = Vec::new();
+    let mut seen: std::collections::HashSet<(String, String)> = std::collections::HashSet::new();
+    for f in files {
+        let Some(patch) = f.patch.as_deref() else {
+            continue;
+        };
+        let added = added_lines(patch);
+        for rule in rules {
+            if rule.skip_test_doc
+                && (TEST_PATH.is_match(&f.filename) || DOC_OR_TEMPLATE_PATH.is_match(&f.filename))
+            {
+                continue;
+            }
+            if !rule.regex.is_match(&added) {
+                continue;
+            }
+            if !seen.insert((rule.rule_key.clone(), f.filename.clone())) {
+                continue;
+            }
+            out.push(PolicyFinding {
+                rule_key: rule.rule_key.clone(),
+                title: rule.title.clone(),
+                description: format!("{} ({})", rule.description, f.filename),
+                file_path: Some(f.filename.clone()),
+                severity: Severity::from_pack_str(&rule.severity),
+                confidence: 0.8,
+                source: "policy-pack".to_string(),
+            });
+        }
+    }
+    out
+}
+
 /// Run every deterministic rule over a set of file diffs. Pure, synchronous,
 /// no I/O — safe to call on every file-change event without rate limits.
 pub fn run_policy_checks(files: &[FileDiff]) -> Vec<PolicyFinding> {
@@ -572,6 +628,8 @@ pub fn run_policy_checks(files: &[FileDiff]) -> Vec<PolicyFinding> {
     findings.extend(check_insecure_deserialization(files));
     findings.extend(check_tls_disabled(files));
     findings.extend(check_sql_injection(files));
+    // Data-driven pack rules run last, after the built-ins.
+    findings.extend(check_pack_policy_rules(files));
     findings
 }
 
