@@ -150,6 +150,23 @@ static WEAK_CRYPTO: Lazy<Regex> = Lazy::new(|| {
 static INSECURE_DESERIALIZE: Lazy<Regex> = Lazy::new(|| {
     Regex::new(r"(?i)\b(?:c?pickle\.loads?|marshal\.loads?|unserialize)\s*\(").unwrap()
 });
+// Turning off TLS certificate verification exposes traffic to MITM. Covers
+// Node, Python requests, Go, and curl forms.
+static TLS_DISABLED: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r"(?i)rejectunauthorized\s*:\s*false|node_tls_reject_unauthorized\s*[=:]\s*[\x22\x27]?0|insecureskipverify\s*:\s*true|strictssl\s*:\s*false|\bverify\s*=\s*false\b|curlopt_ssl_verif(?:ypeer|yhost)\s*,\s*(?:0|false)",
+    )
+    .unwrap()
+});
+// A SQL statement built by interpolating/concatenating a variable — the SQL
+// injection shape. High precision: requires a SQL keyword AND interpolation, so
+// a parameterized query (`$1`/`?` placeholders) does not fire.
+static SQL_INJECTION: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(
+        r"(?i)`[^`]*\b(?:select|insert\s+into|update|delete\s+from)\b[^`]*\$\{|[\x22\x27][^\x22\x27]*\b(?:select|insert|update|delete)\b[^\x22\x27]*[\x22\x27]\s*\+\s*\w",
+    )
+    .unwrap()
+});
 
 fn check_missing_tests(files: &[FileDiff]) -> Option<PolicyFinding> {
     let sensitive: Vec<&FileDiff> = files
@@ -489,6 +506,52 @@ fn check_insecure_deserialization(files: &[FileDiff]) -> Vec<PolicyFinding> {
     out
 }
 
+fn check_tls_disabled(files: &[FileDiff]) -> Vec<PolicyFinding> {
+    let mut out = Vec::new();
+    for f in files {
+        let Some(patch) = f.patch.as_deref() else {
+            continue;
+        };
+        if TEST_PATH.is_match(&f.filename) || DOC_OR_TEMPLATE_PATH.is_match(&f.filename) {
+            continue;
+        }
+        if TLS_DISABLED.is_match(&added_lines(patch)) {
+            out.push(finding(
+                "tls-verification-disabled",
+                "TLS certificate verification disabled",
+                format!("{} disables TLS/certificate verification (e.g. rejectUnauthorized:false, verify=False, InsecureSkipVerify:true). This exposes the connection to man-in-the-middle attacks — keep verification on.", f.filename),
+                Some(f.filename.clone()),
+                Severity::High,
+                0.9,
+            ));
+        }
+    }
+    out
+}
+
+fn check_sql_injection(files: &[FileDiff]) -> Vec<PolicyFinding> {
+    let mut out = Vec::new();
+    for f in files {
+        let Some(patch) = f.patch.as_deref() else {
+            continue;
+        };
+        if TEST_PATH.is_match(&f.filename) || DOC_OR_TEMPLATE_PATH.is_match(&f.filename) {
+            continue;
+        }
+        if SQL_INJECTION.is_match(&added_lines(patch)) {
+            out.push(finding(
+                "sql-injection-risk",
+                "SQL built from an interpolated string",
+                format!("{} builds a SQL statement by interpolating/concatenating a variable. If any part is user-controlled this is SQL injection — use parameterized queries / bound placeholders.", f.filename),
+                Some(f.filename.clone()),
+                Severity::High,
+                0.8,
+            ));
+        }
+    }
+    out
+}
+
 /// Run every deterministic rule over a set of file diffs. Pure, synchronous,
 /// no I/O — safe to call on every file-change event without rate limits.
 pub fn run_policy_checks(files: &[FileDiff]) -> Vec<PolicyFinding> {
@@ -507,6 +570,8 @@ pub fn run_policy_checks(files: &[FileDiff]) -> Vec<PolicyFinding> {
     findings.extend(check_cors_wildcard(files));
     findings.extend(check_weak_crypto(files));
     findings.extend(check_insecure_deserialization(files));
+    findings.extend(check_tls_disabled(files));
+    findings.extend(check_sql_injection(files));
     findings
 }
 
@@ -598,6 +663,51 @@ mod tests {
                 .iter()
                 .any(|f| f.rule_key == "insecure-deserialization")
         );
+    }
+
+    #[test]
+    fn tls_disabled_fires_across_languages_but_not_when_enabled() {
+        for added in [
+            "http.Agent({ rejectUnauthorized: false })",
+            "requests.get(url, verify=False)",
+            "tr := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}",
+        ] {
+            assert!(
+                run_policy_checks(&one("src/net.go", added))
+                    .iter()
+                    .any(|f| f.rule_key == "tls-verification-disabled"),
+                "should fire: {added}"
+            );
+        }
+        assert!(!run_policy_checks(&one(
+            "src/net.ts",
+            "new https.Agent({ rejectUnauthorized: true })"
+        ))
+        .iter()
+        .any(|f| f.rule_key == "tls-verification-disabled"));
+    }
+
+    #[test]
+    fn sql_injection_fires_on_interpolation_not_placeholders() {
+        assert!(run_policy_checks(&one(
+            "src/db.ts",
+            "db.query(`DELETE FROM sessions WHERE id = ${id}`)"
+        ))
+        .iter()
+        .any(|f| f.rule_key == "sql-injection-risk"));
+        assert!(run_policy_checks(&one(
+            "src/db.py",
+            "cur.execute(\"SELECT * FROM t WHERE name = \" + name)"
+        ))
+        .iter()
+        .any(|f| f.rule_key == "sql-injection-risk"));
+        // Parameterized placeholders are safe.
+        assert!(!run_policy_checks(&one(
+            "src/db.ts",
+            "db.query(\"SELECT * FROM t WHERE id = $1\", [id])"
+        ))
+        .iter()
+        .any(|f| f.rule_key == "sql-injection-risk"));
     }
 
     #[test]

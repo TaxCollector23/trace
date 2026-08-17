@@ -297,6 +297,50 @@ fn fixtures() -> Vec<Fixture> {
             },
         },
         Fixture {
+            name: "TLS verification disabled (rejectUnauthorized: false)",
+            expected_rule: Some("tls-verification-disabled"),
+            diff: FileDiff {
+                filename: "src/http/client.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  const agent = new https.Agent({ rejectUnauthorized: false });".into()),
+            },
+        },
+        Fixture {
+            name: "TLS verification left on (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/http/client.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  const agent = new https.Agent({ rejectUnauthorized: true });".into()),
+            },
+        },
+        Fixture {
+            name: "SQL built by string interpolation (injection)",
+            expected_rule: Some("sql-injection-risk"),
+            diff: FileDiff {
+                filename: "src/db/users.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  const rows = await db.query(`SELECT * FROM users WHERE id = ${userId}`);".into()),
+            },
+        },
+        Fixture {
+            name: "parameterized query (should NOT fire)",
+            expected_rule: None,
+            diff: FileDiff {
+                filename: "src/db/users.ts".into(),
+                status: "modified".into(),
+                additions: 1,
+                deletions: 0,
+                patch: Some("+  const rows = await db.query(\"SELECT * FROM users WHERE id = $1\", [userId]);".into()),
+            },
+        },
+        Fixture {
             name: "clean, unrelated change (nothing should fire)",
             expected_rule: None,
             diff: FileDiff {
