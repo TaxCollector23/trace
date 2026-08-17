@@ -589,8 +589,12 @@ impl Store {
             params![run.id],
             |r| r.get(0),
         )?;
+        // rowid DESC tiebreak: two test results written in the same RFC3339
+        // second would otherwise order non-deterministically, and "latest
+        // check" could report a stale (earlier-inserted) status. Pin it to
+        // insertion order so the most-recently-recorded result always wins.
         let checks_status: Option<String> = self.conn.query_row(
-            "SELECT status FROM test_results WHERE run_id = ?1 ORDER BY created_at DESC LIMIT 1",
+            "SELECT status FROM test_results WHERE run_id = ?1 ORDER BY created_at DESC, rowid DESC LIMIT 1",
             params![run.id],
             |r| r.get(0),
         ).optional()?;
@@ -874,6 +878,279 @@ mod tests {
         // most-recently-inserted checkpoint with a git_ref wins.
         let latest = checkpoints.into_iter().rev().find_map(|c| c.git_ref);
         assert_eq!(latest.as_deref(), Some("ref-second"));
+    }
+
+    /// Seed a project and return its id. Small helper for the analytics/cost
+    /// tests below so each test can focus on the aggregate under test.
+    fn seed_project(store: &Store, path: &str) -> String {
+        store
+            .upsert_project(&NewProject {
+                name: "P".into(),
+                path: path.into(),
+                config_path: format!("{path}/c"),
+            })
+            .unwrap()
+            .id
+    }
+
+    fn seed_run(store: &Store, project_id: &str, agent: Option<&str>) -> String {
+        store
+            .create_run(&NewRun {
+                project_id: project_id.to_string(),
+                command: "run".into(),
+                agent_name: agent.map(|a| a.to_string()),
+                user_prompt: None,
+                starting_commit: None,
+            })
+            .unwrap()
+            .id
+    }
+
+    #[test]
+    fn analytics_summary_aggregates_runs_and_per_agent_tokens() {
+        let store = Store::open_in_memory().unwrap();
+        let project = seed_project(&store, "/p");
+
+        // Two "claude" runs each with usage, one "codex" run with usage, and a
+        // fourth run with NO api_usage (must count in total_runs but be absent
+        // from by_agent, which JOINs api_usage).
+        let claude_a = seed_run(&store, &project, Some("claude"));
+        let claude_b = seed_run(&store, &project, Some("claude"));
+        let codex = seed_run(&store, &project, Some("codex"));
+        let _no_usage = seed_run(&store, &project, Some("claude"));
+
+        let usage = |input, output, cost| NewApiUsage {
+            provider: "anthropic".into(),
+            model: "claude-sonnet-4".into(),
+            input_tokens: Some(input),
+            output_tokens: Some(output),
+            cached_tokens: None,
+            estimated_cost: Some(cost),
+            latency_ms: None,
+        };
+        store
+            .add_api_usage(&claude_a, &usage(100, 10, 1.0))
+            .unwrap();
+        store
+            .add_api_usage(&claude_b, &usage(200, 20, 2.0))
+            .unwrap();
+        store.add_api_usage(&codex, &usage(50, 5, 0.5)).unwrap();
+
+        let summary = store.analytics_summary().unwrap();
+        assert_eq!(summary.total_runs, 4);
+        assert!(summary.first_run_at.is_some());
+
+        // claude has the most tokens, so it sorts first.
+        assert_eq!(summary.by_agent.len(), 2);
+        let claude = &summary.by_agent[0];
+        assert_eq!(claude.agent_name, "claude");
+        // Two distinct runs contributed usage (the no-usage run is excluded).
+        assert_eq!(claude.run_count, 2);
+        assert_eq!(claude.input_tokens, 300);
+        assert_eq!(claude.output_tokens, 30);
+        assert!((claude.estimated_cost - 3.0).abs() < 1e-9);
+
+        let codex = &summary.by_agent[1];
+        assert_eq!(codex.agent_name, "codex");
+        assert_eq!(codex.run_count, 1);
+        assert_eq!(codex.input_tokens, 50);
+    }
+
+    #[test]
+    fn analytics_summary_avgs_none_until_more_than_one_run() {
+        let store = Store::open_in_memory().unwrap();
+        let project = seed_project(&store, "/p");
+
+        // Zero runs: no history at all.
+        let empty = store.analytics_summary().unwrap();
+        assert_eq!(empty.total_runs, 0);
+        assert!(empty.first_run_at.is_none());
+        assert!(empty.avg_per_hour.is_none());
+
+        // Exactly one run: still not enough to compute a rate.
+        seed_run(&store, &project, None);
+        let one = store.analytics_summary().unwrap();
+        assert_eq!(one.total_runs, 1);
+        assert!(one.avg_per_hour.is_none());
+        assert!(one.avg_per_day.is_none());
+
+        // Two runs: rate becomes available and the cadences are consistent
+        // multiples of the hourly rate.
+        seed_run(&store, &project, None);
+        let two = store.analytics_summary().unwrap();
+        assert_eq!(two.total_runs, 2);
+        let per_hour = two.avg_per_hour.expect("rate available with >1 run");
+        assert!(per_hour > 0.0);
+        assert!((two.avg_per_day.unwrap() - per_hour * 24.0).abs() < 1e-9);
+        assert!((two.avg_per_week.unwrap() - per_hour * 24.0 * 7.0).abs() < 1e-9);
+        assert!((two.avg_per_month.unwrap() - per_hour * 24.0 * 30.0).abs() < 1e-9);
+        // by_agent is empty because neither run recorded api_usage.
+        assert!(two.by_agent.is_empty());
+    }
+
+    #[test]
+    fn run_summary_sums_cost_and_counts_and_reports_latest_check() {
+        let store = Store::open_in_memory().unwrap();
+        let project = seed_project(&store, "/p");
+        let run_id = seed_run(&store, &project, Some("claude"));
+
+        // A run with no api_usage rows yields None cost (SUM over no rows),
+        // not 0.0 — the UI relies on this to say "unavailable".
+        let run = store.run_by_id(&run_id).unwrap().unwrap();
+        let bare = store.run_summary(&run).unwrap();
+        assert_eq!(bare.estimated_cost, None);
+        assert_eq!(bare.files_changed, 0);
+        assert_eq!(bare.command_count, 0);
+        assert_eq!(bare.secret_warnings, 0);
+        assert_eq!(bare.checks_status, None);
+
+        // Add two cost rows, a file change, a command, a secret, and two test
+        // results; the summary should aggregate them.
+        for cost in [1.25, 2.75] {
+            store
+                .add_api_usage(
+                    &run_id,
+                    &NewApiUsage {
+                        provider: "anthropic".into(),
+                        model: "claude-sonnet-4".into(),
+                        input_tokens: Some(10),
+                        output_tokens: Some(10),
+                        cached_tokens: None,
+                        estimated_cost: Some(cost),
+                        latency_ms: None,
+                    },
+                )
+                .unwrap();
+        }
+        store
+            .add_file_change(
+                &run_id,
+                &NewFileChange {
+                    path: "src/a.rs".into(),
+                    change_type: "created".into(),
+                    diff_summary: None,
+                },
+            )
+            .unwrap();
+        store
+            .add_command(
+                &run_id,
+                &NewCommand {
+                    command: "ls".into(),
+                    decision: "allow".into(),
+                    exit_code: Some(0),
+                    stdout_path: None,
+                    stderr_path: None,
+                },
+            )
+            .unwrap();
+        store
+            .add_secret(
+                &run_id,
+                &NewSecret {
+                    file_path: Some("src/a.rs".into()),
+                    secret_type: "aws".into(),
+                    redacted_value: "AKIA…".into(),
+                    action_taken: "flagged".into(),
+                },
+            )
+            .unwrap();
+        // Two test results; the most recent status must win.
+        store
+            .add_test_result(
+                &run_id,
+                &NewTestResult {
+                    command: "cargo test".into(),
+                    status: "failed".into(),
+                    output_summary: None,
+                },
+            )
+            .unwrap();
+        store
+            .add_test_result(
+                &run_id,
+                &NewTestResult {
+                    command: "cargo test".into(),
+                    status: "passed".into(),
+                    output_summary: None,
+                },
+            )
+            .unwrap();
+
+        let run = store.run_by_id(&run_id).unwrap().unwrap();
+        let full = store.run_summary(&run).unwrap();
+        assert!((full.estimated_cost.unwrap() - 4.0).abs() < 1e-9);
+        assert_eq!(full.files_changed, 1);
+        assert_eq!(full.command_count, 1);
+        assert_eq!(full.secret_warnings, 1);
+        assert_eq!(full.checks_status.as_deref(), Some("passed"));
+    }
+
+    #[test]
+    fn secrets_add_and_list_roundtrip_in_insertion_order() {
+        let store = Store::open_in_memory().unwrap();
+        let project = seed_project(&store, "/p");
+        let run_id = seed_run(&store, &project, None);
+
+        assert!(store.list_secrets(&run_id).unwrap().is_empty());
+        for (ty, val) in [("aws", "AKIA…1"), ("gcp", "AIza…2")] {
+            store
+                .add_secret(
+                    &run_id,
+                    &NewSecret {
+                        file_path: Some("src/x.rs".into()),
+                        secret_type: ty.into(),
+                        redacted_value: val.into(),
+                        action_taken: "flagged".into(),
+                    },
+                )
+                .unwrap();
+        }
+        let secrets = store.list_secrets(&run_id).unwrap();
+        assert_eq!(secrets.len(), 2);
+        assert_eq!(secrets[0].secret_type, "aws");
+        assert_eq!(secrets[1].secret_type, "gcp");
+        assert_eq!(secrets[0].run_id, run_id);
+    }
+
+    #[test]
+    fn policy_findings_add_and_list_roundtrip() {
+        use crate::policy::{PolicyFinding, Severity};
+        let store = Store::open_in_memory().unwrap();
+        let project = seed_project(&store, "/p");
+        let run_id = seed_run(&store, &project, None);
+
+        assert!(store.list_policy_findings(&run_id).unwrap().is_empty());
+
+        let findings = vec![
+            PolicyFinding {
+                rule_key: "secret-in-diff".into(),
+                title: "Secret".into(),
+                description: "found a secret".into(),
+                file_path: Some("src/a.rs".into()),
+                severity: Severity::High,
+                confidence: 0.9,
+                source: "policy".into(),
+            },
+            PolicyFinding {
+                rule_key: "todo-left".into(),
+                title: "TODO".into(),
+                description: "left a TODO".into(),
+                file_path: None,
+                severity: Severity::Low,
+                confidence: 0.5,
+                source: "policy".into(),
+            },
+        ];
+        store.add_policy_findings(&run_id, &findings).unwrap();
+
+        let stored = store.list_policy_findings(&run_id).unwrap();
+        assert_eq!(stored.len(), 2);
+        assert_eq!(stored[0].rule_key, "secret-in-diff");
+        assert_eq!(stored[0].severity, "high");
+        assert!((stored[0].confidence - 0.9).abs() < 1e-9);
+        assert_eq!(stored[1].rule_key, "todo-left");
+        assert_eq!(stored[1].file_path, None);
     }
 
     #[test]

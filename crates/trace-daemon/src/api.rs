@@ -101,6 +101,11 @@ type ApiResult<T> = Result<T, ApiError>;
 /// holding the lock. Poisoning means some earlier request died mid-critical
 /// section; the SQLite connection itself is still usable, so we take the guard
 /// back and let the daemon keep serving instead of wedging every future request.
+///
+/// NOTE: this is an exclusive `Mutex` lock taken by every handler, so reads
+/// serialize against each other and against writes. See the contention note on
+/// `AppState::store` for why the `RwLock` split (read vs. write guards) was left
+/// for a future atomic change spanning `state.rs`/`server.rs`/`cloud_sync.rs`.
 fn store(state: &AppState) -> MutexGuard<'_, Store> {
     state.store.lock().unwrap_or_else(|e| e.into_inner())
 }
@@ -979,6 +984,141 @@ mod tests {
             findings.iter().any(|f| f.rule_key == "secret-in-diff"),
             "expected a secret-in-diff finding to be persisted, got: {findings:?}"
         );
+    }
+
+    /// Drive a handler's response into a JSON value so tests can assert on the
+    /// actual serialized body (offline; no socket bound).
+    async fn body_json(resp: Response) -> serde_json::Value {
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        serde_json::from_slice(&bytes).unwrap()
+    }
+
+    #[tokio::test]
+    async fn cost_handler_totals_available_and_flags_unavailable() {
+        let state = test_state();
+        let run_id = seed_run(&state, None);
+        {
+            let s = store(&state);
+            // One priced row and one unavailable (None cost) row.
+            s.add_api_usage(
+                &run_id,
+                &NewApiUsage {
+                    provider: "anthropic".into(),
+                    model: "claude-sonnet-4".into(),
+                    input_tokens: Some(1000),
+                    output_tokens: Some(1000),
+                    cached_tokens: None,
+                    estimated_cost: Some(1.5),
+                    latency_ms: None,
+                },
+            )
+            .unwrap();
+            s.add_api_usage(
+                &run_id,
+                &NewApiUsage {
+                    provider: "openai".into(),
+                    model: "mystery".into(),
+                    input_tokens: Some(1000),
+                    output_tokens: Some(1000),
+                    cached_tokens: None,
+                    estimated_cost: None,
+                    latency_ms: None,
+                },
+            )
+            .unwrap();
+        }
+
+        let resp = cost(State(state.clone()), Path(run_id.clone()))
+            .await
+            .map_err(|e| e.message)
+            .expect("cost handler should succeed offline")
+            .into_response();
+        let json = body_json(resp).await;
+        assert_eq!(json["usage"].as_array().unwrap().len(), 2);
+        assert!((json["total_estimated"].as_f64().unwrap() - 1.5).abs() < 1e-9);
+        assert_eq!(json["has_unavailable"], serde_json::json!(true));
+    }
+
+    #[tokio::test]
+    async fn secrets_handler_lists_added_secrets() {
+        let state = test_state();
+        let run_id = seed_run(&state, None);
+        add_secret(
+            State(state.clone()),
+            Path(run_id.clone()),
+            Json(NewSecret {
+                file_path: Some("src/x.rs".into()),
+                secret_type: "aws".into(),
+                redacted_value: "AKIA…".into(),
+                action_taken: "flagged".into(),
+            }),
+        )
+        .await
+        .map_err(|e| e.message)
+        .expect("add_secret should succeed");
+
+        let resp = secrets(State(state.clone()), Path(run_id.clone()))
+            .await
+            .map_err(|e| e.message)
+            .expect("secrets handler should succeed")
+            .into_response();
+        let json = body_json(resp).await;
+        let arr = json.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0]["secret_type"], serde_json::json!("aws"));
+    }
+
+    #[tokio::test]
+    async fn analytics_handler_reports_totals_and_per_agent() {
+        let state = test_state();
+        let run_id = seed_run(&state, None);
+        {
+            let s = store(&state);
+            s.add_api_usage(
+                &run_id,
+                &NewApiUsage {
+                    provider: "anthropic".into(),
+                    model: "claude-sonnet-4".into(),
+                    input_tokens: Some(100),
+                    output_tokens: Some(10),
+                    cached_tokens: None,
+                    estimated_cost: Some(1.0),
+                    latency_ms: None,
+                },
+            )
+            .unwrap();
+        }
+
+        let resp = analytics(State(state.clone()))
+            .await
+            .map_err(|e| e.message)
+            .expect("analytics handler should succeed")
+            .into_response();
+        let json = body_json(resp).await;
+        assert_eq!(json["total_runs"], serde_json::json!(1));
+        // The seeded run has no agent_name, so it rolls up under "unknown".
+        assert_eq!(
+            json["by_agent"][0]["agent_name"],
+            serde_json::json!("unknown")
+        );
+        assert_eq!(json["by_agent"][0]["input_tokens"], serde_json::json!(100));
+    }
+
+    #[tokio::test]
+    async fn dashboard_handler_returns_runs_and_projects() {
+        let state = test_state();
+        let _run_id = seed_run(&state, None);
+
+        let resp = dashboard(State(state.clone()), Query(LimitQuery { limit: None }))
+            .await
+            .map_err(|e| e.message)
+            .expect("dashboard handler should succeed")
+            .into_response();
+        let json = body_json(resp).await;
+        assert_eq!(json["runs"].as_array().unwrap().len(), 1);
+        assert_eq!(json["projects"].as_array().unwrap().len(), 1);
     }
 
     #[tokio::test]

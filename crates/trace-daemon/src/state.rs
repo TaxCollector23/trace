@@ -11,6 +11,18 @@ use trace_core::{paths, Store};
 pub struct AppState {
     /// The SQLite store. Wrapped in a mutex because `rusqlite::Connection` is
     /// not `Sync`; critical sections are short and never hold across `.await`.
+    ///
+    /// CONTENTION NOTE: this is a plain `Mutex`, so *every* request — reads
+    /// included — serializes on it; concurrent GETs can't proceed in parallel.
+    /// An `RwLock<Store>` (read guards for GET handlers, write guards for
+    /// mutations) would let reads run concurrently. It was deliberately not
+    /// done here: the store handle is also cloned into `cloud_sync::enqueue`
+    /// (`Arc<Mutex<Store>>`) and constructed in `server.rs`, so the migration
+    /// would have to change those modules too — out of scope for this pass. In
+    /// practice contention is mild: the daemon binds to 127.0.0.1 with a small
+    /// number of local clients and each critical section is a short SQLite call.
+    /// Revisit as one atomic change (state + api + server + cloud_sync) if local
+    /// read throughput ever becomes a bottleneck.
     pub store: Arc<Mutex<Store>>,
     pub port: u16,
     pub started_at: String,
