@@ -618,12 +618,32 @@ impl Store {
 
     // --- Policy findings (deterministic engine, ported from Ratify) -------
 
+    /// Persist policy findings for a run, idempotently. The same finding can be
+    /// produced more than once for a run — the live-review watcher records it
+    /// during the run, and a later `analyze` (or a re-analyze) recomputes it —
+    /// so we skip any finding already stored for this run with the same
+    /// rule_key + file_path + title instead of inserting a duplicate row.
     pub fn add_policy_findings(
         &self,
         run_id: &str,
         findings: &[crate::policy::PolicyFinding],
     ) -> Result<()> {
         for f in findings {
+            let already: bool = self
+                .conn
+                .query_row(
+                    "SELECT 1 FROM policy_findings
+                     WHERE run_id = ?1 AND rule_key = ?2
+                       AND IFNULL(file_path, '') = IFNULL(?3, '') AND title = ?4
+                     LIMIT 1",
+                    params![run_id, f.rule_key, f.file_path, f.title],
+                    |_| Ok(true),
+                )
+                .optional()?
+                .unwrap_or(false);
+            if already {
+                continue;
+            }
             self.conn.execute(
                 "INSERT INTO policy_findings (id, run_id, rule_key, title, description, file_path, severity, confidence, source, created_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
@@ -1151,6 +1171,13 @@ mod tests {
         assert!((stored[0].confidence - 0.9).abs() < 1e-9);
         assert_eq!(stored[1].rule_key, "todo-left");
         assert_eq!(stored[1].file_path, None);
+
+        // Idempotent: re-recording the same findings (watcher during the run,
+        // then a later analyze) must NOT create duplicate rows — including the
+        // one with a NULL file_path.
+        store.add_policy_findings(&run_id, &findings).unwrap();
+        store.add_policy_findings(&run_id, &findings).unwrap();
+        assert_eq!(store.list_policy_findings(&run_id).unwrap().len(), 2);
     }
 
     #[test]
