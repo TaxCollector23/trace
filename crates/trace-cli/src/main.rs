@@ -56,6 +56,15 @@ enum Commands {
     /// Initialize Trace in the current project.
     Init,
 
+    /// Connect Trace to your coding agents (Claude Code, Cursor, Windsurf,
+    /// Codex). `trace install agents` wires up every supported agent and
+    /// starts the daemon if needed.
+    Install {
+        /// What to install. Currently: `agents`.
+        #[arg(default_value = "agents")]
+        target: String,
+    },
+
     /// Run a command under Trace monitoring (e.g. `trace run "claude fix the bug"`).
     Run {
         /// The command to wrap. Quote multi-word commands.
@@ -76,25 +85,30 @@ enum Commands {
     Doctor,
 
     /// Scan the current project and print its detected stack.
+    #[command(hide = true)]
     Scan,
 
     /// Run a file's contents through Trace's detection engines (command guard +
     /// secret scanner) without executing anything. Exits non-zero on a
     /// require_approval/block finding — usable as a CI gate. Use `-` to read
     /// from stdin.
+    #[command(hide = true)]
     Check {
         /// Path to the file to scan, or `-` for stdin.
         file: String,
     },
 
     /// List recent runs.
+    #[command(hide = true)]
     Runs,
 
     /// Show a run's summary and timeline.
+    #[command(hide = true)]
     Show { run_id: String },
 
     /// Replay a run's events, commands, and file changes in the order they
     /// happened, paced by their real recorded timestamps.
+    #[command(hide = true)]
     Replay {
         run_id: String,
         /// Skip pacing and print everything immediately.
@@ -103,30 +117,37 @@ enum Commands {
     },
 
     /// Show the changed files for a run.
+    #[command(hide = true)]
     Patch { run_id: String },
 
     /// Show guarded commands and secret warnings for a run.
+    #[command(hide = true)]
     Risks { run_id: String },
 
     /// Show API usage and estimated cost for a run.
+    #[command(hide = true)]
     Costs { run_id: String },
 
     /// List checkpoints across recent runs.
+    #[command(hide = true)]
     Checkpoints,
 
     /// Show or change project configuration.
+    #[command(hide = true)]
     Config {
         #[command(subcommand)]
         action: ConfigAction,
     },
 
     /// List integrations or check what is live.
+    #[command(hide = true)]
     Integrations {
         #[command(subcommand)]
         action: Option<IntegrationsAction>,
     },
 
     /// Roll back to the most recent checkpoint (Git-based, with confirmation).
+    #[command(hide = true)]
     Rollback {
         /// Skip the confirmation prompt.
         #[arg(short = 'y', long)]
@@ -137,11 +158,13 @@ enum Commands {
     Update,
 
     /// Run Trace's own policy-engine benchmark (labeled fixtures, precision/recall).
+    #[command(hide = true)]
     SelfCheck,
 
     /// Review a diff range with the policy engine (and, optionally, the
     /// judge panel) — no daemon or `trace init` required. Built for CI: run
     /// this from a plain git checkout in a GitHub Action or any other CI.
+    #[command(hide = true)]
     ReviewDiff {
         /// A git range, e.g. `origin/main...HEAD`. Auto-detected from
         /// `GITHUB_BASE_REF` when not given.
@@ -158,6 +181,7 @@ enum Commands {
     /// Ratify a GitHub pull request against the deterministic policy engine —
     /// no daemon, no `trace init`, no API key. Run it from a checkout of the
     /// repo; it resolves the origin remote and a read-only token itself.
+    #[command(hide = true)]
     Ratify {
         /// Pull-request number to ratify.
         pr: i64,
@@ -167,6 +191,7 @@ enum Commands {
     },
 
     /// Read directly from the project's GitHub repo (supports private repos).
+    #[command(hide = true)]
     Github {
         #[command(subcommand)]
         action: GithubAction,
@@ -256,19 +281,49 @@ fn print_banner() {
     println!("{}\n", colors::brand(BANNER));
 }
 
-fn main() {
-    print_banner();
+/// The banner belongs to onboarding, not to every command. Show it only on the
+/// first-run/help surface and the two onboarding commands — never on routine
+/// calls like `daemon status`, `doctor`, or `run`, which should stay compact.
+fn wants_banner(args: &[String]) -> bool {
+    let first = args
+        .iter()
+        .find(|a| !a.starts_with('-'))
+        .map(String::as_str);
+    match first {
+        None => true, // bare `trace` → help screen
+        Some("init") | Some("install") | Some("help") => true,
+        _ => args.iter().any(|a| a == "--help" || a == "-h"),
+    }
+}
 
-    // Handle `--version` / `-V` manually so the output is exactly "Trace 1.1".
-    // clap's built-in flag is disabled for this reason.
+fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+
+    if wants_banner(&args) {
+        print_banner();
+    }
+
+    // Handle `--version` / `-V` manually so the output is exactly "Trace 1.2".
+    // clap's built-in flag is disabled for this reason.
     if args.iter().any(|a| a == "--version" || a == "-V") {
         println!("{}", trace_core::version_string());
         return;
     }
 
     if let Err(e) = real_main() {
-        eprintln!("error: {e:#}");
+        // Plain-English, one-line failure by default. The full error chain
+        // (and any backtrace) is noise during normal setup, so it's kept
+        // behind TRACE_DEBUG=1 for when someone is actually debugging.
+        let debug = std::env::var("TRACE_DEBUG").is_ok_and(|v| v != "0" && !v.is_empty());
+        if debug {
+            eprintln!("{} {e:#}", colors::red("error:"));
+        } else {
+            eprintln!("{} {e}", colors::red("error:"));
+            eprintln!(
+                "{}",
+                colors::dim("Re-run with TRACE_DEBUG=1 for the full details.")
+            );
+        }
         std::process::exit(1);
     }
 }
@@ -281,6 +336,7 @@ fn real_main() -> Result<()> {
     };
     match cli.command {
         Commands::Init => commands::init::run(),
+        Commands::Install { target } => commands::install::run(&target),
         Commands::Run {
             command,
             no_checks,

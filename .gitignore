@@ -25,3 +25,4 @@ packages/npm/bin/trace.exe
 .env
 .env.local
 .env.*.local
+.claude/worktrees/

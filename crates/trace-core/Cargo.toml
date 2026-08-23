@@ -19,5 +19,6 @@ regex = { workspace = true }
 once_cell = { workspace = true }
 dirs = { workspace = true }
 uuid = { workspace = true }
+flate2 = "1"
 ureq = { version = "2", default-features = false, features = ["json", "gzip", "tls", "native-certs"] }
 base64 = "0.22"

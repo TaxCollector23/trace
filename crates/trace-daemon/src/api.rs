@@ -139,18 +139,43 @@ struct LimitQuery {
     limit: Option<i64>,
 }
 
+/// Drop obvious scratch/temp projects from a listing so the dashboard shows the
+/// user's real work first. Path-based only (never name-based), fully overridable
+/// with `TRACE_SHOW_ALL_PROJECTS=1`. If filtering would leave nothing (every
+/// registered project is a temp dir), keep the originals rather than show blank.
+fn visible_projects(projects: Vec<Project>) -> Vec<Project> {
+    let show_all =
+        std::env::var("TRACE_SHOW_ALL_PROJECTS").is_ok_and(|v| v != "0" && !v.is_empty());
+    if show_all {
+        return projects;
+    }
+    let filtered: Vec<Project> = projects
+        .iter()
+        .filter(|p| !trace_core::paths::is_scratch_project_path(&p.path))
+        .cloned()
+        .collect();
+    if filtered.is_empty() {
+        projects
+    } else {
+        filtered
+    }
+}
+
 async fn dashboard(
     State(state): State<AppState>,
     Query(q): Query<LimitQuery>,
 ) -> ApiResult<impl IntoResponse> {
     let s = store(&state);
     let summaries = s.recent_run_summaries(q.limit.unwrap_or(50))?;
-    let projects = s.list_projects()?;
+    let projects = visible_projects(s.list_projects()?);
     Ok(Json(json!({ "runs": summaries, "projects": projects })))
 }
 
 // --- Projects -------------------------------------------------------------
 
+// NOTE: this is the OPERATIONAL project list (used to resolve the current
+// project by path, etc.), so it must return every registered project. Scratch
+// filtering is presentation-only and lives in the `dashboard` handler.
 async fn list_projects(State(state): State<AppState>) -> ApiResult<impl IntoResponse> {
     Ok(Json(store(&state).list_projects()?))
 }
@@ -267,13 +292,27 @@ async fn run_diff(
     let project = s
         .project_by_id(&run.project_id)?
         .ok_or_else(|| ApiError::not_found("project"))?;
-    let patch = std::path::Path::new(&project.path)
+    let run_dir = std::path::Path::new(&project.path)
         .join(".trace")
         .join("runs")
-        .join(&id)
-        .join("diff.patch");
-    let diff = std::fs::read_to_string(&patch).unwrap_or_default();
-    Ok(Json(json!({ "diff": diff })))
+        .join(&id);
+
+    // Prefer the Trace-Compression form (diff.patch.gz), transparently
+    // decompressing; fall back to a legacy plaintext diff.patch for runs
+    // recorded before compression existed.
+    let gz = run_dir.join("diff.patch.gz");
+    let diff = if let Ok(bytes) = std::fs::read(&gz) {
+        trace_core::decompress_stored(&bytes).unwrap_or_default()
+    } else {
+        std::fs::read_to_string(run_dir.join("diff.patch")).unwrap_or_default()
+    };
+
+    // Surface the measured compression effect from the sidecar, when present.
+    let compression = std::fs::read_to_string(run_dir.join("diff.meta.json"))
+        .ok()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok());
+
+    Ok(Json(json!({ "diff": diff, "compression": compression })))
 }
 
 async fn set_file_changes(

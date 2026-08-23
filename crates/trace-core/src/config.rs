@@ -16,6 +16,14 @@ pub struct ProjectConfig {
     pub default_checks: Vec<String>,
     #[serde(default)]
     pub created_at: String,
+    /// GitHub repo this project is tied to, as `owner/repo`, detected from the
+    /// `origin` remote at `trace init`. `None` for local-only projects.
+    #[serde(default)]
+    pub github_repo: Option<String>,
+    /// The repo's current branch at init time (informational; runs record the
+    /// real branch/commit per run, so this is only a convenience default).
+    #[serde(default)]
+    pub default_branch: Option<String>,
 }
 
 fn default_protected_files() -> Vec<String> {
@@ -39,6 +47,8 @@ impl ProjectConfig {
             protected_files: default_protected_files(),
             default_checks: default_checks(),
             created_at: created_at.into(),
+            github_repo: None,
+            default_branch: None,
         }
     }
 

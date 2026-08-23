@@ -208,10 +208,22 @@ pub fn run(opts: RunOptions) -> Result<()> {
     record_file_changes(&client, &run_id, &changes);
 
     // Persist the full unified diff next to the run logs so the dashboard can
-    // render a Git diff view. Kept on disk (not in SQLite) to avoid bloat.
+    // render a Git diff view. Kept on disk (not in SQLite) to avoid bloat, and
+    // run through Trace Compression at this storage boundary — the daemon
+    // transparently decompresses on read. A tiny sidecar records the measured
+    // effect so the dashboard can show original vs. compressed size.
     if let Some(ref from) = start_state.commit {
         if let Ok(diff_text) = git::full_diff(&root, from) {
-            let _ = std::fs::write(log_dir.join("diff.patch"), &diff_text);
+            let (bytes, stats) = trace_core::compress_for_storage(&diff_text);
+            let _ = std::fs::write(log_dir.join("diff.patch.gz"), &bytes);
+            let _ = std::fs::write(
+                log_dir.join("diff.meta.json"),
+                serde_json::to_vec(&serde_json::json!({
+                    "original_bytes": stats.original_bytes,
+                    "compressed_bytes": stats.compressed_bytes,
+                }))
+                .unwrap_or_default(),
+            );
         }
     }
 

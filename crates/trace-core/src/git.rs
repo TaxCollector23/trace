@@ -39,6 +39,17 @@ fn git_stdout(cwd: &Path, args: &[&str]) -> Result<String> {
     Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
 }
 
+/// The top level of the git working tree containing `path`, if any. Lets
+/// `trace init` associate with the repository root rather than a subdirectory.
+pub fn repo_root(path: &Path) -> Option<std::path::PathBuf> {
+    let top = git_stdout(path, &["rev-parse", "--show-toplevel"]).ok()?;
+    if top.is_empty() {
+        None
+    } else {
+        Some(std::path::PathBuf::from(top))
+    }
+}
+
 /// True when `path` is inside a git working tree.
 pub fn is_git_repo(path: &Path) -> bool {
     run_git(path, &["rev-parse", "--is-inside-work-tree"])
@@ -53,6 +64,18 @@ pub fn remote_url(path: &Path) -> Option<String> {
         None
     } else {
         Some(url)
+    }
+}
+
+/// The current branch name (e.g. `main`), or `None` on a detached HEAD or a
+/// non-repo. Trace does not assume the branch is `main` — this reads the real
+/// one.
+pub fn current_branch(path: &Path) -> Option<String> {
+    let b = git_stdout(path, &["rev-parse", "--abbrev-ref", "HEAD"]).ok()?;
+    if b.is_empty() || b == "HEAD" {
+        None
+    } else {
+        Some(b)
     }
 }
 

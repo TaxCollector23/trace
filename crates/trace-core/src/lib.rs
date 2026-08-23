@@ -15,6 +15,7 @@ pub fn version_string() -> String {
 
 pub mod adapter;
 pub mod agents;
+pub mod compress;
 pub mod config;
 pub mod cost;
 pub mod db;
@@ -35,6 +36,7 @@ pub mod scan;
 pub mod secrets;
 pub mod time;
 
+pub use compress::{decode as decompress_stored, encode as compress_for_storage, CompressionStats};
 pub use config::ProjectConfig;
 pub use db::Store;
 pub use eval::{run_policy_eval, PolicyEvalReport};

@@ -7,6 +7,7 @@ pub mod doctor;
 pub mod github;
 pub mod hook_install;
 pub mod init;
+pub mod install;
 pub mod integrations;
 pub mod query;
 pub mod ratify;
