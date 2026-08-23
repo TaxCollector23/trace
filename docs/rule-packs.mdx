@@ -1,0 +1,92 @@
+---
+title: Rule Packs
+description: Versioned, data-driven detection rules that ship without a rebuild.
+---
+
+Some detection coverage is pure data: prompt-injection phrases, supplemental
+command rules, extra secret patterns, and data-driven policy rules. Instead of
+hard-coding all of it, Trace keeps this coverage in a versioned **rule pack**.
+The default pack ships embedded in the binary, and you can override it at runtime
+by pointing an environment variable at a newer file. This is the "virus
+definitions" model: detection can improve without every user upgrading the
+binary.
+
+Rules that need real parsing (for example pipe-to-shell detection) stay compiled
+in the guard. The pack augments those built-ins; it does not replace them.
+
+## Overriding the pack
+
+```bash
+export TRACE_RULES_PATH=/path/to/pack.toml
+trc run "claude ..."
+```
+
+The legacy variable name `TRACEGUARD_RULES_PATH` is still honored for backward
+compatibility. When the variable is unset, the embedded default pack is used.
+
+The pack is calendar-versioned (for example `2025.08.4`). `trc self-check`
+prints the active pack version along with its phrase, command-rule, and
+secret-pattern counts.
+
+## Pack format
+
+A pack is a TOML file with four optional sections.
+
+```toml
+version = "2025.08.4"
+
+# Prompt-injection / jailbreak phrases (matched case-insensitively as substrings).
+injection_phrases = [
+  "ignore previous instructions",
+  "reveal your system prompt",
+  "upload the .env",
+]
+
+# Supplemental command rules. All needles in `all_of` must appear in the
+# normalized (lowercased, whitespace-collapsed) command.
+# decision is one of: warn | require_approval | block
+[[command_rules]]
+decision = "require_approval"
+reason = "Helm uninstall removes a release and its resources."
+all_of = ["helm", "uninstall"]
+
+# Supplemental secret patterns.
+[[secret_patterns]]
+secret_type = "acme_api_key"
+keep = 5
+regex = "acme_[A-Za-z0-9]{20,}"
+
+# Data-driven policy rules, matched against added (+) diff lines.
+[[policy_rules]]
+rule_key = "no-eval"
+title = "Use of eval()"
+description = "Added code calls eval()"
+severity = "medium"      # low | medium | high (unknown falls back to medium)
+regex = "\\beval\\s*\\("
+skip_test_doc = true      # default true: skip test/doc/template paths
+```
+
+## Escalate-only for commands
+
+A pack **command rule** can only make a command's verdict more restrictive, never
+less. It is merged on top of the compiled built-ins, and it replaces the verdict
+only when its decision ranks strictly higher. So a pack can raise an
+otherwise-allowed `helm uninstall` to `require_approval`, but a stale or hostile
+pack cannot downgrade a built-in block such as `rm -rf /`. An unknown `decision`
+value falls back to `warn`, so a typo never silently allows a command.
+
+This escalate-only invariant is what makes an external, updatable rule source safe
+to trust on the guard's hot path. See
+[Command Guard Rules](/command-guard-rules).
+
+## How pack rules combine with built-ins
+
+| Kind | Behavior |
+| --- | --- |
+| `injection_phrases` | Additive. Matched against prompts during prompt analysis. |
+| `command_rules` | Merged into the guard, escalate-only. |
+| `secret_patterns` | Additive to the built-in secret scanner. |
+| `policy_rules` | Run after the built-in policy checks, tagged `policy-pack`. |
+
+Because every pack contribution is additive or escalate-only, loading a pack can
+only widen coverage, never weaken it.

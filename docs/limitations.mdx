@@ -1,9 +1,9 @@
 ---
 title: Limitations
-description: What Trace can and cannot do — honestly.
+description: What Trace can and cannot do, honestly.
 ---
 
-Trace is deliberately honest about its boundaries.
+Trace is deliberate about its boundaries. Knowing them is part of using it well.
 
 ## Wrapper-driven monitoring
 
@@ -14,36 +14,61 @@ trc run <command>
 ```
 
 Trace can still observe **some** file changes when tools modify the project
-outside Trace (via the file watcher and Git diff), but **full command
-guarding and run attribution require using the wrapper**.
+outside Trace (via the file watcher and git diff), but **full command guarding
+and run attribution require using the wrapper** or a supported integration point
+(Claude Code hooks, or the MCP servers). Without one of those, the guard never
+gets to see a command before it runs.
 
 ## GUI-based tools
 
-For terminal-based agents, Trace wraps the command directly and can guard
-it. For GUI-based tools, Trace may still watch file changes and capture Git
-diffs, but it **cannot block or even see the tool's internal actions**. Command
-guarding applies to the top-level command you pass to `trc run`, not to
-sub-commands a tool issues on its own.
+For terminal-based agents, Trace wraps the command directly and can guard it. For
+GUI-based tools it may still watch file changes and capture git diffs, but it
+**cannot block or even see the tool's internal actions**. Command guarding applies
+to the top-level command you pass to `trc run`, not to sub-commands a tool issues
+on its own. This is why the Cursor and Windsurf adapters honestly report that they
+observe filesystem and git but not piped terminal output. See
+[Integrations](/integrations/overview).
+
+## Detection is pattern-based
+
+The guard, secret scanner, and policy engine are deterministic pattern matching.
+That is a strength (reproducible, fast, no API key, cannot be talked out of a
+verdict) but it means they detect **shapes**, not intent:
+
+- A cleverly obfuscated command outside the known evasion classes may not match.
+  The guard covers the common evasions (pipe-to-sudo-shell, download-then-exec,
+  base64-to-shell, reverse shells, `find` root deletes) but is not a sandbox.
+- Secret detection is by shape, so a long placeholder can be flagged as a
+  possible secret, and a secret with no recognizable structure can be missed.
+- The policy engine flags risky patterns in a diff; it is not a full static
+  analyzer or a substitute for human review.
+
+The bundled [benchmark](/benchmarks) is how you see exactly what is and is not
+caught, and rule packs let coverage grow without a new binary.
 
 ## Cost data
 
 Cost is only known when traffic flows through the local proxy or usage is
-imported. Otherwise the dashboard shows "cost unavailable" rather than guessing.
-See [Cost Tracking](/cost-tracking).
+imported, and the model must be one Trace has pricing for. Otherwise the dashboard
+shows "cost unavailable" rather than guessing. See [Cost Tracking](/cost-tracking).
 
 ## Git requirement for rollback
 
-Checkpoints and rollback require Git. Without a Git repository, runs are still
-recorded, but there is no checkpoint or rollback.
+Checkpoints and rollback require git. Without a git repository, runs are still
+recorded, but there is no checkpoint or rollback. Rollback also cannot undo
+effects outside git (network calls, dropped databases, untracked files). See
+[Rollback](/rollback).
 
 ## Scope
 
-This is a **local-first MVP**. Trace intentionally does **not** include:
+This is a **local-first build**. Trace intentionally does **not** include:
 
 - a desktop app
 - cloud sync or accounts
-- team/enterprise features
+- team or enterprise features (central policy management, team dashboards, SSO,
+  audit exports)
 - agent comparison
 - a trust score
 
-All data stays on your machine.
+All data stays on your machine. These are out of scope until there is a clear
+reason to add them.

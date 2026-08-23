@@ -3,32 +3,57 @@ title: Integrations
 description: How Trace connects to agents, editors, and CI.
 ---
 
-Trace has a clean adapter architecture. Each integration lives in its own
-folder under `integrations/` and connects to the **local daemon** — none of them
-require the cloud.
+Trace has a clean adapter architecture. Each integration lives in its own folder
+under `integrations/` and connects to the **local daemon**. None of them require
+the cloud, and none require an API key.
 
-| Integration | Path | Primary mechanism |
+| Integration | Mechanism | Config it patches |
 | --- | --- | --- |
-| [GitHub](/integrations/github) | `integrations/github` | GitHub App + Actions, sanitized check summaries |
-| [Claude Code](/integrations/claude) | `integrations/claude` | Hooks adapter, wrapper fallback |
-| [Codex](/integrations/codex) | `integrations/codex` | CLI wrapper adapter |
-| [VS Code](/integrations/vscode) | `integrations/vscode` | Extension bridging to the daemon |
-| [Cursor](/integrations/cursor) | `integrations/cursor` | MCP server exposing Trace tools |
-| [opencode](/integrations/opencode) | `integrations/opencode` | MCP server exposing Trace tools |
+| [Claude Code](/integrations/claude) | Hooks adapter, wrapper fallback | `~/.claude/settings.json` |
+| [Codex CLI](/integrations/codex) | Wrapper script + shell alias | none (you add an alias) |
+| [Cursor](/integrations/cursor) | MCP server | `~/.cursor/mcp.json` |
+| [Windsurf](/integrations/windsurf) | MCP server | `~/.codeium/windsurf/mcp_config.json` |
+| [OpenCode](/integrations/opencode) | MCP server | `~/.config/opencode/opencode.json` |
+| [GitHub](/integrations/github) | Actions + direct repo read | none (token from env / `gh` / file) |
+
+## One command to connect them all
+
+```bash
+trc integrations install all
+```
+
+This installs every agent integration, writing each hook or MCP file under
+`~/.trace/integrations/` and idempotently patching the agent's own config file. It
+backs up any file it touches first and never removes an entry you already
+configured, so re-running it is safe. Install one at a time with
+`trc integrations install <agent>`, where `<agent>` is `claude`, `codex`,
+`cursor`, `windsurf`, or `opencode`.
+
+Check what is live:
+
+```bash
+trc integrations status
+```
+
+This reports the daemon, whether a GitHub token is available, and which agents are
+connected right now (detected by looking for Trace's entry in each agent's config
+file).
+
+## How the adapters differ
+
+Each adapter declares what it can honestly observe. Terminal-first agents (Claude
+Code, Codex, OpenCode) can observe piped terminal output; GUI editors (Cursor,
+Windsurf) observe filesystem and git changes but not meaningful piped output, so
+their adapters report `observe_terminal` as false rather than pretending. An
+unrecognized command falls back to a generic terminal adapter.
 
 ## Honest boundaries
 
 - Terminal agents launched through `trc run` are wrapped directly and fully
   attributed.
-- GUI tools are observed via file changes and Git diffs. **Full command
-  guarding requires supported hooks/integration points or running through the
-  wrapper.**
-- Integrations send only sanitized summaries off-machine (GitHub). They never
-  upload raw project files, raw secrets, or the local SQLite database.
-
-## "Enterprise-level" in the MVP
-
-For now this means a clean integration architecture, documented adapters, secure
-local daemon, and sanitized summaries — **not** cloud-first. Org policy files,
-central policy management, team dashboards, SSO, and audit exports are explicitly
-out of scope until requested.
+- GUI tools are observed via file changes and git diffs. **Full command guarding
+  requires supported hooks or MCP integration points, or running through the
+  wrapper.** See [Limitations](/limitations).
+- Integrations send only sanitized summaries off-machine, and only the GitHub
+  integration goes off-machine at all. They never upload raw project files, raw
+  secrets, or the local SQLite database. See [Security Model](/security-model).

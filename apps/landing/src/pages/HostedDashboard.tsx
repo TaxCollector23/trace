@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 //
 // Fully client-side, cloud-free: every fetch here targets your OWN local
 // daemon at http://127.0.0.1:8757/api/*. Nothing on this page ships your
-// data to Vercel, GitHub, us, or anywhere else — the browser talks
+// data to Vercel, GitHub, us, or anywhere else, the browser talks
 // directly to your machine.
 //
 // Auto-port discovery: the daemon writes its bound port to
@@ -115,7 +115,7 @@ function NoDaemon() {
         <div className="text-lg font-semibold text-text">No local daemon detected</div>
         <p className="mt-2 text-sm text-text-dim">
           The dashboard needs your Trace daemon running on <code className="rounded bg-black/5 px-1.5 py-0.5 text-xs">127.0.0.1</code>.
-          Once it&apos;s up, this page finds it automatically — no reload needed.
+          Once it&apos;s up, this page finds it automatically, no reload needed.
         </p>
         <ol className="mt-6 space-y-4 text-sm text-text">
           <li>
@@ -132,7 +132,7 @@ function NoDaemon() {
           </li>
           <li>
             <div className="font-medium">3. Reload this page</div>
-            <div className="text-text-dim">Or wait — it re-checks every few seconds automatically once you focus the tab.</div>
+            <div className="text-text-dim">Or wait, it re-checks every few seconds automatically once you focus the tab.</div>
           </li>
         </ol>
       </div>
@@ -140,7 +140,7 @@ function NoDaemon() {
         <div className="text-sm font-semibold text-text">Why local-only?</div>
         <p className="mt-2 text-sm text-text-dim leading-relaxed">
           Trace records diffs of every file your AI agents touch. That&apos;s data you often don&apos;t
-          want in the cloud. The hosted dashboard is a thin viewer — your browser reaches your own
+          want in the cloud. The hosted dashboard is a thin viewer, your browser reaches your own
           machine directly, so the traffic never leaves your device.
         </p>
         <p className="mt-3 text-sm text-text-dim leading-relaxed">

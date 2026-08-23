@@ -3,27 +3,38 @@ title: Versioning
 description: How Trace versions are numbered and surfaced.
 ---
 
-The current version is **1.2**.
+The current version is **1.3**.
 
 ```bash
 trc --version
-# Trace 1.2
+# Trace 1.3
 ```
 
 ## Single source of truth
 
-The version lives in one place — `trace-core::VERSION` — and is surfaced by:
+The version lives in one place, `trace-core::VERSION`, and every surface reads
+from it:
 
 - the `trc` CLI (`--version`, `-V`)
-- the daemon API (`GET /api/health` → `version`, `GET /api/state` → `version`)
-- the local dashboard (sidebar footer: "Trace v1.2")
+- the daemon API (`GET /api/health` and `GET /api/state`, each returning
+  `version`)
+- the local dashboard (sidebar footer)
 - this documentation and the README
-- the GitHub release tag (`v1.2.0`) and the Homebrew formula
+- the GitHub release tag (`v1.3.0`)
+
+Because there is one constant, these can never disagree.
 
 ## Scheme
 
-Trace uses a simple subversion scheme (`1.1`, `1.2`, …). The Cargo crate
-version uses the matching semver (`1.2.0`) because Cargo requires `x.y.z`, but
-the product version shown to users is the short form.
+Trace uses a simple subversion scheme (`1.1`, `1.2`, `1.3`, and so on). The Cargo
+crate version uses the matching semver (`1.3.0`), because Cargo requires `x.y.z`,
+but the product version shown to users is the short form.
 
 The version only advances when the project owner says so.
+
+## Rule pack versioning
+
+Detection coverage has its own calendar-versioned pack (for example
+`2025.08.4`), independent of the product version, so rules can update without a
+new binary release. `trc self-check` prints the active pack version. See
+[Rule Packs](/rule-packs).

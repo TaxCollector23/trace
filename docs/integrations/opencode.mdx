@@ -1,13 +1,13 @@
 ---
-title: opencode
-description: Connect Trace to opencode, the open-source terminal coding agent, over MCP.
+title: OpenCode
+description: Connect Trace to OpenCode, the open-source terminal coding agent, over MCP.
 ---
 
-[opencode](https://github.com/sst/opencode) is an open-source terminal coding
+[OpenCode](https://github.com/sst/opencode) is an open-source terminal coding
 agent that speaks the Model Context Protocol (MCP). Trace connects to it as a
-local MCP server — the same daemon-backed server used by the Cursor and
-Windsurf integrations — so opencode can classify commands, record runs, and
-read patch and rollback state through Trace. Everything stays on `127.0.0.1`.
+local MCP server, the same daemon-backed server used by the Cursor and Windsurf
+integrations, so OpenCode can classify commands, record runs, and read patch and
+rollback state through Trace. Everything stays on `127.0.0.1`.
 
 ## Install
 
@@ -18,9 +18,9 @@ trc integrations install all
 ```
 
 This writes the MCP server to `~/.trace/integrations/opencode/index.js` and
-idempotently patches your global opencode config at
-`~/.config/opencode/opencode.json` (XDG-aware), backing it up first and
-preserving any config you already have. The entry it adds:
+idempotently patches your global OpenCode config at
+`~/.config/opencode/opencode.json` (XDG-aware, honoring `XDG_CONFIG_HOME`),
+backing it up first and preserving any config you already have. The entry it adds:
 
 ```json
 {
@@ -35,8 +35,12 @@ preserving any config you already have. The entry it adds:
 }
 ```
 
-opencode merges every config file under `~/.config/opencode/`, so this
-coexists with other MCP servers you already run. Restart opencode to load it.
+OpenCode uses an `mcp` map whose entries are `{ type: "local", command: [ ... ],
+enabled: true }`, which differs from the `mcpServers` map that Cursor and Windsurf
+use, so the installer writes the OpenCode-native shape. OpenCode merges every
+config file under `~/.config/opencode/`, so this coexists with other MCP servers
+you already run. The MCP server runs under Node.js, so install Node 18 or newer.
+Restart OpenCode to load it.
 
 ## Verify
 
@@ -44,14 +48,18 @@ coexists with other MCP servers you already run. Restart opencode to load it.
 trc integrations status
 ```
 
-opencode should read **connected**. Start the daemon with `trc daemon start`
-if it isn't already running.
+OpenCode should read **connected**. Start the daemon with `trc daemon start` if it
+is not already running.
 
 ## Tools exposed
 
-`trace_check_command`, `trace_get_recent_runs`, `trace_start_run`,
-`trace_end_run`, `trace_record_event`, `trace_get_patch_summary`,
-`trace_get_rollback_options`.
+- `trace_check_command`
+- `trace_get_recent_runs`
+- `trace_start_run`
+- `trace_end_run`
+- `trace_record_event`
+- `trace_get_patch_summary`
+- `trace_get_rollback_options`
 
-If the daemon isn't running, tool calls fail closed and opencode proceeds
-without Trace — the integration never blocks your agent.
+If the daemon is not running, tool calls fail closed and OpenCode proceeds without
+Trace. The integration never blocks your agent.

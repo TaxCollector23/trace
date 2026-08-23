@@ -1,38 +1,76 @@
 ---
 title: Configuration
-description: The per-project .trace/config.toml file.
+description: The per-project .trace/config.toml file and related settings.
 ---
 
 `trc init` creates `.trace/config.toml` in your project. Configuration is
-intentionally small.
+intentionally small: Trace persists only what it actually needs.
 
 ```toml
 # Trace project configuration
+# Docs: https://github.com/TaxCollector23/trace
 
 project_name = "My App"
 protected_files = [".env", ".env.local", "id_rsa", "secrets.json"]
 default_checks = ["npm run build", "npm test"]
 created_at = "2026-06-14T20:30:00Z"
+github_repo = "your-org/your-app"
+default_branch = "main"
 ```
 
 | Field | Description |
 | --- | --- |
 | `project_name` | Display name shown in the dashboard. |
-| `protected_files` | File names/paths that raise a warning when changed during a run. Matched by file name or path suffix. |
+| `protected_files` | File names or paths that raise a warning when changed during a run. Matched by file name or path suffix. |
 | `default_checks` | Commands run after a run completes (build/test). Results appear as test results and timeline events. |
 | `created_at` | When the project was initialized. |
+| `github_repo` | The `owner/repo` detected from the `origin` remote at init. `None` for local-only projects. |
+| `default_branch` | The branch at init time. Informational; each run records the real branch and commit. |
 
-`project_name` is the only field settable via the CLI: `trc config set
-project_name "My App"`. See [CLI Commands](/cli-commands).
+`github_repo` and `default_branch` are detected automatically at `trc init` and
+are conveniences. Every run records its own real branch and starting commit, so
+these fields are never the authority on what a run touched.
+
+`project_name` is the only field settable from the CLI:
+
+```bash
+trc config set project_name "My App"
+trc config show     # prints the current config as TOML
+```
+
+Setting an unknown or read-only key is refused with a clear message rather than
+being silently ignored.
+
+## Protected files
+
+`protected_files` names files that should raise a warning whenever they change
+during a run, even if their contents match no secret pattern. Matching is by file
+name or by path suffix, so `.env` matches `config/.env` and `secrets.json`
+matches `app/secrets.json`. The default set is `.env`, `.env.local`, `id_rsa`,
+and `secrets.json`. Separately, filenames that are inherently environment-like
+(`.env`, `.env.*`, `id_rsa`, `secrets.json`, `*.pem`) are always treated as
+sensitive by the secret scanner. See [Secret Detection](/secret-detection).
 
 ## Checks
 
-When `default_checks` is set, Trace runs them after each `trc run` and
-records pass/fail results. Skip them for a single run with:
+When `default_checks` is set, Trace runs each command after `trc run` completes
+and records pass/fail results as timeline events and test results. This is how a
+run gets a `completed` versus `failed` status beyond the wrapped command's own
+exit code. Skip checks for a single run:
 
 ```bash
-trc run "claude" --no-checks
+trc run "claude ..." --no-checks
 ```
+
+If a check fails, the deterministic diagnosis engine correlates the failure output
+with the run's file changes. See [Patch Review](/patch-review).
+
+## Rule pack override
+
+Detection coverage can be extended with a versioned rule pack, pointed at by the
+`TRACE_RULES_PATH` environment variable. This is separate from per-project config
+and applies to the guard, secret scanner, and policy engine. See
+[Rule Packs](/rule-packs).
 
 ## Storage locations
 
@@ -40,8 +78,10 @@ trc run "claude" --no-checks
 | --- | --- |
 | `~/.trace/trace.db` | The global SQLite database. |
 | `~/.trace/daemon.json` | Daemon PID, port, and start time. |
-| `~/.trace/bin/trace` | Installed binary (via the install script). |
+| `~/.trace/daemon.log` | Daemon log output. |
+| `~/.trace/integrations/` | Installed hook and MCP files. |
 | `<project>/.trace/config.toml` | Per-project config. |
 | `<project>/.trace/runs/<run_id>/` | Captured stdout/stderr logs. |
 
-All of this stays on your machine.
+All of this stays on your machine. See [Concepts and
+Architecture](/concepts) and [Security Model](/security-model).

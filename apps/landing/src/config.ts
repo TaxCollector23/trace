@@ -27,7 +27,7 @@ export const DOWNLOADS = {
 // Where install.sh / install.ps1 are served from. We serve them from the
 // landing site itself (see apps/landing/public/) rather than
 // raw.githubusercontent so the pipe-to-shell one-liner shows a URL the
-// visitor already trusts — same host as the landing they're reading.
+// visitor already trusts, same host as the landing they're reading.
 // Override with VITE_LANDING_URL if this ever moves off the current
 // Vercel project (e.g. a real trace.dev domain).
 export const LANDING_URL: string =

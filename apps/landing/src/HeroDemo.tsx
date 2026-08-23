@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 
 /**
  * The hero visual: an animated, clickable mockup of the Trace desktop app
- * reviewing a single Claude Code session — file list, real diff, cost,
+ * reviewing a single Claude Code session: file list, real diff, cost,
  * risk. Click a file to see its diff; nothing here calls a real API, it's
  * illustrative, but it responds instead of sitting static.
  */
@@ -58,7 +58,7 @@ export default function HeroDemo() {
         <span className="h-2.5 w-2.5 rounded-full bg-[#ff5f57]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#febc2e]" />
         <span className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
-        <span className="ml-2 text-xs font-medium text-brand">Trace — Claude Code Session</span>
+        <span className="ml-2 text-xs font-medium text-brand">Trace: Claude Code session</span>
         <span className="ml-auto flex items-center gap-1.5 text-[11px] font-medium text-good">
           <span className="rec-dot h-1.5 w-1.5 rounded-full bg-good" />
           Recording
@@ -75,7 +75,7 @@ export default function HeroDemo() {
           <span className="rounded-full bg-good-soft px-2.5 py-1 text-[11px] font-medium text-good">completed</span>
         </motion.div>
 
-        {/* file list — click to preview that file's diff below */}
+        {/* file list, click to preview that file's diff below */}
         <motion.div variants={item} className="mt-4 space-y-1.5">
           {FILES.map((f, i) => (
             <button

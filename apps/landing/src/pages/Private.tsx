@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 
-// NOTE: this is a client-side gate only — the password ships in the built
+// NOTE: this is a client-side gate only, the password ships in the built
 // JavaScript, so it keeps casual visitors out but is NOT real security. Don't
 // put anything behind it that would be harmful to leak.
 const ACCESS_CODE = "password123";
@@ -83,16 +83,16 @@ export default function Private() {
         >
           <p className="mt-4 text-lg leading-relaxed text-text-dim">
             Unlocked. Here's your complete step-by-step guide to testing Trace
-            and Ratify end to end — no AI key required.
+            and Ratify end to end, no AI key required.
           </p>
 
           <div className="mt-7 rounded-2xl border border-border bg-white p-6 shadow-sm">
             <div className="font-serif text-lg text-text">
-              Testing Trace + Ratify — Complete Guide
+              Testing Trace + Ratify, Complete Guide
             </div>
             <p className="mt-2 text-sm leading-relaxed text-text-dim">
               Build the CLI, run the detection benchmarks, scan a dangerous
-              file, open the dashboard, and ratify a real GitHub pull request —
+              file, open the dashboard, and ratify a real GitHub pull request ,
               every step, in one document.
             </p>
             <a

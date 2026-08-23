@@ -3,95 +3,79 @@ title: Release Notes
 description: Trace changelog.
 ---
 
-## v1.2 — Fully deterministic: no API key, add Ratify
+## v1.3 - One-command agent onboarding
 
-- **Removed every LLM feature.** The 3-LLM judge panel, Model Prompting Mode,
-  the prompting coach, and PR-history "doctrine" mining are gone. Trace now runs
-  entirely on its deterministic engines (command guard, secret scanner, policy
-  engine) and **requires no AI/LLM API key** anywhere.
-- **Ratify** — run the deterministic policy engine over a GitHub pull request's
-  files and get a `pass` / `review` / `block` verdict, from the dashboard's new
-  **Ratify** tab, the new `trc ratify <pr>` command, or
-  `GET /api/github/ratify`. All three share one implementation.
-- **`trc check <file>`** — scan any file or script (or stdin) through the
-  guard + secret scanner without executing it; non-zero exit on
+- **`trc integrations install`** wires up your coding agents in one step.
+  `trc integrations install all` installs the Claude Code hooks, the Codex
+  wrapper, and the Cursor, Windsurf, and OpenCode MCP servers, patching each
+  agent's own config file idempotently and backing it up first. Install one at a
+  time with `trc integrations install <agent>`.
+- **`trc integrations status`** detects which agents are connected right now by
+  reading their config files, and reports the daemon and GitHub token state.
+- **Windsurf and OpenCode** join Cursor as MCP integrations, all backed by the
+  same local daemon. Windsurf uses `~/.codeium/windsurf/mcp_config.json`;
+  OpenCode uses `~/.config/opencode/opencode.json`.
+- **`trc replay <run_id>`** replays a run's timeline at its original recorded
+  pace (or `--fast` to print immediately), reading the same data as `show`,
+  `patch`, and `risks`.
+- **npm-only install** on every platform: `npm install -g trace-dev` installs the
+  `trc` command.
+
+## v1.2 - Fully deterministic: no API key, add Ratify
+
+- **Removed every LLM feature.** The judge panel, model prompting mode, the
+  prompting coach, and PR-history mining are gone. Trace runs entirely on its
+  deterministic engines (command guard, secret scanner, policy engine) and
+  **requires no AI/LLM API key** anywhere.
+- **Ratify** runs the deterministic policy engine over a GitHub pull request's
+  files and returns a `pass` / `review` / `block` verdict, from the dashboard's
+  **Ratify** tab, the `trc ratify <pr>` command, or `GET /api/github/ratify`. All
+  three share one implementation.
+- **`trc check <file>`** scans any file or script (or stdin) through the guard and
+  secret scanner without executing it, with a non-zero exit on
   require_approval/block for CI gating.
-- **Red-team benchmark** — an adversarial corpus (dangerous commands incl.
+- **Red-team benchmark**: an adversarial corpus (dangerous commands including
   evasions, planted secrets, unsafe prompts) run through the real engines and
-  scored for recall / false positives, surfaced in `trc self-check`,
+  scored for recall and false positives, surfaced in `trc self-check`,
   `GET /api/benchmarks/redteam`, and the dashboard's **Benchmarks** page.
 - Hardened the command guard against evasions (pipe-to-sudo-shell,
-  download-then-exec, base64-to-shell, `find … -delete`, raw block-device
-  writes) and expanded the secret-detector provider set.
-- `trc review-diff` and the GitHub CI Action are now policy-engine only
-  (the `--judge` flag and `enable-judge` input were removed).
-- Rule-pack override env var renamed `TRACEGUARD_RULES_PATH` → `TRACE_RULES_PATH`
-  (the legacy name is still honored).
-- Dashboard nav updated: the Judge Panel and Prompting Coach pages are gone;
-  a **Ratify** page is added. Token Spend (cost tracking) is unchanged.
+  download-then-exec, base64-to-shell, `find ... -delete`, raw block-device
+  writes) and expanded the secret detector's provider set.
+- `trc review-diff` and the GitHub CI Action became policy-engine only.
+- Rule-pack override env var renamed `TRACEGUARD_RULES_PATH` to
+  `TRACE_RULES_PATH` (the legacy name is still honored).
 
-## v1.1 — Rebrand to Trace, TraceCompress removed
+## v1.1 - Rebrand to Trace
 
-- Renamed the project from **TraceGuard** to **Trace**. The binary is now
-  `trace` (previously `trg`, with `traceguard` as a long alias — both are
-  gone).
-- Removed **TraceCompress** (prompt compression, output-budget presets, and
-  the `compress-prompt` / `run --compress` commands) and the agent-launching
-  surface (`agents`, `use`, `launch`, `guard`, `rules`). Trace is scoped to
+- Renamed the project from **TraceGuard** to **Trace**. The binary is now `trc`.
+- Removed prompt compression and the agent-launching surface. Trace is scoped to
   recording, guarding, and reviewing agent runs.
 - Global directory moved to `~/.trace` (database `trace.db`); per-project
   directory moved to `<project>/.trace`.
-- GitHub repo, Docs Pages, Homebrew tap, and npm package all moved to the
-  `trace` name.
-- **GitHub**: read directly from the repo (including private) via `trace
+- **GitHub**: read directly from the repo (including private repos) via `trc
   github` and the dashboard GitHub page.
-- **Docs** moved to GitHub Pages; **landing** with OS-aware install.
-- Homebrew tap, install scripts, npm wrapper, `trc update`.
+- Docs moved to GitHub Pages; landing page with a per-OS install block.
 
-## Earlier — pre-rebrand groundwork (as TraceGuard)
-
-- **TraceCompress**: prompt compression + output discipline (since removed —
-  see above).
-  - Modes: Normal, Concise, Bare Mode (strict response rules).
-  - Preserved-constraints checklist, removed-redundancy summary, conflict
-    detection, response-rules block, output-budget presets (Tiny/Short/Normal/Detailed).
-  - CLI: `trg compress-prompt --mode <m> [--output-budget <p>]` and
-    `trg run --compress`.
-  - Dashboard: **Prompt Compressor** page.
-  - Privacy: `[prompt_compression]` config; `prompt_history = false` stores only
-    estimates + metadata, never raw prompt text. External-LLM compression was
-    opt-in.
-  - New endpoints under `/api/prompt-compressor/*`.
-- `trg update` self-update command.
-- MIT `LICENSE` added.
-
-## v0.1.0 — Local-first MVP (as TraceGuard)
+## v0.1.0 - Local-first MVP
 
 Initial release.
 
 **Core**
-- `trg` CLI: `init`, `run`, `dashboard`, `rollback`, `compress-prompt`,
-  `daemon start|stop|status`.
-- Local Axum daemon bound to `127.0.0.1`, port discovery from `8757`.
+- The CLI: `init`, `run`, `dashboard`, `rollback`, and `daemon start|stop|status`.
+- Local Axum daemon bound to `127.0.0.1`, with port discovery from `8757`.
 - Local SQLite persistence and the local React dashboard (Dashboard, Run
-  Timeline, Patch Review, Cost Center, Risk Center, Rollback Center, Utilities).
+  Timeline, Patch Review, Cost Center, Risk Center, Rollback Center).
 
 **Monitoring**
-- Run recording with checkpoints, file watching, command output capture.
-- Git checkpoints and Git-based rollback.
+- Run recording with checkpoints, file watching, and command output capture.
+- Git checkpoints and git-based rollback.
 - Rule-based command guarding (allow / warn / require approval / block).
 - Local secret detection with redaction.
-- Cost tracking schema with honest partial-data handling.
+- Cost tracking with honest partial-data handling.
 - Deterministic patch diagnosis.
 
-**Productivity**
-- Prompt Compressor (local, deterministic) and output-budget controls.
-
 **Surfaces**
-- Public landing site (`apps/landing`, Vercel).
-- Mintlify documentation.
-- Integration scaffolds: GitHub, Claude Code, Codex, VS Code, Cursor.
-- Installers: Homebrew tap, shell script, PowerShell script, optional npm
-  wrapper.
+- Public landing site and Mintlify documentation.
+- Integration scaffolds for GitHub, Claude Code, Codex, and Cursor.
 
 > Dates and versions are updated as releases are tagged.

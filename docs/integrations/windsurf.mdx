@@ -1,0 +1,65 @@
+---
+title: Windsurf
+description: An MCP server exposing Trace tools to Windsurf.
+---
+
+The Windsurf integration is an **MCP server** backed by the local daemon, the same
+daemon-backed server the Cursor and OpenCode integrations use. Windsurf ships MCP
+config in the same shape as Cursor (an `mcpServers` map), so a single MCP server
+works for both with no per-editor fork.
+
+## Install
+
+```bash
+trc integrations install windsurf
+```
+
+This writes the MCP server under `~/.trace/integrations/` and idempotently patches
+Windsurf's MCP config at `~/.codeium/windsurf/mcp_config.json`, backing it up
+first and preserving any servers you already run. The entry it adds:
+
+```json
+{
+  "mcpServers": {
+    "trace": {
+      "command": "node",
+      "args": ["/Users/you/.trace/integrations/cursor/index.js"]
+    }
+  }
+}
+```
+
+The MCP server runs under Node.js, so install Node 18 or newer. Restart Windsurf
+to load the server.
+
+## Tools exposed
+
+- `trace_check_command`
+- `trace_get_recent_runs`
+- `trace_start_run`
+- `trace_end_run`
+- `trace_record_event`
+- `trace_get_patch_summary`
+- `trace_get_rollback_options`
+
+The server connects to `http://127.0.0.1:<port>` using the port recorded in
+`~/.trace/daemon.json`. Start the daemon with `trc daemon start` if it is not
+already running. If the daemon is down, tool calls fail closed and Windsurf
+proceeds without Trace.
+
+## Verify
+
+```bash
+trc integrations status
+```
+
+Windsurf should read **connected** with "MCP server".
+
+## Honest limitation
+
+<Note>
+Windsurf is a GUI editor. A terminal-wrapped Windsurf session (`trc run "windsurf
+..."`) can observe filesystem and git changes but not meaningful piped terminal
+output, so the MCP server is the primary integration surface. Full command
+blocking requires supported integration points. See [Limitations](/limitations).
+</Note>

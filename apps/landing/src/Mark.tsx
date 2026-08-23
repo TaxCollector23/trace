@@ -1,4 +1,4 @@
-/** The Trace logotype mark — a rounded blue square with a white "T". */
+/** The Trace logotype mark, a rounded blue square with a white "T". */
 export function Mark({ size = 24, className }: { size?: number; className?: string }) {
   return (
     <svg viewBox="0 0 256 256" width={size} height={size} className={className} aria-hidden="true">

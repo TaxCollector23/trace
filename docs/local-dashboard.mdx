@@ -5,14 +5,18 @@ description: Review runs in a local-only web dashboard.
 
 The dashboard is served by the local daemon and is **local-only**. It binds to
 `127.0.0.1` (never `0.0.0.0`), prefers port `8757`, and falls back to the next
-available port (`8758`, `8759`, …) if that is busy. There is no account and no
-authentication because it is reachable only from your machine.
+available port (`8758`, `8759`, and so on) if that is busy. There is no account
+and no authentication, because it is reachable only from your machine.
 
 Open it with:
 
 ```bash
 trc dashboard
 ```
+
+This starts the daemon if it is not already running, finds the active port, and
+opens your browser. The daemon serves the built React app in release builds, so
+no separate server is needed.
 
 ## Sections
 
@@ -26,21 +30,50 @@ Chronological events for a selected run: checkpoint created, commands, file
 changes, risks, secrets, build/test results, final diff, completion.
 </Card>
 <Card title="Patch Review" icon="code-compare">
-Files added / modified / deleted, with dependency, config, and environment
-highlights, derived from the actual Git diff.
+Files added, modified, and deleted, with dependency, config, and environment
+highlights, derived from the actual git diff.
 </Card>
 <Card title="Cost Center" icon="dollar-sign">
-Provider, model, token counts, and estimated cost — with honest "unavailable"
+Provider, model, token counts, and estimated cost, with honest "unavailable"
 labels when data is missing.
 </Card>
 <Card title="Risk Center" icon="shield-halved">
-Blocked / warned / approved commands, protected-file warnings, and redacted
+Blocked, warned, and approved commands, protected-file warnings, and redacted
 secret detections.
 </Card>
 <Card title="Rollback Center" icon="rotate-left">
-Checkpoints with their Git refs and a confirmed, Git-based rollback action.
+Checkpoints with their git refs and a confirmed, git-based rollback action.
+</Card>
+<Card title="Ratify" icon="clipboard-check">
+Run the deterministic policy engine over a GitHub pull request and get a
+pass / review / block verdict. See [CI Integration](/ci-integration).
+</Card>
+<Card title="Benchmarks" icon="chart-simple">
+The policy-engine fixtures and the adversarial red-team corpus scored against
+the real engines. See [Benchmarks](/benchmarks).
 </Card>
 </CardGroup>
+
+## It is read-only over the API
+
+The dashboard reads from the same local API the CLI uses. Everything it shows is
+already in the local database. It does not connect to any remote service, and the
+static landing page and any optional mirror must not connect to the local daemon.
+See [Security Model](/security-model).
+
+## The local API
+
+The daemon exposes a small HTTP API under `/api/*` on the same loopback port. A
+few endpoints worth knowing:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/health` | Liveness plus the product `version`. |
+| `GET /api/state` | Daemon state, including `active_projects` and `version`. |
+| `GET /api/github/ratify` | The same ratify computation as `trc ratify`. |
+| `GET /api/benchmarks/redteam` | The red-team benchmark results. |
+
+These are reachable only from your machine.
 
 ## Development mode
 

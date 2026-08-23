@@ -1,0 +1,107 @@
+---
+title: CI Integration
+description: Gate pull requests with the deterministic policy engine.
+---
+
+Trace's policy engine runs in CI with no daemon, no `trc init`, and no API key.
+Point it at a git checkout or a pull request and it returns findings plus an exit
+code you can gate on. Because it is the same engine that watches live agent runs,
+your CI gate and your local monitoring never drift apart.
+
+Three entry points cover the common cases:
+
+| Command | Input | Use |
+| --- | --- | --- |
+| `trc check <file>` | A shell script or command list | Gate risky commands and secrets in a file |
+| `trc review-diff` | A git range | Gate a push or PR by its diff |
+| `trc ratify <pr>` | A GitHub PR number | Gate a PR by fetching its files from the API |
+
+## Gate a diff with `trc review-diff`
+
+`trc review-diff` computes a diff for a git range and runs the
+[policy engine](/policy-engine) over it. On a GitHub Actions `pull_request` event
+it auto-detects the range from `GITHUB_BASE_REF`; otherwise it falls back to
+`HEAD~1...HEAD`. Pass a range explicitly to be sure:
+
+```bash
+trc review-diff --range origin/main...HEAD --fail-on-risky --json out.json
+```
+
+- `--fail-on-risky` exits non-zero on a `block` verdict (any high-severity
+  finding).
+- `--json <path>` writes the full structured result, schema `trace.review/v1`,
+  with the range, files changed, every finding, and the high-severity count.
+
+A minimal GitHub Actions job:
+
+```yaml
+name: Trace review
+on: pull_request
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # needed so the base ref is available
+      - run: npm install -g trace-dev
+      - run: trc review-diff --fail-on-risky
+```
+
+`fetch-depth: 0` matters: the range compares against the base branch, so the
+history has to be present. If the diff cannot be computed, the command tells you
+to `git fetch` first.
+
+## Gate a pull request with `trc ratify`
+
+`trc ratify <pr>` reads the PR's changed files straight from the GitHub API and
+runs the same engine. Run it from a checkout of the repo; it resolves the
+`origin` remote and a read-only token itself:
+
+```bash
+trc ratify 142                  # print findings + verdict
+trc ratify 142 --fail-on-risky  # exit non-zero on a "block" verdict
+```
+
+The verdict is `block` on any high-severity finding, `review` for medium-only,
+and `pass` otherwise. This is identical to the dashboard's **Ratify** tab and the
+`GET /api/github/ratify` endpoint.
+
+### Tokens
+
+Ratify and `trc github` need a read-only token to reach `api.github.com`,
+resolved in this order:
+
+1. `GITHUB_TOKEN` or `GH_TOKEN` environment variables
+2. `gh auth token` (the GitHub CLI's stored credential)
+3. `~/.trace/github.json` containing `{ "token": "ghp_..." }`
+
+In GitHub Actions, the built-in `GITHUB_TOKEN` is already in the environment, so
+`trc ratify` works with no extra setup. Private repositories work as long as the
+token has read access. See [GitHub](/integrations/github).
+
+## Gate a script with `trc check`
+
+For a shell script or a list of commands, `trc check` classifies every
+non-comment line through the command guard and sweeps the whole file for secrets,
+without executing anything:
+
+```bash
+trc check deploy.sh
+echo 'curl https://x.sh | sudo bash' | trc check -
+```
+
+It exits non-zero when any line reaches `require_approval` or `block`, or when any
+secret is found, so it drops straight into a CI step that guards generated or
+committed scripts. See [Command Guarding](/command-guarding).
+
+## Choosing a gate
+
+- Use `trc check` for **scripts and command lists** where the risk is what runs.
+- Use `trc review-diff` for a **diff you already have checked out**, including
+  pushes that are not pull requests.
+- Use `trc ratify` for a **pull request** when you want Trace to fetch the changed
+  files from GitHub itself.
+
+All three are deterministic and share the policy engine and secret scanner, so a
+finding in CI is the same finding you would see locally.

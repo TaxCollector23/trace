@@ -51,7 +51,7 @@ export default function DesktopDownload() {
         <h1 className="font-serif text-4xl text-text">Download Trace</h1>
         <p className="mx-auto mt-4 max-w-[520px] text-text-dim">
           One binary. It starts its own local daemon, embeds the dashboard, and
-          connects to your agents automatically — no terminal required.
+          connects to your agents automatically, no terminal required.
         </p>
       </div>
 

@@ -3,28 +3,58 @@ title: Claude Code
 description: Hooks adapter with wrapper fallback.
 ---
 
-The Claude Code integration prefers the wrapper and adds optional hooks.
+The Claude Code integration prefers the wrapper and adds optional hooks for
+finer-grained monitoring.
+
+## Install the hooks
+
+```bash
+trc integrations install claude
+```
+
+This writes the hook script to `~/.trace/integrations/claude/trace-hook.sh` and
+idempotently patches `~/.claude/settings.json`, backing it up first. The entry it
+adds registers Trace on two tool-use events:
+
+- **PreToolUse** on `Bash`: the guard sees a command before Claude Code runs it.
+- **PostToolUse** on `Edit`, `Write`, `MultiEdit`, and `NotebookEdit`: file edits
+  are recorded as observation events.
+
+Start the daemon so the hooks have somewhere to report:
+
+```bash
+trc daemon start
+```
+
+Hooks apply to **new** Claude Code sessions, so restart Claude Code after
+installing. Verify with:
+
+```bash
+trc integrations status
+```
+
+Claude Code should read **connected** with "PreToolUse + PostToolUse hooks".
 
 ## Wrapper (works everywhere)
+
+You do not need hooks to get monitoring. The wrapper works with any version:
 
 ```bash
 trc run claude
 trc run "claude fix the login bug"
 ```
 
-This maps the Claude session to a Trace run, checkpoints Git, watches file
-changes, records output, and captures the final diff.
+This maps the Claude session to a Trace run, checkpoints git, watches file
+changes, records output, and captures the final diff. If hooks are unavailable or
+not configured, Trace falls back to wrapper-based monitoring automatically.
 
-## Hooks adapter
+## Which to use
 
-When Claude Code hooks are configured, the adapter in `integrations/claude/`
-sends events to the local daemon for finer-grained monitoring:
+- The **hooks** give the guard a chance to see each Bash command Claude Code
+  issues, and record edits at tool-use granularity.
+- The **wrapper** attributes the whole session to one run and captures the final
+  git diff as the source of truth.
 
-- session start → create/associate a Trace run
-- pre-tool / pre-command → risk check (and block where hooks allow)
-- post-edit / file change → observation events
-- map the Claude session id to a Trace run id
-
-Install the hooks by adding the provided entries to your Claude Code settings
-(see `integrations/claude/README.md`). If hooks are unavailable or not
-configured, Trace falls back to wrapper-based monitoring automatically.
+They are complementary. Installing the hooks and also launching through `trc run`
+gives you both the per-tool detail and the whole-session record. See
+[Agent Runs](/agent-runs).

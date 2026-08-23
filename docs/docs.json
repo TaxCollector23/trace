@@ -12,40 +12,53 @@
     "groups": [
       {
         "group": "Getting Started",
-        "pages": ["overview", "installation", "quickstart"]
+        "pages": ["overview", "concepts", "installation", "quickstart"]
       },
       {
         "group": "Using Trace",
         "pages": [
           "cli-commands",
-          "local-dashboard",
           "agent-runs",
-          "command-guarding",
-          "secret-detection",
-          "cost-tracking",
+          "local-dashboard",
           "patch-review",
-          "rollback"
+          "rollback",
+          "cost-tracking"
         ]
+      },
+      {
+        "group": "Detection Engines",
+        "pages": [
+          "command-guarding",
+          "command-guard-rules",
+          "secret-detection",
+          "policy-engine",
+          "rule-packs",
+          "benchmarks"
+        ]
+      },
+      {
+        "group": "CI and Automation",
+        "pages": ["ci-integration"]
       },
       {
         "group": "Integrations",
         "pages": [
           "integrations/overview",
-          "integrations/github",
           "integrations/claude",
           "integrations/codex",
-          "integrations/vscode",
           "integrations/cursor",
-          "integrations/opencode"
+          "integrations/windsurf",
+          "integrations/opencode",
+          "integrations/github"
         ]
       },
       {
         "group": "Reference",
         "pages": [
           "configuration",
+          "security-model",
           "troubleshooting",
           "limitations",
-          "security-model",
           "versioning",
           "release-notes"
         ]

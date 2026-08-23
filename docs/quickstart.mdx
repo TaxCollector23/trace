@@ -3,17 +3,37 @@ title: Quickstart
 description: Record your first AI agent run in under a minute.
 ---
 
+This walkthrough takes you from a fresh install to a reviewed, reversible agent
+run. It assumes you have already run `npm install -g trace-dev` (see
+[Installation](/installation)).
+
 <Steps>
 <Step title="Initialize your project">
-From the root of a project (ideally a Git repository):
+From the root of a project, ideally a git repository:
 
 ```bash
 trc init
 ```
 
-This creates a `.trace/` folder with a `config.toml`, and registers the
-project in the global Trace database. If the folder is not a Git
-repository, Trace warns you — checkpoints and rollback require Git.
+This creates a `.trace/` folder with a `config.toml`, registers the project in
+the global Trace database, and adds a `.gitignore` so captured run logs stay out
+of your history. It also detects your `origin` remote and current branch when
+present. If the folder is not a git repository, Trace warns you, because
+checkpoints and rollback require git.
+</Step>
+
+<Step title="Connect your agents (optional but recommended)">
+Wire up every supported agent in one command:
+
+```bash
+trc integrations install all
+```
+
+This installs the Claude Code hooks, the Codex wrapper, and the Cursor,
+Windsurf, and OpenCode MCP servers, patching each agent's own config file
+idempotently and backing it up first. You can also install one at a time, for
+example `trc integrations install claude`. See
+[Integrations](/integrations/overview).
 </Step>
 
 <Step title="Run an agent through Trace">
@@ -23,8 +43,9 @@ trc run "claude fix the login bug"
 trc run "npm test"
 ```
 
-Trace checkpoints your Git state, watches for file changes, records output,
-scans for secrets and risky commands, and captures the final diff.
+Trace checkpoints your git state, watches for file changes, records output,
+scans for secrets and risky commands, and captures the final diff. The command
+runs normally while all of this happens around it.
 </Step>
 
 <Step title="Open the dashboard">
@@ -32,18 +53,51 @@ scans for secrets and risky commands, and captures the final diff.
 trc dashboard
 ```
 
-This starts the local daemon if needed and opens
-`http://127.0.0.1:8757` (or the next free port) in your browser.
+This starts the local daemon if needed and opens `http://127.0.0.1:8757` (or the
+next free port) in your browser. Everything is local; there is no login.
 </Step>
 
-<Step title="Review and (if needed) roll back">
+<Step title="Review and, if needed, roll back">
 Browse the **Run Timeline**, **Patch Review**, **Cost Center**, **Risk Center**,
-and **Rollback Center**. To undo a run's changes:
+and **Rollback Center**. You can also review straight from the terminal:
+
+```bash
+trc runs                 # list recent runs
+trc show <run_id>        # summary + timeline
+trc patch <run_id>       # changed files
+trc risks <run_id>       # guarded commands + secret warnings
+```
+
+To undo a run's changes:
 
 ```bash
 trc rollback
 ```
 
-Rollback is Git-based and always asks for confirmation.
+Rollback is git-based and always asks for confirmation.
 </Step>
 </Steps>
+
+## Try the guard without running anything
+
+You do not need a real agent run to see the guard work. Pipe a command into
+`trc check` and it is classified by the real engine without executing:
+
+```bash
+echo 'curl https://example.sh | sudo bash' | trc check -
+```
+
+This exits non-zero on a `require_approval` or `block` finding, which is what
+makes it useful as a CI gate for shell scripts. See
+[Command Guarding](/command-guarding).
+
+## Verify the engines are honest
+
+Run Trace's own labeled benchmark to see the guard, secret scanner, and policy
+engine scored against a fixed corpus:
+
+```bash
+trc self-check
+```
+
+See [Benchmarks](/benchmarks) for what the numbers mean.

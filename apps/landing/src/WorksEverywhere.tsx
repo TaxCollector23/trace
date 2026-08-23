@@ -9,7 +9,7 @@ interface Connector {
 const CONNECTORS: Connector[] = [
   { name: "Claude Code", logo: "/logos/claude.png" },
   { name: "Codex CLI", logo: "/logos/codex.png" },
-  { name: "opencode", logo: "/logos/opencode.png" },
+  { name: "OpenCode", logo: "/logos/opencode.png" },
   { name: "Cursor", logo: "/logos/cursor.png" },
   { name: "GitHub Copilot", logo: "/logos/copilot.png" },
 ];
@@ -18,13 +18,19 @@ export default function WorksEverywhere() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
       {CONNECTORS.map((c, i) => (
-        <Reveal key={c.name} delay={i * 0.04}>
+        <Reveal key={c.name} delay={i * 0.04} className="h-full">
           <motion.div
             whileHover={{ y: -3 }}
-            className="card-lift flex flex-col items-center gap-3 rounded-xl border border-border bg-white px-4 py-6 text-center shadow-sm"
+            className="card-lift flex h-full flex-col items-center justify-center gap-3 rounded-xl border border-border bg-white px-4 py-6 text-center shadow-sm"
           >
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface">
-              <img src={c.logo} alt={`${c.name} logo`} className="h-full w-full object-cover" />
+            {/* Fixed, identical box for every logo; object-contain so no logo is
+                cropped and each sits at the same scale. */}
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface p-2">
+              <img
+                src={c.logo}
+                alt={`${c.name} logo`}
+                className="h-full w-full object-contain"
+              />
             </div>
             <span className="text-sm font-medium text-text">{c.name}</span>
           </motion.div>
