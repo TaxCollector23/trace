@@ -158,7 +158,7 @@ pub fn router(state: AppState) -> Router {
     info(
         title = "Trace Cloud API",
         description = "Hosted backend for Trace. Local daemons POST completed runs here; the web dashboard reads them back. Auth is opaque bearer tokens.",
-        version = "1.2.1",
+        version = "1.3.0",
     ),
     paths(healthz, upload_run, list_runs, get_run),
     components(

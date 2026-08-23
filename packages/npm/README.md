@@ -12,4 +12,4 @@ This is a **fallback** install method. The primary methods are Homebrew (macOS),
 the PowerShell script (Windows), and the curl shell script (Linux/macOS). See
 the [main README](../../README.md).
 
-Pin a version with `TRACE_VERSION=v1.2.0 npm install -g trace-dev`.
+Pin a version with `TRACE_VERSION=v1.3.0 npm install -g trace-dev`.

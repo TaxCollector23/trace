@@ -56,6 +56,14 @@ fn agent_connections() -> Vec<(&'static str, bool, &'static str)> {
             exists(&[".trace", "integrations", "codex", "codex-adapter.sh"]),
             "wrapper script (add the shell alias to finish)",
         ),
+        (
+            "opencode",
+            contains(
+                &[".config", "opencode", "opencode.json"],
+                ".trace/integrations/opencode",
+            ),
+            "MCP server",
+        ),
     ]
 }
 
@@ -63,6 +71,7 @@ const INTEGRATIONS: &[(&str, &str, &str)] = &[
     ("Claude Code", "wrapper + hooks", "integrations/claude"),
     ("Codex CLI", "wrapper", "integrations/codex"),
     ("Cursor", "MCP server", "integrations/cursor"),
+    ("opencode", "MCP server", "integrations/opencode"),
     ("VS Code", "extension", "integrations/vscode"),
     (
         "GitHub",

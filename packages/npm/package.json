@@ -1,6 +1,6 @@
 {
   "name": "trace-dev",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Trace CLI — installs the `trc` binary. The trust layer for autonomous software engineering.",
   "keywords": ["trace", "trc", "ai", "coding-agent", "safety", "observability", "cli"],
   "license": "MIT",

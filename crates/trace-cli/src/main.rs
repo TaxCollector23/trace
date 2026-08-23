@@ -310,7 +310,7 @@ fn main() {
         print_banner();
     }
 
-    // Handle `--version` / `-V` manually so the output is exactly "Trace 1.2".
+    // Handle `--version` / `-V` manually so the output is exactly "Trace 1.3".
     // clap's built-in flag is disabled for this reason.
     if args.iter().any(|a| a == "--version" || a == "-V") {
         println!("{}", trace_core::version_string());

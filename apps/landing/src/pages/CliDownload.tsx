@@ -46,7 +46,7 @@ const AFTER_INSTALL = [
   {
     step: "1. Confirm the install",
     code: "trc --version",
-    body: "You should see \"Trace 1.2\" or later.",
+    body: "You should see \"Trace 1.3\" or later.",
   },
   {
     step: "2. Start the daemon",
