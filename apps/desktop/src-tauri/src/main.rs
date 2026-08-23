@@ -1,7 +1,7 @@
 //! Trace desktop shell: a thin native window around the local dashboard.
 //!
 //! It does not duplicate the dashboard's UI — it hosts the same daemon the CLI
-//! uses (reusing an already-running one if `trace dashboard`/`trace run` started
+//! uses (reusing an already-running one if `trc dashboard`/`trc run` started
 //! it first) and points a native window at it.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]

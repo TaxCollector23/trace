@@ -24,7 +24,7 @@ function daemonBase() {
 
 async function api(method, route, body) {
   const base = daemonBase();
-  if (!base) throw new Error("Trace daemon is not running. Run `trace dashboard`.");
+  if (!base) throw new Error("Trace daemon is not running. Run `trc dashboard`.");
   const res = await fetch(`${base}/api${route}`, {
     method,
     headers: body ? { "content-type": "application/json" } : undefined,
@@ -37,7 +37,7 @@ async function api(method, route, body) {
 async function projectIdForPath(projectPath) {
   const projects = await api("GET", "/projects");
   const match = projects.find((p) => p.path === projectPath);
-  if (!match) throw new Error(`No Trace project at ${projectPath}. Run \`trace init\` there.`);
+  if (!match) throw new Error(`No Trace project at ${projectPath}. Run \`trc init\` there.`);
   return match.id;
 }
 

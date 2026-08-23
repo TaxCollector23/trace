@@ -7,7 +7,7 @@
 //! (did it trip on something benign).
 //!
 //! This is the single source of truth for the red-team numbers shown by
-//! `trace self-check`, the daemon's `/benchmarks` endpoint, and the web
+//! `trc self-check`, the daemon's `/benchmarks` endpoint, and the web
 //! dashboard. The `redteam_bench` example is a thin plain-text printer on top.
 
 use serde::Serialize;

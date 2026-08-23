@@ -1,4 +1,4 @@
-//! `trace init` — initialize Trace in the current project.
+//! `trc init` — initialize Trace in the current project.
 //!
 //! Inspects the folder Trace is run inside: finds the repository root, detects
 //! whether it's a Git repo, reads the `origin` remote and resolves the GitHub
@@ -121,7 +121,7 @@ pub fn run() -> Result<()> {
 
     println!(
         "\nNext: {} to connect your agents.",
-        colors::bold("trace install agents")
+        colors::bold("trc install agents")
     );
     Ok(())
 }

@@ -8,7 +8,7 @@ repository.workspace = true
 description = "Trace CLI: local black box recorder for AI coding agents."
 
 [[bin]]
-name = "trace"
+name = "trc"
 path = "src/main.rs"
 
 [dependencies]

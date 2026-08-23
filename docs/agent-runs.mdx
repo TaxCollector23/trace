@@ -7,7 +7,7 @@ A **run** is one monitored session. It starts when you launch something through
 Trace and ends when that command exits.
 
 ```bash
-trace run "claude fix the login bug"
+trc run "claude fix the login bug"
 ```
 
 ## What a run captures
@@ -28,12 +28,12 @@ trace run "claude fix the login bug"
 Trace works best when agents are launched **through** the wrapper:
 
 ```bash
-trace run <command>
+trc run <command>
 ```
 
 This is how Trace attributes commands, output, and risks to a run. The file
 watcher and Git diff can still observe changes a tool makes outside the wrapper,
-but full command guarding and run attribution require `trace run`.
+but full command guarding and run attribution require `trc run`.
 
 ## Run statuses
 

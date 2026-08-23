@@ -8,7 +8,7 @@
 /// when the project owner advances to the next subversion.
 pub const VERSION: &str = "1.2";
 
-/// The exact string printed by `trace --version`.
+/// The exact string printed by `trc --version`.
 pub fn version_string() -> String {
     format!("Trace {VERSION}")
 }

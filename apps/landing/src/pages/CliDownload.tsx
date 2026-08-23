@@ -26,7 +26,7 @@ const OPTIONS: Option[] = [
     os: "macOS · Linux",
     method: "curl",
     command: `curl -fsSL ${LANDING_URL}/install.sh | sh`,
-    hint: "Downloads the right binary for your arch to ~/.trace/bin/trace and prints PATH instructions.",
+    hint: "Downloads the right binary for your arch to ~/.trace/bin/trc and prints PATH instructions.",
   },
   {
     os: "Windows",
@@ -34,28 +34,34 @@ const OPTIONS: Option[] = [
     command: `irm ${LANDING_URL}/install.ps1 | iex`,
     hint: "Run in PowerShell. Installs to %USERPROFILE%\\.trace\\bin and updates your user PATH.",
   },
+  {
+    os: "Any · npm",
+    method: "npm",
+    command: "npm install -g trace-dev",
+    hint: "Cross-platform. Pulls the matching binary from GitHub Releases and puts `trc` on your PATH.",
+  },
 ];
 
 const AFTER_INSTALL = [
   {
     step: "1. Confirm the install",
-    code: "trace --version",
+    code: "trc --version",
     body: "You should see \"Trace 1.2\" or later.",
   },
   {
     step: "2. Start the daemon",
-    code: "trace daemon start",
+    code: "trc daemon start",
     body: "The daemon listens on 127.0.0.1 only. It holds the session store, the dashboard, and the review pipeline.",
   },
   {
     step: "3. Wire up every agent you use",
-    code: "trace integrations install all",
+    code: "trc integrations install all",
     body: "Idempotently patches Claude Code settings, Cursor MCP config, and Windsurf MCP config. Timestamped backups on first write.",
   },
   {
     step: "4. Watch a real session",
-    code: "trace run \"claude fix the bug in src/api.py\"",
-    body: "Or launch your agent normally after step 3 — the hooks report back automatically. Open the dashboard with `trace dashboard`.",
+    code: "trc run \"claude fix the bug in src/api.py\"",
+    body: "Or launch your agent normally after step 3 — the hooks report back automatically. Open the dashboard with `trc dashboard`.",
   },
 ];
 
@@ -91,7 +97,7 @@ export default function CliDownload() {
       <div className="mt-10 max-w-[720px]">
         <h1 className="font-serif text-4xl text-text">Install the Trace CLI</h1>
         <p className="mt-4 text-lg text-text-dim">
-          The full <code className="rounded bg-black/5 px-1.5 py-0.5 text-sm">trace</code> binary
+          The full <code className="rounded bg-black/5 px-1.5 py-0.5 text-sm">trc</code> binary
           — daemon, dashboard, hook installer, PR ratification, everything. One command per
           platform.
         </p>

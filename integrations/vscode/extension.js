@@ -91,7 +91,7 @@ class RunsProvider {
   }
   getChildren() {
     if (!daemonBaseUrl()) {
-      const item = new vscode.TreeItem("Daemon not running — run `trace dashboard`");
+      const item = new vscode.TreeItem("Daemon not running — run `trc dashboard`");
       item.iconPath = new vscode.ThemeIcon("debug-disconnect");
       return [item];
     }
@@ -130,7 +130,7 @@ class CopilotSession {
   async start() {
     const base = daemonBaseUrl();
     if (!base) {
-      vscode.window.showErrorMessage("Trace daemon isn't running. Run `trace dashboard` first.");
+      vscode.window.showErrorMessage("Trace daemon isn't running. Run `trc dashboard` first.");
       return;
     }
     const folder = vscode.workspace.workspaceFolders?.[0];
@@ -143,7 +143,7 @@ class CopilotSession {
     const project = projects.find((p) => p.path === projectPath);
     if (!project) {
       vscode.window.showErrorMessage(
-        `This folder isn't a Trace project yet. Run \`trace init\` in ${projectPath} first.`
+        `This folder isn't a Trace project yet. Run \`trc init\` in ${projectPath} first.`
       );
       return;
     }
@@ -220,7 +220,7 @@ function activate(context) {
       } else {
         const term = vscode.window.createTerminal("Trace");
         term.show();
-        term.sendText("trace dashboard");
+        term.sendText("trc dashboard");
       }
     }),
     vscode.commands.registerCommand("trace.runCommand", async () => {
@@ -231,7 +231,7 @@ function activate(context) {
       if (!command) return;
       const term = vscode.window.createTerminal("Trace");
       term.show();
-      term.sendText(`trace run ${JSON.stringify(command)}`);
+      term.sendText(`trc run ${JSON.stringify(command)}`);
     }),
     vscode.commands.registerCommand("trace.startCopilotSession", () => session.start()),
     vscode.commands.registerCommand("trace.endCopilotSession", () => session.end()),

@@ -14,8 +14,8 @@ apps/docs/dist
 
 # Tooling
 .vercel
-packages/npm/bin/trace
-packages/npm/bin/trace.exe
+packages/npm/bin/trc
+packages/npm/bin/trc.exe
 
 # OS / editor
 .DS_Store

@@ -44,49 +44,49 @@ irm https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.
 
 **npm (optional fallback)**
 ```bash
-npm install -g trace
+npm install -g trace-dev
 ```
 
-All methods install a single `trace` binary.
+All methods install a single `trc` binary.
 
 ## Quickstart
 
 ```bash
-trace init
-trace run claude
-trace dashboard
+trc init
+trc run claude
+trc dashboard
 ```
 
 The dashboard opens locally at `http://127.0.0.1:<port>` (binds to `127.0.0.1`
-only). Roll back a run's changes with `trace rollback`.
+only). Roll back a run's changes with `trc rollback`.
 
 ## CLI commands
 
 | Command | Description |
 | --- | --- |
-| `trace init` | Initialize Trace in the current project. |
-| `trace run <command>` | Run a command under monitoring (`--no-checks`, `-y`). |
-| `trace dashboard` | Start the daemon if needed and open the dashboard. |
-| `trace rollback` | Restore a checkpoint (Git-based, confirmed; `-y`). |
-| `trace scan` | Detect the project's stack (package manager, framework, tests, git). |
-| `trace doctor` | System checks: toolchain, clipboard, daemon, agents, paths. |
-| `trace runs` | List recent runs. |
-| `trace show <run_id>` | Show a run's summary and timeline. |
-| `trace replay <run_id>` | Replay a run's events, commands, and file changes in order, paced by their real timestamps (`-y`/`--fast` to skip pacing). |
-| `trace patch <run_id>` | Show the changed files for a run. |
-| `trace risks <run_id>` | Show guarded commands and secret warnings for a run. |
-| `trace costs <run_id>` | Show API usage and estimated cost for a run. |
-| `trace checkpoints` | List checkpoints across recent runs. |
-| `trace config show \| set` | View or change project configuration. |
-| `trace integrations [status]` | List integrations or check what is live. |
-| `trace github <status\|commits\|pulls\|cat>` | Read directly from the repo (incl. private). |
-| `trace check <file>` | Run a file (or `-` for stdin) through the command guard + secret scanner; non-zero exit on require_approval/block. A CI gate for scripts. |
-| `trace ratify <pr> [--fail-on-risky]` | Ratify a GitHub pull request against the policy engine — no daemon, no `trace init`, no API key. |
-| `trace review-diff [--range] [--fail-on-risky] [--json]` | Review a diff range with the policy engine — no daemon or `trace init` required. What CI uses. |
-| `trace self-check` | Run the policy + red-team benchmarks against the real engines and print recall / precision. |
-| `trace update` | Update the `trace` binary to the latest release. |
-| `trace daemon start \| stop \| status` | Manage the local daemon. |
-| `trace --help` / `trace --version` | Help and version. |
+| `trc init` | Initialize Trace in the current project. |
+| `trc run <command>` | Run a command under monitoring (`--no-checks`, `-y`). |
+| `trc dashboard` | Start the daemon if needed and open the dashboard. |
+| `trc rollback` | Restore a checkpoint (Git-based, confirmed; `-y`). |
+| `trc scan` | Detect the project's stack (package manager, framework, tests, git). |
+| `trc doctor` | System checks: toolchain, clipboard, daemon, agents, paths. |
+| `trc runs` | List recent runs. |
+| `trc show <run_id>` | Show a run's summary and timeline. |
+| `trc replay <run_id>` | Replay a run's events, commands, and file changes in order, paced by their real timestamps (`-y`/`--fast` to skip pacing). |
+| `trc patch <run_id>` | Show the changed files for a run. |
+| `trc risks <run_id>` | Show guarded commands and secret warnings for a run. |
+| `trc costs <run_id>` | Show API usage and estimated cost for a run. |
+| `trc checkpoints` | List checkpoints across recent runs. |
+| `trc config show \| set` | View or change project configuration. |
+| `trc integrations [status]` | List integrations or check what is live. |
+| `trc github <status\|commits\|pulls\|cat>` | Read directly from the repo (incl. private). |
+| `trc check <file>` | Run a file (or `-` for stdin) through the command guard + secret scanner; non-zero exit on require_approval/block. A CI gate for scripts. |
+| `trc ratify <pr> [--fail-on-risky]` | Ratify a GitHub pull request against the policy engine — no daemon, no `trc init`, no API key. |
+| `trc review-diff [--range] [--fail-on-risky] [--json]` | Review a diff range with the policy engine — no daemon or `trc init` required. What CI uses. |
+| `trc self-check` | Run the policy + red-team benchmarks against the real engines and print recall / precision. |
+| `trc update` | Update the `trc` binary to the latest release. |
+| `trc daemon start \| stop \| status` | Manage the local daemon. |
+| `trc --help` / `trc --version` | Help and version. |
 
 ## Local dashboard
 
@@ -113,19 +113,19 @@ fake data in production.
   `find … -delete`, raw block-device writes, DB drops
 - **Deterministic policy engine** — secret detection, missing tests on
   sensitive paths, swallowed errors, hardcoded localhost, dependency/lockfile
-  changes, and more, with a real labeled-fixture benchmark (`trace self-check`
+  changes, and more, with a real labeled-fixture benchmark (`trc self-check`
   / the dashboard's **Benchmarks** page) proving precision and recall rather
   than asserting it. **No API key required — it's pure pattern matching.**
 - **Red-team benchmark** — an adversarial corpus (dangerous commands incl.
   evasions, planted API keys, unsafe prompts) run through the *real* engines
-  and scored for recall and false positives, surfaced in `trace self-check`,
+  and scored for recall and false positives, surfaced in `trc self-check`,
   the API, and the dashboard
 - **Ratify** — run the policy engine over a GitHub pull request's files and get
-  a `pass` / `review` / `block` verdict, from the dashboard, `trace ratify <pr>`,
+  a `pass` / `review` / `block` verdict, from the dashboard, `trc ratify <pr>`,
   or the API. No key.
-- **`trace check`** — scan any file or script through the guard + secret
+- **`trc check`** — scan any file or script through the guard + secret
   scanner without executing it; non-zero exit for CI gating
-- **CI review** — `trace review-diff` runs the same deterministic engine from a
+- **CI review** — `trc review-diff` runs the same deterministic engine from a
   bare git checkout, no daemon needed; the GitHub Action installs and runs it
   automatically
 - Local secret detection with redaction (raw secrets are never stored)
@@ -146,14 +146,14 @@ Each lives under `integrations/` and connects to the local daemon.
 - **Cursor** — MCP server exposing Trace tools (`integrations/cursor`)
 - **VS Code** — lightweight extension bridging to the daemon (`integrations/vscode`)
 - **GitHub** — App + Action running the deterministic policy engine
-  (`trace review-diff`) and posting sanitized summaries (`integrations/github`)
+  (`trc review-diff`) and posting sanitized summaries (`integrations/github`)
 
 GUI tools are observed via file changes and Git diffs; full command guarding
-requires supported hooks or running through `trace run`.
+requires supported hooks or running through `trc run`.
 
 ## Architecture
 
-- **CLI** (`trace`) handles user commands, runs the wrapped command, and hosts
+- **CLI** (`trc`) handles user commands, runs the wrapped command, and hosts
   the daemon in a detached child process.
 - **Daemon** (Axum) owns the local API, SQLite persistence, and dashboard
   serving — bound to `127.0.0.1` only.
@@ -245,7 +245,7 @@ daemon.
 - Raw secrets are never stored; detected secrets are redacted at the point of
   detection.
 - No cloud upload by default; project data stays on your machine.
-- **GitHub token** (for `trace github`, `trace ratify`, and the CI action) is
+- **GitHub token** (for `trc github`, `trc ratify`, and the CI action) is
   read-only, resolved from an env var / the `gh` CLI / `~/.trace/github.json`,
   and only ever sent to `api.github.com`. Nothing is written back to GitHub.
 - GitHub integration uploads only sanitized summaries — never raw files,
@@ -256,7 +256,7 @@ See [docs/security-model.mdx](docs/security-model.mdx).
 
 ## Limitations
 
-- Full command guarding and run attribution require the `trace run` wrapper or
+- Full command guarding and run attribution require the `trc run` wrapper or
   supported hooks. GUI tools are otherwise observed only via file changes and
   Git diffs.
 - **Live agent feedback** (surfacing a finding back into the agent's own

@@ -6,7 +6,7 @@ description: How Trace versions are numbered and surfaced.
 The current version is **1.2**.
 
 ```bash
-trace --version
+trc --version
 # Trace 1.2
 ```
 
@@ -14,7 +14,7 @@ trace --version
 
 The version lives in one place — `trace-core::VERSION` — and is surfaced by:
 
-- the `trace` CLI (`--version`, `-V`)
+- the `trc` CLI (`--version`, `-V`)
 - the daemon API (`GET /api/health` → `version`, `GET /api/state` → `version`)
 - the local dashboard (sidebar footer: "Trace v1.2")
 - this documentation and the README

@@ -1,4 +1,4 @@
-//! `trace github` — read directly from the project's GitHub repo, including
+//! `trc github` — read directly from the project's GitHub repo, including
 //! private repos, using a token from the environment, the `gh` CLI, or
 //! `~/.trace/github.json`. Read-only.
 

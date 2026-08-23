@@ -1,4 +1,4 @@
-//! `trace` — the Trace CLI.
+//! `trc` — the Trace CLI.
 //!
 //! A local black box recorder, safety layer, cost tracker, and patch-review
 //! tool for AI coding agents.
@@ -37,8 +37,8 @@ fn help_styles() -> Styles {
 
 #[derive(Parser)]
 #[command(
-    name = "trace",
-    bin_name = "trace",
+    name = "trc",
+    bin_name = "trc",
     // Version is handled manually (see `main`) so `--version` prints exactly
     // "Trace 1.1".
     disable_version_flag = true,
@@ -57,7 +57,7 @@ enum Commands {
     Init,
 
     /// Connect Trace to your coding agents (Claude Code, Cursor, Windsurf,
-    /// Codex). `trace install agents` wires up every supported agent and
+    /// Codex). `trc install agents` wires up every supported agent and
     /// starts the daemon if needed.
     Install {
         /// What to install. Currently: `agents`.
@@ -65,7 +65,7 @@ enum Commands {
         target: String,
     },
 
-    /// Run a command under Trace monitoring (e.g. `trace run "claude fix the bug"`).
+    /// Run a command under Trace monitoring (e.g. `trc run "claude fix the bug"`).
     Run {
         /// The command to wrap. Quote multi-word commands.
         #[arg(required = true, trailing_var_arg = true, num_args = 1..)]
@@ -154,7 +154,7 @@ enum Commands {
         yes: bool,
     },
 
-    /// Update the trace binary to the latest GitHub release.
+    /// Update the trc binary to the latest GitHub release.
     Update,
 
     /// Run Trace's own policy-engine benchmark (labeled fixtures, precision/recall).
@@ -162,7 +162,7 @@ enum Commands {
     SelfCheck,
 
     /// Review a diff range with the policy engine (and, optionally, the
-    /// judge panel) — no daemon or `trace init` required. Built for CI: run
+    /// judge panel) — no daemon or `trc init` required. Built for CI: run
     /// this from a plain git checkout in a GitHub Action or any other CI.
     #[command(hide = true)]
     ReviewDiff {
@@ -179,7 +179,7 @@ enum Commands {
     },
 
     /// Ratify a GitHub pull request against the deterministic policy engine —
-    /// no daemon, no `trace init`, no API key. Run it from a checkout of the
+    /// no daemon, no `trc init`, no API key. Run it from a checkout of the
     /// repo; it resolves the origin remote and a read-only token itself.
     #[command(hide = true)]
     Ratify {

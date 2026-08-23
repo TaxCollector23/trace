@@ -1,6 +1,6 @@
 //! AI tool registry and detection.
 //!
-//! Used by `trace doctor` to report which AI coding tools are installed on the
+//! Used by `trc doctor` to report which AI coding tools are installed on the
 //! machine, and by the clipboard helper shared with other commands.
 
 use serde::{Deserialize, Serialize};

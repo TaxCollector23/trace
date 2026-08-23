@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Trace CI scan.
 #
-# When the `trace` binary is available, delegates to `trace review-diff` —
+# When the `trace` binary is available, delegates to `trc review-diff` —
 # the same deterministic policy engine the local daemon uses (no API key
 # required) — and folds its findings into trace-summary.json. Falls back to a
 # crude grep-based heuristic when `trace` isn't installed, so this action
@@ -34,14 +34,14 @@ POLICY_FINDINGS=0
 HIGH_SEVERITY=0
 REVIEW_FAILED="false"
 
-if command -v trace >/dev/null 2>&1; then
-  echo "Trace: using 'trace review-diff' (deterministic policy engine)"
+if command -v trc >/dev/null 2>&1; then
+  echo "Trace: using 'trc review-diff' (deterministic policy engine)"
   FAIL_FLAG=""
   [ "$FAIL_ON_RISKY" = "true" ] && FAIL_FLAG="--fail-on-risky"
 
   set +e
   # shellcheck disable=SC2086
-  trace review-diff --range "$RANGE" $FAIL_FLAG --json trace-review.json
+  trc review-diff --range "$RANGE" $FAIL_FLAG --json trace-review.json
   REVIEW_EXIT=$?
   set -e
 
@@ -51,7 +51,7 @@ if command -v trace >/dev/null 2>&1; then
   fi
   [ "$REVIEW_EXIT" != "0" ] && REVIEW_FAILED="true"
 else
-  echo "Trace: 'trace' binary not found on PATH — falling back to basic heuristics."
+  echo "Trace: 'trc' binary not found on PATH — falling back to basic heuristics."
   echo "For the full policy engine, install it first, e.g.:"
   echo "  curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh"
 

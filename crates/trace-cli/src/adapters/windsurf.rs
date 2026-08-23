@@ -1,10 +1,10 @@
-//! Windsurf adapter for the terminal wrapper path (`trace run "windsurf ..."`).
+//! Windsurf adapter for the terminal wrapper path (`trc run "windsurf ..."`).
 //!
 //! Same shape as the Cursor adapter: Windsurf is a GUI editor, so a
 //! terminal-wrapped session can observe filesystem and Git changes but
 //! not meaningful piped terminal output. The primary Windsurf integration
 //! surface is expected to be an MCP server (see `integrations/windsurf`);
-//! this adapter exists so `trace run "windsurf ..."` produces a
+//! this adapter exists so `trc run "windsurf ..."` produces a
 //! Windsurf-labeled run instead of the generic terminal fallback.
 
 use anyhow::Result;

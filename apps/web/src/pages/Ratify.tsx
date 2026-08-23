@@ -90,7 +90,7 @@ export default function Ratify() {
       {projectsQ.loading ? (
         <Loading error={projectsQ.error} variant="cards" rows={1} />
       ) : projects.length === 0 ? (
-        <div className="empty">No projects yet. Run `trace init` in a repo.</div>
+        <div className="empty">No projects yet. Run `trc init` in a repo.</div>
       ) : (
         <>
           {projects.length > 1 && (
@@ -116,7 +116,7 @@ export default function Ratify() {
             <div className="note warn-note">
               This project has no GitHub <span className="mono">origin</span>{" "}
               remote, so there's nothing to ratify. Add a remote, or use{" "}
-              <span className="mono">trace review-diff</span> to ratify a local
+              <span className="mono">trc review-diff</span> to ratify a local
               diff instead.
             </div>
           )}

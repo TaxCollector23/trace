@@ -2,7 +2,7 @@
 //!
 //! Runs the shared `trace_core::run_redteam_eval` corpus through the real
 //! guard / secret / prompt detectors and prints a plain-text report. This is
-//! the same computation behind `trace self-check` and the dashboard.
+//! the same computation behind `trc self-check` and the dashboard.
 //!
 //! Run: `cargo run -p trace-core --example redteam_bench`
 

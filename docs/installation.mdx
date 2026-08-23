@@ -3,7 +3,7 @@ title: Installation
 description: Install the trace CLI on macOS, Linux, or Windows.
 ---
 
-Trace ships a single binary, `trace`.
+Trace ships a single binary, `trc`.
 
 ## macOS (Homebrew, recommended)
 
@@ -36,14 +36,14 @@ your user PATH. Open a new terminal afterwards.
 ## npm (optional fallback)
 
 ```bash
-npm install -g trace
+npm install -g trace-dev
 ```
 
 ## Verify
 
 ```bash
-trace --version
-trace --help
+trc --version
+trc --help
 ```
 
 ## Build from source
@@ -57,7 +57,7 @@ cd trace
 # Build the dashboard (embedded into the daemon in release builds)
 cd apps/web && npm install && npm run build && cd ../..
 
-# Build the CLI (the binary is named `trace`)
+# Build the CLI (the binary is named `trc`)
 cargo build --release -p trace-cli
-./target/release/trace --help
+./target/release/trc --help
 ```

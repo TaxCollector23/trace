@@ -24,7 +24,7 @@ jobs:
 ```
 
 The action installs `trace` (unless `install: "false"`) and runs
-`trace review-diff` — the same deterministic policy engine the local daemon
+`trc review-diff` — the same deterministic policy engine the local daemon
 uses, not a separate implementation — over the PR's diff. Falls back to a
 crude grep-based heuristic if `trace` couldn't be installed, so the action
 still does something useful rather than failing outright.
@@ -32,7 +32,7 @@ still does something useful rather than failing outright.
 The scan (`scripts/ci-scan.sh`) writes two files:
 - `trace-summary.json` — counts only (files changed, finding counts, check
   status). Safe to glance at in a PR comment bot later.
-- `trace-review.json` — the full structured result from `trace review-diff`
+- `trace-review.json` — the full structured result from `trc review-diff`
   (finding titles/descriptions). Still never includes raw secret values — the
   policy engine redacts those at the source (see `trace-core/src/policy.rs`).
 
@@ -42,17 +42,17 @@ database.
 ## Running it yourself, outside the Action
 
 ```bash
-trace review-diff --range origin/main...HEAD --fail-on-risky --json trace-review.json
+trc review-diff --range origin/main...HEAD --fail-on-risky --json trace-review.json
 ```
 
-Works from any git checkout — no `trace init`, no daemon required. Useful
+Works from any git checkout — no `trc init`, no daemon required. Useful
 for testing what CI will see before you push, or wiring into a different CI
 system entirely.
 
 To review a **GitHub pull request** by number instead of a local diff, use:
 
 ```bash
-trace ratify <pr-number> --fail-on-risky
+trc ratify <pr-number> --fail-on-risky
 ```
 
 which fetches the PR's files from GitHub and runs the same engine.

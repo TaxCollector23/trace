@@ -1,4 +1,4 @@
-//! `trace dashboard` — ensure the daemon is up and open the local dashboard.
+//! `trc dashboard` — ensure the daemon is up and open the local dashboard.
 
 use anyhow::Result;
 

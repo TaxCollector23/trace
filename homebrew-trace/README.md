@@ -7,7 +7,7 @@ brew tap TaxCollector23/trace
 brew install trace
 ```
 
-This installs the `trace` binary.
+This installs the `trc` binary.
 
 > The formula's `sha256` values are updated for each tagged release. If you hit a
 > checksum error, the formula may be ahead of the latest published release —

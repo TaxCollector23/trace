@@ -76,7 +76,7 @@ export default function Benchmarks() {
           <p className="note" style={{ marginTop: 20 }}>
             Want to see the exact fixtures, or add your own? They're in{" "}
             <code>crates/trace-core/src/eval.rs</code> — also runnable from a
-            terminal with <code>trace self-check</code>.
+            terminal with <code>trc self-check</code>.
           </p>
         </>
       )}
@@ -178,7 +178,7 @@ export default function Benchmarks() {
             {redteam.command_rules} supplemental command rules,{" "}
             {redteam.secret_patterns} extra secret patterns. The corpus lives in{" "}
             <code>crates/trace-core/src/redteam.rs</code>; reproduce it from a
-            terminal with <code>trace self-check</code> or{" "}
+            terminal with <code>trc self-check</code> or{" "}
             <code>cargo run -p trace-core --example redteam_bench</code>.
           </p>
         </>

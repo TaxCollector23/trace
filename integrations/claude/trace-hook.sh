@@ -18,7 +18,7 @@ set -euo pipefail
 STATE="$HOME/.trace/daemon.json"
 [ -f "$STATE" ] || exit 0
 
-# Prefer the port passed down by `trace run` (TRACE_DAEMON_PORT) so this
+# Prefer the port passed down by `trc run` (TRACE_DAEMON_PORT) so this
 # still works correctly if a second daemon instance is ever running; fall
 # back to whatever's recorded as the current daemon.
 PORT="${TRACE_DAEMON_PORT:-}"
@@ -74,7 +74,7 @@ case "$EVENT" in
     esac
 
     RUN_ID="${TRACE_RUN_ID:-}"
-    [ -n "$RUN_ID" ] || exit 0  # not launched via `trace run` — nothing to attach this to
+    [ -n "$RUN_ID" ] || exit 0  # not launched via `trc run` — nothing to attach this to
 
     FILE_PATH=$(json_get file_path)
     # Coarse content signal for the policy engine — whichever of these the

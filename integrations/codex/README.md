@@ -3,8 +3,8 @@
 Wrapper-first. Launch Codex through Trace:
 
 ```bash
-trace run codex
-trace run "codex implement the parser, do not touch src/legacy/"
+trc run codex
+trc run "codex implement the parser, do not touch src/legacy/"
 ```
 
 This starts a Trace run, creates a checkpoint, watches file changes,

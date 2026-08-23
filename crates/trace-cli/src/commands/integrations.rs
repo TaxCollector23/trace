@@ -1,4 +1,4 @@
-//! `trace integrations` and `trace integrations status` — list integration
+//! `trc integrations` and `trc integrations status` — list integration
 //! surfaces and report what is live right now.
 
 use anyhow::Result;
@@ -76,7 +76,7 @@ pub fn list() -> Result<()> {
     for (name, kind, path) in INTEGRATIONS {
         println!("  • {name} — {kind}  ({})", colors::dim(path));
     }
-    println!("\nRun `trace integrations status` to check what is live now.");
+    println!("\nRun `trc integrations status` to check what is live now.");
     Ok(())
 }
 
@@ -88,7 +88,7 @@ pub fn status() -> Result<()> {
             colors::green("running")
         ),
         None => println!(
-            "daemon:   {} (start with `trace daemon start`)",
+            "daemon:   {} (start with `trc daemon start`)",
             colors::red("not running")
         ),
     }
@@ -127,7 +127,7 @@ pub fn status() -> Result<()> {
     } else {
         println!(
             "\nConnect every agent with `{}`.",
-            colors::bold("trace integrations install all")
+            colors::bold("trc integrations install all")
         );
     }
     Ok(())

@@ -1,4 +1,4 @@
-//! `trace check <file>` — run a file's contents through Trace's real detection
+//! `trc check <file>` — run a file's contents through Trace's real detection
 //! engines (command guard + secret scanner) and report what would be caught.
 //!
 //! Each non-comment line is classified by the same `guard::classify` the

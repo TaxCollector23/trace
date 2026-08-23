@@ -1,4 +1,4 @@
-//! `trace self-check` — runs Trace's own policy-engine benchmark: labeled
+//! `trc self-check` — runs Trace's own policy-engine benchmark: labeled
 //! fixtures through the real `run_policy_checks`, scored for precision and
 //! recall. A quick way to sanity-check a build, and the same computation
 //! the dashboard's Benchmarks card shows.

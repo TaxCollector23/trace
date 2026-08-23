@@ -2,14 +2,14 @@
 #
 #   irm https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.ps1 | iex
 #
-# Downloads the correct trace.exe from GitHub Releases, installs it to
-# %USERPROFILE%\.trace\bin\trace.exe, updates the user PATH, and prints next steps.
+# Downloads the correct trc.exe from GitHub Releases, installs it to
+# %USERPROFILE%\.trace\bin\trc.exe, updates the user PATH, and prints next steps.
 
 $ErrorActionPreference = "Stop"
 
 $Repo       = "TaxCollector23/trace"
 $InstallDir = Join-Path $env:USERPROFILE ".trace\bin"
-$Bin        = Join-Path $InstallDir "trace.exe"
+$Bin        = Join-Path $InstallDir "trc.exe"
 
 # --- Detect architecture ---
 $arch = $env:PROCESSOR_ARCHITECTURE
@@ -32,7 +32,7 @@ New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 Invoke-WebRequest -Uri $url -OutFile $Bin -UseBasicParsing
 
 Write-Host ""
-Write-Host "Installed trace to $InstallDir"
+Write-Host "Installed trc to $InstallDir"
 
 # --- Update user PATH if needed ---
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -41,7 +41,7 @@ if ($userPath -notlike "*$InstallDir*") {
     [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
     Write-Host ""
     Write-Host "Added $InstallDir to your user PATH."
-    Write-Host "Open a NEW terminal, then run: trace --help"
+    Write-Host "Open a NEW terminal, then run: trc --help"
 } else {
-    Write-Host "Trace is already on your PATH. Run: trace --help"
+    Write-Host "Trace is already on your PATH. Run: trc --help"
 }

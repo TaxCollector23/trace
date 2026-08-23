@@ -79,12 +79,12 @@ jobs:
         if: runner.os != 'Windows'
         run: |
           mkdir -p dist
-          cp "target/${{ matrix.target }}/release/trace" "dist/${{ matrix.artifact }}"
+          cp "target/${{ matrix.target }}/release/trc" "dist/${{ matrix.artifact }}"
       - name: Stage artifact (windows)
         if: runner.os == 'Windows'
         run: |
           mkdir dist
-          copy "target\${{ matrix.target }}\release\trace.exe" "dist\${{ matrix.artifact }}"
+          copy "target\${{ matrix.target }}\release\trc.exe" "dist\${{ matrix.artifact }}"
 
       - uses: actions/upload-artifact@v4
         with:

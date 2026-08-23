@@ -22,7 +22,7 @@ API key, ever.**
 7. [The rule pack (data-driven coverage)](#7-the-rule-pack-data-driven-coverage)
 8. [The data model (SQLite)](#8-the-data-model-sqlite)
 9. [`trace-daemon` — the local server](#9-trace-daemon--the-local-server)
-10. [`trace-cli` — the `trace` binary](#10-trace-cli--the-trace-binary)
+10. [`trace-cli` — the `trc` binary](#10-trace-cli--the-trace-binary)
 11. [How a monitored run works, step by step](#11-how-a-monitored-run-works-step-by-step)
 12. [Agent adapters](#12-agent-adapters)
 13. [Agent integrations (hooks)](#13-agent-integrations-hooks)
@@ -82,7 +82,7 @@ opt into cloud sync.
 3. **Local-first.** The daemon binds `127.0.0.1` only. The database is a single
    SQLite file under `~/.trace`. The dashboard is embedded into the daemon
    binary. Nothing needs the network to work.
-4. **Honest about limits.** A GUI tool launched under `trace run` is observed
+4. **Honest about limits.** A GUI tool launched under `trc run` is observed
    via file changes and the final git diff, but its internal actions can't be
    guarded. The docs and code say so rather than pretending otherwise.
 5. **Coverage as data.** Detection rules that are pure data (injection phrases,
@@ -105,7 +105,7 @@ opt into cloud sync.
               │                        │             │                       │
      ┌────────────────┐      ┌──────────────────┐    │              ┌─────────────────┐
      │   trace-cli    │      │   trace-daemon   │    │              │  apps/desktop   │
-     │  (the `trace`  │─────▶│  Axum server on  │    │              │  (Tauri shell)  │
+     │  (the `trc`    │─────▶│  Axum server on  │    │              │  (Tauri shell)  │
      │    binary)     │ HTTP │  127.0.0.1:8757  │    │              └─────────────────┘
      └────────────────┘      │                  │    │
               │              │  embeds ─────────┼────┘
@@ -142,7 +142,7 @@ trace/
 ├── crates/
 │   ├── trace-core/            # the engine — all shared logic, no I/O server
 │   ├── trace-daemon/          # local Axum HTTP server + embedded dashboard
-│   ├── trace-cli/             # the `trace` binary (clap subcommands)
+│   ├── trace-cli/             # the `trc` binary (clap subcommands)
 │   └── trace-cloud-api/       # optional hosted sync service (standalone)
 ├── apps/
 │   ├── web/                   # the dashboard (React SPA, embedded in daemon)
@@ -176,7 +176,7 @@ declares the modules and re-exports the public API. The product version string
 | `secrets.rs` | Detect secret-shaped strings (provider API keys, tokens, private keys, JWTs, DB URLs, bearer tokens) and produce a redacted representation. Also `is_env_like_filename` for protected-file logic. |
 | `policy.rs` | The deterministic diff-review engine: `run_policy_checks(&[FileDiff]) -> Vec<PolicyFinding>`. Secret-in-diff, removed test files, swallowed catch blocks, hardcoded localhost, dependency changes, TODO/debug markers, etc. Each finding has a typed `Severity`. |
 | `prompt_quality.rs` | Heuristic scoring of a prompt (`analyze_prompt`) and `prompt_risks` — the prompt-risk detector used by the red-team benchmark (embedded dangerous commands, injection phrases, leaked secrets). |
-| `ratify.rs` | `summarize(&[PolicyFinding]) -> RatifySummary` — turn policy findings into a `pass`/`review`/`block` verdict with per-severity counts. Shared by the daemon endpoint and the `trace ratify` CLI. |
+| `ratify.rs` | `summarize(&[PolicyFinding]) -> RatifySummary` — turn policy findings into a `pass`/`review`/`block` verdict with per-severity counts. Shared by the daemon endpoint and the `trc ratify` CLI. |
 | `redteam.rs` | The adversarial benchmark corpus + `run_redteam_eval()`. Feeds dangerous commands, planted secrets, and unsafe prompts through the *real* engines and scores recall / false positives. |
 | `eval.rs` | The policy-engine's labeled-fixture benchmark: `run_policy_eval()` → precision/recall over hand-written fixtures. |
 | `rules_pack.rs` + `default_pack.toml` | The versioned, data-driven rule pack (see §7). |
@@ -184,11 +184,11 @@ declares the modules and re-exports the public API. The product version string
 | `git.rs` | Git operations: checkpoints, `diff_range`, `patches_by_file`, `remote_url`, `is_git_repo`, change-type vocabulary translation. |
 | `github.rs` | Read from the GitHub API: `parse_remote`, `resolve_token` (env / `gh` CLI / `~/.trace/github.json`), `list_commits`, `list_pulls`, `list_pr_files`, `get_file`, `status_for_path`. Read-only. |
 | `cost.rs` | Token/cost accounting for a run. |
-| `scan.rs` | Detect a project's stack (package manager, languages, frameworks, test framework, env files, deployment) for `trace scan`. |
+| `scan.rs` | Detect a project's stack (package manager, languages, frameworks, test framework, env files, deployment) for `trc scan`. |
 | `adapter.rs` + `agents.rs` | `SessionContext` and per-agent metadata used by the CLI adapters. |
 | `models.rs` | Plain serializable row/wire types (`Run`, `Project`, `FileChange`, `CommandRecord`, `SecretRecord`, `PolicyFindingRecord`, cost/checkpoint/test-result records, …). |
 | `config.rs` | `ProjectConfig` (`<project>/.trace/config.toml`) — protected files, checks. |
-| `diagnose.rs` | Backing logic for `trace doctor` health checks. |
+| `diagnose.rs` | Backing logic for `trc doctor` health checks. |
 | `paths.rs`, `ids.rs`, `time.rs` | `~/.trace` path helpers, id generation, RFC-3339 timestamps. |
 
 The public re-exports (`lib.rs`) are the crate's contract: `classify`,
@@ -237,7 +237,7 @@ include secret-in-diff (reusing the secret scanner), removed test files,
 swallowed `catch` blocks, hardcoded `localhost`/`127.0.0.1` in production paths,
 dependency-manifest changes, and leftover TODO/debug markers. Fixture paths are
 ignored for secret rules to avoid flagging test data. This is the engine behind
-live review, `trace review-diff`, and Ratify.
+live review, `trc review-diff`, and Ratify.
 
 ### The prompt-risk detector (`prompt_quality.rs`)
 
@@ -303,29 +303,29 @@ policy engine only and return findings; the older `judge_verdict` /
 `agent_instruction` fields are kept as `null` for wire-compatibility with agent
 hooks that still read them.
 
-## 10. `trace-cli` — the `trace` binary
+## 10. `trace-cli` — the `trc` binary
 
 `crates/trace-cli/src/`. `main.rs` defines the clap command tree; each command
-lives in `commands/`. The binary is named `trace`.
+lives in `commands/`. The binary is named `trc`.
 
 | Command | What it does |
 | --- | --- |
-| `trace init` | Register the current project (writes `.trace/config.toml`). |
-| `trace run "<cmd>"` | Run a command under full monitoring (see §11). |
-| `trace check <file>` | Run a file (or `-` for stdin) through the guard + secret scanner; non-zero exit on `require_approval`/`block`. A CI gate for scripts. |
-| `trace ratify <pr>` | Ratify a GitHub PR against the policy engine — no daemon, no key. `--fail-on-risky` exits non-zero on a `block` verdict. |
-| `trace review-diff` | Review a git range with the policy engine; built for CI (`--range`, `--fail-on-risky`, `--json`). |
-| `trace self-check` | Run the policy + red-team benchmarks and print the report. |
-| `trace scan` | Detect and print the current project's stack. |
-| `trace dashboard` | Open the local dashboard (starts the daemon if needed). |
-| `trace doctor` | Health checks: toolchain, clipboard, daemon, agents, paths, policy self-check. |
-| `trace runs` / `show` / `patch` / `risks` / `costs` / `checkpoints` / `replay` | Query recorded runs. |
-| `trace rollback` | Roll back to the most recent git checkpoint. |
-| `trace config show|set` | Project configuration. |
-| `trace integrations [status|install <agent>]` | Manage agent hooks. |
-| `trace github [status|commits|pulls|cat]` | Read from the project's GitHub repo. |
-| `trace update` | Self-update to the latest GitHub release. |
-| `trace daemon start|stop|status` | Manage the local daemon. |
+| `trc init` | Register the current project (writes `.trace/config.toml`). |
+| `trc run "<cmd>"` | Run a command under full monitoring (see §11). |
+| `trc check <file>` | Run a file (or `-` for stdin) through the guard + secret scanner; non-zero exit on `require_approval`/`block`. A CI gate for scripts. |
+| `trc ratify <pr>` | Ratify a GitHub PR against the policy engine — no daemon, no key. `--fail-on-risky` exits non-zero on a `block` verdict. |
+| `trc review-diff` | Review a git range with the policy engine; built for CI (`--range`, `--fail-on-risky`, `--json`). |
+| `trc self-check` | Run the policy + red-team benchmarks and print the report. |
+| `trc scan` | Detect and print the current project's stack. |
+| `trc dashboard` | Open the local dashboard (starts the daemon if needed). |
+| `trc doctor` | Health checks: toolchain, clipboard, daemon, agents, paths, policy self-check. |
+| `trc runs` / `show` / `patch` / `risks` / `costs` / `checkpoints` / `replay` | Query recorded runs. |
+| `trc rollback` | Roll back to the most recent git checkpoint. |
+| `trc config show|set` | Project configuration. |
+| `trc integrations [status|install <agent>]` | Manage agent hooks. |
+| `trc github [status|commits|pulls|cat]` | Read from the project's GitHub repo. |
+| `trc update` | Self-update to the latest GitHub release. |
+| `trc daemon start|stop|status` | Manage the local daemon. |
 | `trace __serve` | Hidden: run the server in the foreground (used by `daemon start`). |
 
 ## 11. How a monitored run works, step by step
@@ -368,11 +368,11 @@ wrapped:
   `/runs/:id/hook-check`. The deterministic engine scans it and the hook echoes
   any advisory back to the agent on stderr (exit 0). No API key involved.
 - **GitHub** (`integrations/github/`): a composite Action (`action.yml`) that
-  runs `ci-scan.sh` → `trace review-diff` over a PR's diff and uploads a
+  runs `ci-scan.sh` → `trc review-diff` over a PR's diff and uploads a
   **sanitized** summary (counts only; never raw files, secrets, or the local
   DB). A GitHub App skeleton (`app/`) is included for a webhook-driven setup.
 
-`trace integrations install <agent>` writes the hook and patches the agent's
+`trc integrations install <agent>` writes the hook and patches the agent's
 config file idempotently, with backups.
 
 ## 14. Ratify — deterministic PR review
@@ -390,7 +390,7 @@ three surfaces so they can never disagree:
 - **Dashboard** — the *Ratify* tab: pick a project, ratify an open PR or a PR by
   number, see findings + verdict.
 - **API** — `GET /api/github/ratify?project_id=<id>&pr=<n>`.
-- **CLI** — `trace ratify <pr> [--fail-on-risky]`, standalone from any checkout
+- **CLI** — `trc ratify <pr> [--fail-on-risky]`, standalone from any checkout
   (resolves the origin remote and a read-only token itself).
 
 `github::list_pr_files` fetches the PR's files; `run_policy_checks` produces the
@@ -408,7 +408,7 @@ everywhere:
   dangerous commands (including evasions), planted secrets, and unsafe prompts,
   scored for recall and false positives across the three engines.
 
-Both are surfaced by `trace self-check` (terminal), `/api/benchmarks` and
+Both are surfaced by `trc self-check` (terminal), `/api/benchmarks` and
 `/api/benchmarks/redteam` (computed fresh per request), and the dashboard's
 *Benchmarks* page. `cargo run -p trace-core --example redteam_bench` prints the
 detailed red-team report. They double as unit tests — a regression fails the
@@ -475,10 +475,10 @@ files/commits from `api.github.com` — never a model provider.
 
 - **Unit/integration tests** live beside the code (`#[cfg(test)]`), concentrated
   in `trace-core` (guard, secrets, policy, ratify, redteam, db, config, scan).
-- **`trace self-check`** runs the labeled benchmarks against the real engines.
+- **`trc self-check`** runs the labeled benchmarks against the real engines.
 - **`cargo test --workspace`** runs everything; the frontends build with
   `npm run build` in `apps/web` and `apps/landing`.
-- **CI** uses `trace review-diff --fail-on-risky` (the same engine) to gate
+- **CI** uses `trc review-diff --fail-on-risky` (the same engine) to gate
   risky changes on pull requests.
 
 ## 23. Data & privacy boundaries

@@ -1,4 +1,4 @@
-//! `trace run <command>` — execute a command under Trace monitoring.
+//! `trc run <command>` — execute a command under Trace monitoring.
 //!
 //! The wrapper guards the top-level command, checkpoints git, watches files,
 //! tees output, then derives the authoritative file changes from the final git
@@ -83,7 +83,7 @@ pub fn run(opts: RunOptions) -> Result<()> {
 
     // The Trace Adapter System: every coding agent — Claude Code today,
     // others later — plugs in through the same Adapter trait and emits the
-    // same event vocabulary. `trace run "<agent> ..."` always uses the
+    // same event vocabulary. `trc run "<agent> ..."` always uses the
     // terminal adapter (see crates/trace-core/src/adapter.rs).
     let mut adapter = adapters::for_agent(agent_name.as_deref());
     adapter.initialize().ok();
@@ -681,7 +681,7 @@ fn lookup_project_id(client: &Client, root: &std::path::Path) -> Result<String> 
         .into_iter()
         .find(|p| p.path == target)
         .map(|p| p.id)
-        .context("project not registered; run `trace init`")
+        .context("project not registered; run `trc init`")
 }
 
 // --- Small utilities ------------------------------------------------------
@@ -712,5 +712,5 @@ fn print_summary(command: &str, exit_code: i32, changes: &[git::DiffEntry], stat
 }
 
 fn print_dashboard_hint(port: u16) {
-    println!("  dashboard: http://127.0.0.1:{port}  (run `trace dashboard`)");
+    println!("  dashboard: http://127.0.0.1:{port}  (run `trc dashboard`)");
 }

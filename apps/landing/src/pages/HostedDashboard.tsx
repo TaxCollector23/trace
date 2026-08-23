@@ -127,7 +127,7 @@ function NoDaemon() {
           <li>
             <div className="font-medium">2. Start the daemon</div>
             <pre className="mt-1 overflow-x-auto rounded-lg bg-[#0d0d10] p-3 font-mono text-xs text-white">
-              <span className="text-white/40">$ </span>trace daemon start
+              <span className="text-white/40">$ </span>trc daemon start
             </pre>
           </li>
           <li>
@@ -234,8 +234,8 @@ function RunsList({
       {error && <div className="p-6 text-sm text-red-700">{error}</div>}
       {!loading && !error && runs.length === 0 && (
         <div className="p-8 text-center text-sm text-text-dim">
-          No runs yet. Start an agent with <code className="rounded bg-black/5 px-1.5 py-0.5 text-xs">trace run &quot;claude ...&quot;</code> or
-          wire up hooks with <code className="ml-1 rounded bg-black/5 px-1.5 py-0.5 text-xs">trace integrations install all</code>.
+          No runs yet. Start an agent with <code className="rounded bg-black/5 px-1.5 py-0.5 text-xs">trc run &quot;claude ...&quot;</code> or
+          wire up hooks with <code className="ml-1 rounded bg-black/5 px-1.5 py-0.5 text-xs">trc integrations install all</code>.
         </div>
       )}
       {runs.length > 0 && (

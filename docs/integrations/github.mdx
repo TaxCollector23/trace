@@ -53,10 +53,10 @@ Token resolution order:
 3. `~/.trace/github.json` → `{ "token": "ghp_..." }`
 
 ```bash
-trace github status              # who am I, which repo, public/private
-trace github commits --limit 10  # commits from the remote
-trace github pulls               # open PRs
-trace github cat src/auth.ts     # file contents from the remote (private OK)
+trc github status              # who am I, which repo, public/private
+trc github commits --limit 10  # commits from the remote
+trc github pulls               # open PRs
+trc github cat src/auth.ts     # file contents from the remote (private OK)
 ```
 
 The dashboard's **GitHub** page shows the same data and includes a file reader.
