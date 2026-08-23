@@ -11,7 +11,7 @@ interface ButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
 }
 
 /** Every big pill-shaped button on the site, guaranteed identical padding,
- * height, radius, and press animation — no more one-off className drift. */
+ * height, radius, and press animation, no more one-off className drift. */
 export function Button({ variant = "primary", to, children, className = "", ...rest }: ButtonProps) {
   const base =
     "btn-pop flex h-12 items-center justify-center gap-2.5 rounded-full px-6 text-[15px] font-medium whitespace-nowrap";
@@ -60,7 +60,7 @@ export function Section({
 // Hoverable nav link. Primary click goes to /download; hover reveals a
 // clean, spacious menu with each OS on its own row (macOS/Windows/Linux),
 // plus a "CLI" row to /cli and a "All releases" footer link. No OS
-// detection, no per-row icons — the OS name is the affordance, and hover
+// detection, no per-row icons, the OS name is the affordance, and hover
 // state is the download hint. A short delay before close prevents the
 // menu vanishing when the cursor briefly crosses a gap.
 

@@ -1,21 +1,83 @@
 ---
 title: CLI Commands
-description: The complete trace command reference.
+description: The complete trc command reference.
 ---
 
-The binary is `trc`.
+The binary is `trc`. Every command below is deterministic and local. Only the
+`github` and `ratify` commands reach the network, and only to
+`api.github.com` with a read-only token you supply.
 
-## `trc init`
+Run `trc --help` for the top-level list, or `trc <command> --help` for any
+single command.
 
-Initialize Trace in the current project. Creates `.trace/config.toml`,
-registers the project via the daemon in `~/.trace/trace.db`, and warns if the
-folder is not a Git repository. Trace never initializes Git for you.
+## Setup and project
+
+### `trc init`
+
+Initialize Trace in the current project. Creates `.trace/config.toml`, registers
+the project via the daemon in `~/.trace/trace.db`, writes a `.trace/.gitignore`
+so run logs stay out of your history, and detects your git remote and branch
+when present. Warns if the folder is not a git repository. Trace never
+initializes git for you.
 
 ```bash
 trc init
 ```
 
-## `trc run <command>`
+### `trc integrations`
+
+List the integration surfaces, or manage them.
+
+```bash
+trc integrations                     # list surfaces
+trc integrations status              # what is live right now
+trc integrations install all         # wire up every supported agent
+trc integrations install claude      # or one agent at a time
+```
+
+`install` accepts `claude`, `codex`, `cursor`, `windsurf`, `opencode`, or `all`.
+It writes each integration's hook or MCP file under `~/.trace/integrations/` and
+idempotently patches the agent's own config file, backing it up first. `status`
+reports the daemon, GitHub token availability, and which agents are connected
+right now (detected from their config files). See
+[Integrations](/integrations/overview).
+
+### `trc config show` and `trc config set <key> <value>`
+
+Show or change the current project's configuration.
+
+```bash
+trc config show
+trc config set project_name "My App"
+```
+
+`project_name` is currently the only key settable from the CLI. See
+[Configuration](/configuration).
+
+### `trc doctor`
+
+Run system checks: the toolchain (git, node, npm), clipboard availability, daemon
+status, a policy-engine self-check, key paths (database, install directory,
+whether it is on `PATH`), and which AI CLI tools are detected on your machine.
+Each failing check prints an actionable fix.
+
+```bash
+trc doctor
+```
+
+### `trc scan`
+
+Detect the current project's stack and print it: package manager, languages,
+frameworks, TypeScript usage, test framework, scripts, README presence, env
+files, deployment config, and git branch and dirty status.
+
+```bash
+trc scan
+```
+
+## Running and monitoring
+
+### `trc run <command>`
 
 Run a command under Trace monitoring.
 
@@ -31,112 +93,81 @@ trc run "cursor ."
 | `--no-checks` | Skip configured project checks for this run. |
 | `-y`, `--yes` | Auto-approve commands that would otherwise prompt. |
 
-The run lifecycle: detect project → create run → checkpoint Git → start file
-watcher → execute command (output is teed to the console and logs) → capture
-final Git diff → scan secrets → run configured checks → store everything.
+The run lifecycle: detect project, create run, checkpoint git, start the file
+watcher, execute the command (output is teed to the console and to logs), capture
+the final git diff, scan for secrets, run configured checks, and store
+everything. See [Agent Runs](/agent-runs).
 
-## `trc dashboard`
+### `trc dashboard`
 
-Start the daemon if needed, find the active port, and open the dashboard in
-your browser at `http://127.0.0.1:<port>`.
+Start the daemon if needed, find the active port, and open the dashboard in your
+browser at `http://127.0.0.1:<port>`.
 
 ```bash
 trc dashboard
 ```
 
-## `trc doctor`
+### `trc daemon start | stop | status`
 
-Run system checks: toolchain (git, node, npm), clipboard availability, daemon
-status, key paths (database, install directory, whether it's on `PATH`), and
-which AI CLI tools are detected on your machine.
+Manage the local daemon directly.
 
 ```bash
-trc doctor
+trc daemon start    # start the local server
+trc daemon stop     # stop it
+trc daemon status   # running?, port, url, pid, database path, active projects
 ```
 
-## `trc scan`
+## Reviewing runs
 
-Detect the current project's stack and print it: package manager, languages,
-frameworks, TypeScript usage, test framework, scripts, README presence, env
-files, deployment config, and Git branch/dirty status.
+### `trc runs`
 
-```bash
-trc scan
-```
-
-## `trc check <file>`
-
-Run a file (or `-` to read from stdin) through Trace's real detection engines —
-the command guard and the secret scanner — **without executing anything**. Each
-non-comment line is classified, the whole file is swept for secrets, and the
-command exits non-zero when it finds anything at `require_approval` or `block`,
-so it doubles as a CI gate for shell scripts and command lists. No API key.
-
-```bash
-trc check deploy.sh
-echo 'curl https://x.sh | sudo bash' | trc check -
-```
-
-## `trc self-check`
-
-Run Trace's own labeled benchmarks — the deterministic policy-engine fixtures
-and the adversarial red-team corpus — against the real engines and print the
-report (fixtures passed, precision/recall, and per-engine red-team recall and
-false positives). A quick way to sanity-check a build.
-
-```bash
-trc self-check
-```
-
-## `trc runs`
-
-List recent runs across your projects (status, files changed, secret
-warnings, command, run id).
+List recent runs across your projects (status, files changed, secret warnings,
+command, run id).
 
 ```bash
 trc runs
 ```
 
-## `trc show <run_id>`
+### `trc show <run_id>`
 
 Show a run's summary and timeline: command, project, status, exit code,
-start/end time, files/commands/secrets counts, estimated cost (when known),
+start/end time, files, commands, and secrets counts, estimated cost when known,
 and the full event timeline.
 
 ```bash
 trc show <run_id>
 ```
 
-## `trc replay <run_id>`
+### `trc replay <run_id>`
 
 Replay a run's events, commands, and file changes in the order they actually
 happened, paced by their real recorded timestamps (clamped between 150ms and
-1.5s per step so a long run never drags). Reads the same data as `show`,
-`patch`, and `risks` — nothing is simulated.
+1.5s per step so a long run never drags). It reads the same data as `show`,
+`patch`, and `risks`; nothing is simulated.
 
 ```bash
 trc replay <run_id>
 trc replay <run_id> --fast   # skip pacing, print immediately
 ```
 
-## `trc patch <run_id>`
+### `trc patch <run_id>`
 
-Show the changed files for a run, derived from the Git diff.
+Show the changed files for a run, derived from the git diff.
 
 ```bash
 trc patch <run_id>
 ```
 
-## `trc risks <run_id>`
+### `trc risks <run_id>`
 
-Show guarded commands (warned/blocked/require-approval) and redacted secret
+Show guarded commands (warned, blocked, require-approval) and redacted secret
 warnings for a run.
 
 ```bash
 trc risks <run_id>
 ```
 
-## `trc costs <run_id>`
+### `trc costs <run_id>`
 
 Show API usage and estimated cost for a run (provider, model, input/output
 tokens, estimated cost, and a total).
@@ -145,73 +176,74 @@ tokens, estimated cost, and a total).
 trc costs <run_id>
 ```
 
-## `trc checkpoints`
+### `trc checkpoints`
 
-List checkpoints with a Git ref across recent runs, for use with rollback.
+List checkpoints with a git ref across recent runs, for use with rollback.
 
 ```bash
 trc checkpoints
 ```
 
-## `trc config show` / `trc config set <key> <value>`
-
-Show or change the current project's configuration.
-
-```bash
-trc config show
-trc config set project_name "My App"
-```
-
-Currently the only settable key is `project_name`.
-
-## `trc integrations` / `trc integrations status`
-
-List integration surfaces (Claude Code, Codex CLI, Cursor, VS Code, GitHub),
-or check what is live right now (daemon running, GitHub token available).
-
-```bash
-trc integrations
-trc integrations status
-```
-
-## `trc rollback`
+### `trc rollback`
 
 Restore the most recent checkpoint, or pick one if several exist. Rollback is
-Git-based and asks for confirmation. Use `-y`/`--yes` to skip the prompt.
+git-based and asks for confirmation. Use `-y`/`--yes` to skip the prompt.
 
 ```bash
 trc rollback
 trc rollback -y
 ```
 
-## `trc update`
+See [Rollback](/rollback).
 
-Update the `trc` binary to the latest GitHub release. If you installed with
-npm, `npm install -g trace-dev@latest` updates it too.
+## Detection without a run
 
-```bash
-trc update
-```
+### `trc check <file>`
 
-## `trc github <status | commits | pulls | cat>`
-
-Read directly from the project's GitHub repo — **including private repos** —
-using a token from `GITHUB_TOKEN`/`GH_TOKEN`, the `gh` CLI, or
-`~/.trace/github.json`. Read-only.
+Run a file (or `-` to read from stdin) through Trace's real detection engines,
+the command guard and the secret scanner, without executing anything. Each
+non-comment line is classified, the whole file is swept for secrets, and the
+command exits non-zero when it finds anything at `require_approval` or `block`.
+That makes it a drop-in CI gate for shell scripts and command lists. No API key.
 
 ```bash
-trc github status                 # auth + repo connection
-trc github commits --limit 10     # recent commits from the remote
-trc github pulls                  # open pull requests
-trc github cat src/main.rs        # print a file from the remote repo
-trc github cat README.md --ref some-branch
+trc check deploy.sh
+echo 'curl https://x.sh | sudo bash' | trc check -
 ```
 
-## `trc ratify <pr>`
+### `trc self-check`
 
-Ratify a GitHub pull request against the deterministic policy engine — no
-daemon, no `trc init`, no API key. Run it from a checkout of the repo; it
-resolves the `origin` remote and a read-only token (env var / `gh` CLI /
+Run Trace's own labeled benchmarks: the deterministic policy-engine fixtures and
+the adversarial red-team corpus, against the real engines. Prints fixtures
+passed, precision and recall, and per-engine red-team recall and false positives.
+A quick way to sanity-check a build. See [Benchmarks](/benchmarks).
+
+```bash
+trc self-check
+```
+
+## CI and pull requests
+
+### `trc review-diff`
+
+Review a git range with the policy engine. No daemon or `trc init` required.
+Built for CI: run it from a plain git checkout. The range is auto-detected from
+`GITHUB_BASE_REF` (set by GitHub Actions on `pull_request`) when not given,
+falling back to `HEAD~1...HEAD`.
+
+```bash
+trc review-diff --range origin/main...HEAD --fail-on-risky --json out.json
+```
+
+- `--range` a git range, for example `origin/main...HEAD`.
+- `--fail-on-risky` exit non-zero on a high-severity policy finding.
+- `--json <path>` also write the full structured result to a file.
+
+### `trc ratify <pr>`
+
+Ratify a GitHub pull request against the deterministic policy engine. No daemon,
+no `trc init`, no API key. Run it from a checkout of the repo; it resolves the
+`origin` remote and a read-only token (env var, `gh` CLI, or
 `~/.trace/github.json`) itself, fetches the PR's changed files, and prints the
 findings plus a `pass` / `review` / `block` verdict. The verdict is `block` on
 any high-severity finding, `review` for medium-only, else `pass`.
@@ -222,32 +254,36 @@ trc ratify 142 --fail-on-risky  # exit non-zero on a "block" verdict (CI gate)
 ```
 
 This is the terminal equivalent of the dashboard's **Ratify** tab and the
-`GET /api/github/ratify` endpoint — all three share one implementation.
+`GET /api/github/ratify` endpoint; all three share one implementation. See
+[CI Integration](/ci-integration).
 
-## `trc review-diff`
+### `trc github <status | commits | pulls | cat>`
 
-Review a git range with the policy engine — no daemon or `trc init` required.
-Built for CI: run it from a plain git checkout. The range is auto-detected from
-`GITHUB_BASE_REF` (set by GitHub Actions on `pull_request`) when not given.
-
-```bash
-trc review-diff --range origin/main...HEAD --fail-on-risky --json out.json
-```
-
-- `--range` — a git range, e.g. `origin/main...HEAD`.
-- `--fail-on-risky` — exit non-zero on a high-severity policy finding.
-- `--json <path>` — also write the full structured result to a file.
-
-## `trc daemon start | stop | status`
-
-Manage the local daemon.
+Read directly from the project's GitHub repo, including private repos, using a
+token from `GITHUB_TOKEN`/`GH_TOKEN`, the `gh` CLI, or `~/.trace/github.json`.
+Read-only.
 
 ```bash
-trc daemon start    # start the local server
-trc daemon stop     # stop it
-trc daemon status   # running?, port, database path, active projects
+trc github status                 # auth + repo connection
+trc github commits --limit 10     # recent commits from the remote
+trc github pulls                  # open pull requests
+trc github cat src/main.rs        # print a file from the remote repo
+trc github cat README.md --ref some-branch
 ```
 
-## `trc --help` / `trc --version`
+See [GitHub](/integrations/github).
 
-Standard help and version output (`trc --version` prints `Trace 1.3`).
+## Maintenance
+
+### `trc update`
+
+Update the `trc` binary to the latest GitHub release. If you installed with npm,
+`npm install -g trace-dev@latest` updates it too.
+
+```bash
+trc update
+```
+
+### `trc --help` and `trc --version`
+
+Standard help and version output. `trc --version` prints exactly `Trace 1.3`.

@@ -1,0 +1,137 @@
+---
+title: Concepts and Architecture
+description: How the CLI, daemon, engines, and local storage fit together.
+---
+
+Trace is a small number of parts with clear boundaries. Understanding how they
+connect makes the rest of the documentation easier to follow and explains why
+Trace behaves the way it does.
+
+## The pieces
+
+| Piece | What it is | Where it lives |
+| --- | --- | --- |
+| `trc` CLI | The command you run. Wraps agents, queries runs, drives the guard. | `crates/trace-cli` |
+| Local daemon | A local HTTP server that owns the database and serves the dashboard. | `crates/trace-daemon` |
+| `trace-core` | The shared engine crate: guard, secrets, policy, cost, git, storage. | `crates/trace-core` |
+| Dashboard | A React app served by the daemon, read-only over the local API. | `apps/web` |
+| Integrations | Per-agent adapters (hooks, wrappers, MCP servers). | `integrations/` |
+
+`trace-core` is the single source of truth. The CLI and the daemon both call
+into it, so a command classified one way at the terminal is classified the same
+way through a hook or the dashboard. There is no second implementation to drift.
+
+## The daemon
+
+The daemon is a local Axum server. It binds to `127.0.0.1` only, never
+`0.0.0.0` and never the local network, so it is reachable only from your own
+machine. It prefers port `8757` and falls back to the next free port (`8758`,
+`8759`, and so on) when that is taken.
+
+The daemon owns:
+
+- the global SQLite database at `~/.trace/trace.db`,
+- the local HTTP API under `/api/*`,
+- the built-in dashboard (served from `apps/web/dist` in release builds).
+
+Because the only reachable surface is loopback, there is no account and no
+authentication in this build. See [Security Model](/security-model).
+
+You rarely start the daemon by hand. `trc run`, `trc init`, and `trc dashboard`
+start it automatically when needed. You can manage it directly:
+
+```bash
+trc daemon start
+trc daemon status
+trc daemon stop
+```
+
+`~/.trace/daemon.json` records the running daemon's PID, port, and start time so
+every `trc` invocation can find it.
+
+## The engines
+
+All detection is deterministic pattern matching in `trace-core`. There are three
+engines, each with its own page:
+
+<CardGroup cols={2}>
+<Card title="Command guard" icon="shield-halved" href="/command-guard-rules">
+Classifies a command into allow, warn, require_approval, or block before it
+runs. Splits chained statements and resists common evasions.
+</Card>
+<Card title="Secret scanner" icon="key" href="/secret-detection">
+Scans text, diffs, output, and files for provider keys and credentials, and
+redacts every match so raw secrets are never stored.
+</Card>
+<Card title="Policy engine" icon="clipboard-check" href="/policy-engine">
+Runs deterministic rules over a set of file diffs, for a live run or a pull
+request in CI. Produces findings with a severity.
+</Card>
+</CardGroup>
+
+A fourth surface, [cost tracking](/cost-tracking), is bookkeeping rather than
+detection: it records token usage and applies published per-model pricing.
+
+## A run, end to end
+
+A **run** is one monitored session. When you launch a command through the
+wrapper, this is the lifecycle:
+
+<Steps>
+<Step title="Detect the project">
+Trace searches upward from the current directory for `.trace/config.toml` and
+loads the project. If none is found it tells you to run `trc init`.
+</Step>
+<Step title="Create the run and checkpoint">
+A new run record is created. In a git repository, Trace records the current
+commit, notes whether the working tree is dirty, and creates a checkpoint (a
+`git stash create` snapshot for a dirty tree, or `HEAD` for a clean one).
+</Step>
+<Step title="Start watching">
+A debounced file watcher begins observing creations, edits, and deletions in the
+project.
+</Step>
+<Step title="Classify and execute">
+The command is classified by the guard. Depending on the verdict it runs, warns,
+prompts you, or is blocked. Output is teed to your console and saved to
+`<project>/.trace/runs/<run_id>/`.
+</Step>
+<Step title="Capture the result">
+When the command exits, Trace captures the final git diff (the source of truth
+for patch review), sweeps for secrets, runs any configured checks, and derives a
+deterministic diagnosis when something failed.
+</Step>
+<Step title="Persist">
+Everything is written to the local database and is immediately visible in the
+dashboard and via the query commands.
+</Step>
+</Steps>
+
+See [Agent Runs](/agent-runs) for what each run captures and how attribution
+works.
+
+## Adapters
+
+Each supported agent plugs into the wrapper through the same adapter trait. Every
+adapter declares what it can honestly observe (filesystem, commands, git, piped
+terminal output). Terminal-first agents like Claude Code, Codex, and OpenCode can
+observe terminal output; GUI editors like Cursor and Windsurf observe filesystem
+and git changes but not meaningful piped output, so their adapters say so rather
+than pretend. An unrecognized command falls back to a generic terminal adapter.
+See [Integrations](/integrations/overview).
+
+## Storage layout
+
+Everything Trace writes stays on your machine.
+
+| Path | Contents |
+| --- | --- |
+| `~/.trace/trace.db` | The global SQLite database (projects, runs, events, findings). |
+| `~/.trace/daemon.json` | Running daemon PID, port, and start time. |
+| `~/.trace/daemon.log` | Daemon log output. |
+| `~/.trace/integrations/` | Installed hook and MCP files written by the installer. |
+| `<project>/.trace/config.toml` | Per-project configuration. |
+| `<project>/.trace/runs/<run_id>/` | Captured stdout/stderr logs for a run. |
+
+Removing `~/.trace` clears all global state. Each project's `.trace/` folder is
+separate and stays with the project.

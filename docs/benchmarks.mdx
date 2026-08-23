@@ -1,0 +1,73 @@
+---
+title: Benchmarks
+description: A reproducible, labeled benchmark for Trace's detection engines.
+---
+
+Trace ships its own benchmark so its detection claims are checkable rather than
+marketing. Two labeled corpora run through the **real** engines, no mocks, and
+are scored. You can run the whole thing yourself:
+
+```bash
+trc self-check
+```
+
+The same computation backs the dashboard's **Benchmarks** page and the daemon's
+`GET /api/benchmarks/redteam` endpoint, so the terminal, the API, and the UI
+always report the same numbers.
+
+## The two benchmarks
+
+### Policy-engine fixtures
+
+Labeled diff fixtures run through `run_policy_checks`. Each fixture declares which
+rule (if any) should fire, and the run is scored for how many fixtures passed plus
+overall **precision** and **recall**. A fixture that expects nothing to fire but
+sees a finding counts against precision; a fixture that expects a rule but does
+not see it counts against recall.
+
+### Red-team detection corpus
+
+An adversarial corpus of dangerous commands (including evasions), planted secret
+payloads, and unsafe prompts, fed through the real `guard::classify`,
+`secrets::scan_text`, and the prompt-risk analyzer. Each engine is scored for:
+
+- **caught**: threats detected at or above the minimum expected decision,
+- **missed**: threats not detected at all,
+- **downgraded**: threats detected but at too weak a decision,
+- **false positives**: benign inputs that tripped a rule.
+
+Each command entry declares the **minimum** decision a good tool should return
+(for example `rm -rf /` must be at least `block`), so a downgrade is scored as a
+real failure, not a pass.
+
+## Reading the output
+
+`trc self-check` prints the policy fixtures first, then a per-engine red-team
+table:
+
+```text
+Trace policy engine self-check
+  N / N fixtures passed  ·  precision 100%  ·  recall 100%
+
+Trace red-team detection benchmark
+  X/Y threats caught  ·  0 false positive(s)  ·  recall 100%
+  [PASS] guard            .../... caught, 0 missed, 0 downgraded, 0 false+
+  [PASS] secrets          .../... caught, 0 missed, 0 downgraded, 0 false+
+  [PASS] prompt           .../... caught, 0 missed, 0 downgraded, 0 false+
+  pack: rule pack <version> · <n> injection phrases · <n> command rules · <n> secret patterns
+```
+
+## Exit codes
+
+`trc self-check` exits non-zero if any policy fixture fails or any red-team engine
+regresses (a miss, a downgrade, or a false positive). That makes it a useful gate
+in your own CI to catch a rule regression before it ships. `trc doctor` runs the
+policy fixtures too and points you at `trc self-check` for the full report.
+
+## Why this exists
+
+Deterministic detection is only worth the name if you can reproduce it. A model-
+based judge cannot be pinned to a labeled score that stays stable across runs; a
+rule engine can. The benchmark is the evidence behind the claim that Trace's guard
+and scanner behave the same way every time. See
+[Command Guard Rules](/command-guard-rules) and [Policy Engine](/policy-engine).

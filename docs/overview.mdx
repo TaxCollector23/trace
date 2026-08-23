@@ -4,34 +4,60 @@ description: The local-first control layer for AI coding agents.
 ---
 
 Trace is a local-first control layer for autonomous coding agents. Those agents
-now have a shell — they edit files, run commands, and rewrite git history in
-seconds. Trace gives every session a complete record — commands, file changes,
-risks, costs, checks, and rollback points — and stops the destructive command
-before it runs, so you can review an agent's work the way you'd review a
-coworker's pull request.
+now have a shell. They edit files, run commands, install packages, and rewrite
+git history in seconds, often faster than a person can read what scrolled past.
+Trace gives every session a complete record (commands, file changes, risks,
+costs, checks, and rollback points) and stops the destructive command before it
+runs, so you can review an agent's work the way you would review a coworker's
+pull request.
 
-It is a black box recorder, a safety layer, a cost tracker, and a patch-review
-command center that works the same regardless of which agent produced the run.
+It is four tools in one:
+
+- a **black box recorder** that captures what happened during a session,
+- a **safety layer** that classifies risky commands before they execute,
+- a **cost tracker** for AI/API usage, and
+- a **patch-review command center** grounded in the real git diff.
+
+All of it works the same regardless of which agent produced the run.
 
 Trace tells you:
 
-- **what changed** — files created, modified, or deleted
-- **what ran** — the commands executed during a session
-- **what looked risky** — blocked/warned commands and protected files
-- **what may have leaked** — secrets detected in diffs, output, or files
-- **what it cost** — API/model usage when it is available
-- **what broke** — build/test results and a deterministic failure diagnosis
-- **how to undo it** — Git-based checkpoints and rollback
+- **what changed**, the files created, modified, or deleted
+- **what ran**, the commands executed during a session
+- **what looked risky**, blocked or warned commands and protected files
+- **what may have leaked**, secrets detected in diffs, output, or files
+- **what it cost**, API/model usage when it is available
+- **what broke**, build/test results and a deterministic failure diagnosis
+- **how to undo it**, git-based checkpoints and rollback
+
+## Deterministic by design
+
+Every decision Trace makes in the guard path is deterministic. There is no
+language model in the loop, no trust score, and no API key required anywhere.
+The command guard, the secret scanner, and the policy engine are all pure
+pattern matching over the text of a command or a diff. This has three practical
+consequences:
+
+1. **The same input always produces the same verdict.** A rule either matches
+   or it does not, so you can reason about, test, and reproduce what Trace will
+   do. The bundled benchmark (see [Benchmarks](/benchmarks)) proves this against
+   a labeled corpus you can rerun yourself.
+2. **Nothing leaves your machine to make a decision.** The guard cannot call
+   out to a provider even in principle, so there is no latency, no rate limit,
+   and no data egress on the hot path.
+3. **It fails closed and cannot be talked out of a verdict.** A rule pack can
+   only escalate a built-in decision, never weaken it, so a stale or hostile
+   pack cannot downgrade a hard block.
 
 ## What Trace is not
 
 - It is **not** a chatbot or an AI coding assistant.
-- It does **not** replace your coding agent — it wraps whichever one you use.
+- It does **not** replace your coding agent. It wraps whichever one you use.
 - It does **not** send your project data anywhere. Everything stays on your
   machine in `~/.trace` and your project's `.trace/` folder.
+- It does **not** require an account, a login, or a cloud service to work.
 
-Trace *wraps, observes, records, guards, and reviews* the agents you already
-use.
+Trace wraps, observes, records, guards, and reviews the agents you already use.
 
 ## How it works
 
@@ -41,14 +67,32 @@ You launch an agent or command through the wrapper:
 trc run "claude fix the login bug"
 ```
 
-Trace creates a checkpoint, captures the starting Git state, watches the
-project for file changes, records command output, scans for secrets and risky
-commands, captures the final Git diff, optionally runs your configured checks,
-and stores everything in a local SQLite database. You review it all in a local
-dashboard at `http://127.0.0.1:<port>`.
+Trace creates a checkpoint, captures the starting git state, watches the project
+for file changes, records command output, scans for secrets and risky commands,
+captures the final git diff, optionally runs your configured checks, and stores
+everything in a local SQLite database. You review it all in a local dashboard at
+`http://127.0.0.1:<port>`, or straight from the terminal with commands like
+`trc show`, `trc patch`, and `trc risks`.
 
 <Note>
-Trace observes terminal-based agents most directly. For GUI-based tools it
-can still watch file changes and Git diffs, but it cannot guard the tool's
-internal actions. See [Limitations](/limitations).
+Trace observes terminal-based agents most directly. For GUI-based tools it can
+still watch file changes and git diffs, but it cannot guard the tool's internal
+actions. See [Limitations](/limitations).
 </Note>
+
+## Where to go next
+
+<CardGroup cols={2}>
+<Card title="Concepts and architecture" icon="sitemap" href="/concepts">
+How the CLI, daemon, engines, and storage fit together.
+</Card>
+<Card title="Install" icon="download" href="/installation">
+One npm command on macOS, Linux, and Windows.
+</Card>
+<Card title="Quickstart" icon="rocket" href="/quickstart">
+Record your first agent run in under a minute.
+</Card>
+<Card title="Command guarding" icon="shield-halved" href="/command-guarding">
+How risky commands are classified before they run.
+</Card>
+</CardGroup>

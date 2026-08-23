@@ -1,71 +1,72 @@
 ---
 title: GitHub
-description: GitHub App and Actions integration with sanitized summaries.
+description: GitHub Actions integration and direct, read-only repo access.
 ---
 
-The GitHub integration has four surfaces, kept realistically scoped.
+The GitHub integration has two things you will actually use today: running the
+policy engine in CI, and reading directly from your repo (including private repos)
+with a read-only token. Everything it sends off-machine is a sanitized summary.
 
-## 1. GitHub App
+## 1. Review pull requests in CI
 
-The App (planned scope) listens for repository events and posts Trace
-summaries as PR check results:
-
-- `pull_request` opened / synchronized
-- `push`
-- creates a **check run** with a Trace summary
-- links a local Trace run to a commit SHA
-- shows changed files and warnings as the check result
-
-See `integrations/github/app/` for the manifest and event-handler skeleton.
-
-## 2. GitHub Actions
-
-Run Trace in CI to flag risky diffs and secret-like changes:
+Trace's [policy engine](/policy-engine) runs in CI with no daemon and no API key.
+The two commands built for this are `trc review-diff` (gate a git range) and `trc
+ratify <pr>` (gate a pull request by fetching its files). A minimal GitHub Actions
+job:
 
 ```yaml
-- uses: TaxCollector23/trace/integrations/github@main
-  with:
-    checks: "npm run build, npm test"
+name: Trace review
+on: pull_request
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: npm install -g trace-dev
+      - run: trc review-diff --fail-on-risky
 ```
 
-The action:
+This runs the deterministic policy engine over the PR diff and fails the job on a
+`block` verdict. See [CI Integration](/ci-integration) for the full walkthrough,
+including `trc ratify` and JSON output.
 
-- runs configured checks
-- scans the diff for risky changes and secret-like content
-- uploads a **sanitized** Trace summary artifact
-- creates a status / check result
+## 2. Read directly from the repo (including private)
 
-## 3. Pull request checks
-
-The sanitized summary surfaces as a PR check: counts of files changed,
-risky-command flags, redacted secret findings, and check pass/fail.
-
-## 4. Read directly from the repo (including private)
-
-Trace can read your project's GitHub repository directly — **even when it is
-private** — via the GitHub REST API. It is read-only and the token is only ever
-sent to `api.github.com`.
+Trace can read your project's GitHub repository directly, even when it is private,
+via the GitHub REST API. It is read-only, and the token is only ever sent to
+`api.github.com`.
 
 Token resolution order:
 
 1. `GITHUB_TOKEN` / `GH_TOKEN` environment variables
 2. `gh auth token` (the GitHub CLI's stored credential)
-3. `~/.trace/github.json` → `{ "token": "ghp_..." }`
+3. `~/.trace/github.json` containing `{ "token": "ghp_..." }`
 
 ```bash
-trc github status              # who am I, which repo, public/private
+trc github status              # who am I, which repo, public or private
 trc github commits --limit 10  # commits from the remote
 trc github pulls               # open PRs
 trc github cat src/auth.ts     # file contents from the remote (private OK)
+trc github cat README.md --ref some-branch
 ```
 
 The dashboard's **GitHub** page shows the same data and includes a file reader.
-For private repos, ensure one of the token sources above is set (e.g.
-`gh auth login`).
+For private repos, make sure one of the token sources above is set (for example
+run `gh auth login`).
+
+## Ratify shares one implementation
+
+The `trc ratify` command, the dashboard's **Ratify** tab, and the daemon's
+`GET /api/github/ratify` endpoint all call the same summarizer over the same
+policy engine, so a PR gets the same verdict wherever you look at it.
 
 ## What is never uploaded
 
 <Warning>
-The GitHub integration uploads **only sanitized summaries**. It never uploads
-raw project files, raw secrets, or your local SQLite database.
+The GitHub integration sends **only sanitized summaries** off-machine: counts of
+files changed, risk flags, and redacted findings. It never uploads raw project
+files, raw secrets, or your local SQLite database. See
+[Security Model](/security-model).
 </Warning>

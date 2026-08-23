@@ -3,19 +3,53 @@ title: Cost Tracking
 description: Track AI/API usage and cost, with honest partial-data support.
 ---
 
-Trace tracks AI/API usage when the data is available, and is honest when it
-is not.
+Trace tracks AI/API usage when the data is available, and is honest when it is
+not. It never guesses a number it cannot compute.
 
 ## What it records
 
 For each usage record: provider, model, input tokens, output tokens, cached
-tokens (when available), estimated cost, latency, timestamp, and run ID. The
-**Cost Center** displays these per run.
+tokens (when available), estimated cost, latency, timestamp, and run id. The
+**Cost Center** displays these per run, and `trc costs <run_id>` prints them in
+the terminal.
 
-## Providers
+## How cost is computed
 
-Cost estimation is designed for OpenAI, Anthropic, Google Gemini, and Groq.
-Local models (Ollama, llama.cpp, LM Studio, …) are treated as zero cost.
+Cost is derived from published per-million-token pricing. Cached input tokens are
+billed at the cached rate and are treated as a subset of the input tokens, so the
+formula is:
+
+```text
+cost = (input - cached)/1e6 * input_price
+     + cached/1e6           * cached_price
+     + output/1e6           * output_price
+```
+
+Model matching is prefix/substring based, so a dated model id such as
+`claude-sonnet-4-20250514` still resolves to the `claude-sonnet` price. The
+current built-in pricing table (USD per million tokens):
+
+| Model match | Input | Output | Cached input |
+| --- | --- | --- | --- |
+| `claude-opus` | 15.00 | 75.00 | 1.50 |
+| `claude-sonnet` | 3.00 | 15.00 | 0.30 |
+| `claude-haiku` | 0.80 | 4.00 | 0.08 |
+| `gpt-4o-mini` | 0.15 | 0.60 | 0.075 |
+| `gpt-4o` | 2.50 | 10.00 | 1.25 |
+| `gpt-4.1` | 2.00 | 8.00 | 0.50 |
+| `o1` | 15.00 | 60.00 | 7.50 |
+| `gemini-1.5-pro` | 1.25 | 5.00 | 0.3125 |
+| `gemini-1.5-flash` | 0.075 | 0.30 | 0.01875 |
+| `gemini` (other) | 0.50 | 1.50 | 0.125 |
+
+More specific matches are tried before generic ones, so `gemini-1.5-flash`
+resolves before the generic `gemini` fallback.
+
+## Local models are free
+
+Local providers are treated as zero cost, since there is no metered API bill.
+Providers recognized as local: `local`, `ollama`, `llamacpp`, and `lmstudio`
+(Ollama, llama.cpp, LM Studio, and the generic local label).
 
 ## How usage is captured
 
@@ -26,8 +60,7 @@ AI client / tool  ->  Trace local proxy  ->  provider API
 ```
 
 The proxy observes request/response token counts and attributes them to the
-active run. In the MVP you can also ingest usage records directly through the
-local API adapter:
+active run. You can also ingest usage records directly through the local API:
 
 ```bash
 POST /api/runs/<run_id>/cost
@@ -40,14 +73,17 @@ POST /api/runs/<run_id>/cost
 }
 ```
 
-Trace computes `estimated_cost` from published per-model pricing.
+Trace computes `estimated_cost` from the pricing table above.
 
-## Partial data
+## Partial data is labeled, not faked
 
-If a tool does not route through the proxy and no usage is imported, Trace
-does not know the cost. Rather than guess, the dashboard shows:
+Cost estimation needs at least a known model and an input token count. When
+either is missing, `estimate_cost` returns nothing rather than inventing a
+figure, and the dashboard says so:
 
-- **Cost unavailable** when there is no usage data, or
+- **Cost unavailable** when there is no usage data or the model is unknown, or
 - **Estimated cost** when token counts are known but pricing is approximate.
 
-Trace does not lie about precision.
+If a tool does not route through the proxy and no usage is imported, Trace does
+not know the cost, and it says the cost is unavailable. Trace does not lie about
+precision. See [Limitations](/limitations).

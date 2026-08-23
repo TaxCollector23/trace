@@ -3,28 +3,61 @@ title: Cursor
 description: An MCP server exposing Trace tools to Cursor.
 ---
 
-The Cursor integration (`integrations/cursor/`) is an **MCP server** that exposes
-Trace operations as tools, backed by the local daemon.
+The Cursor integration is an **MCP server** that exposes Trace operations as
+tools, backed by the local daemon. Cursor calls the tools directly, so it can
+classify commands, record runs, and read patch and rollback state through Trace.
 
-## Tools
+## Install
 
+```bash
+trc integrations install cursor
+```
+
+This writes the MCP server to `~/.trace/integrations/cursor/index.js` and
+idempotently patches Cursor's MCP config at `~/.cursor/mcp.json`, backing it up
+first and preserving any servers you already run. The entry it adds:
+
+```json
+{
+  "mcpServers": {
+    "trace": {
+      "command": "node",
+      "args": ["/Users/you/.trace/integrations/cursor/index.js"]
+    }
+  }
+}
+```
+
+The MCP server runs under Node.js, so install Node 18 or newer. Restart Cursor to
+load the server.
+
+## Tools exposed
+
+- `trace_check_command`
+- `trace_get_recent_runs`
 - `trace_start_run`
 - `trace_end_run`
 - `trace_record_event`
-- `trace_get_recent_runs`
 - `trace_get_patch_summary`
-- `trace_check_command`
 - `trace_get_rollback_options`
 
-## Configure
+The server connects to `http://127.0.0.1:<port>` using the port recorded in
+`~/.trace/daemon.json`. Start the daemon with `trc daemon start` if it is not
+already running. If the daemon is down, tool calls fail closed and Cursor proceeds
+without Trace; the integration never blocks your agent.
 
-Add the MCP server to your Cursor MCP settings (see
-`integrations/cursor/README.md`). It connects to `http://127.0.0.1:<port>` from
-`~/.trace/daemon.json`.
+## Verify
+
+```bash
+trc integrations status
+```
+
+Cursor should read **connected** with "MCP server".
 
 ## Honest limitation
 
 <Note>
-Trace can observe project file changes and Git diffs. Full command blocking
-requires supported integration points or running commands through `trc`.
+Trace can observe project file changes and git diffs. Full command blocking
+requires supported integration points or running commands through `trc`. See
+[Limitations](/limitations).
 </Note>

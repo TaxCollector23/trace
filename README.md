@@ -2,45 +2,44 @@
 
 **Git stores commits. Trace stores execution.**
 
-AI agents now write, run, and ship code. Trace gives every one of those
-sessions a complete, local record — what changed, what ran, what it cost, what
-looked risky, and how to roll it back — so "can we trust this change?" has an
-answer instead of a guess.
+AI coding agents now write, run, and ship code on real machines. Trace gives
+every session a complete local record of what changed, what ran, what it cost,
+and what looked risky, plus a one-click way to roll it back.
 
 It is **local-first**: the daemon and dashboard bind only to `127.0.0.1`, there
 is no account, and your project data stays on your machine by default.
 
-- **Landing:** https://landing-one-hazel-88.vercel.app (Vercel project `landing`; a cleaner `trace`-branded domain can be aliased later — see [Deploying the public surfaces](#deploying-the-public-surfaces))
-- **Docs:** https://taxcollector23.github.io/trace/ (GitHub Pages, built from `/docs` via `apps/docs`)
+- **Landing:** https://landing-one-hazel-88.vercel.app
+- **Docs:** https://taxcollector23.github.io/trace/
 - **Repo:** https://github.com/TaxCollector23/trace
 
 ## Why it exists
 
-Companies are handing every engineer an enterprise subscription to an
-autonomous coding agent. Those agents don't just suggest code anymore — they
+Companies now give every engineer an autonomous coding agent, and those agents
 have a shell. They install packages, rewrite configs, run migrations, delete
-files, and push branches, on real machines with real credentials, faster than
-anyone can read.
+files, and push branches on real machines with real credentials, often faster
+than a person can read what scrolled past.
 
-The agent isn't malicious. It's confident and fast — which is the problem. One
-session decides the cleanest fix is to wipe a directory and takes the wrong one
-with it; another force-pushes over a teammate's branch, deletes the failing test
-instead of fixing the bug, commits an API key, or runs a `curl … | sh`. By the
-time a human looks up, it's done and the context is gone.
+Most of the time that is fine. The failure cases are the problem: a session
+wipes the wrong directory while cleaning up, force-pushes over a branch, deletes
+a failing test instead of fixing the bug, commits an API key, or runs a piped
+shell installer. By the time anyone looks, the change has landed and the context
+is gone.
 
-Trace turns every session into something you can **see, stop, and undo**:
+Trace makes every session something you can **see, stop, and undo**:
 
-- **A git checkpoint before anything changes** — so rollback is one click, and the safety net is already there.
-- **Every file change as a diff you can read** — the authoritative patch, reviewed like a PR, not a summary.
-- **A guard on every command** — classified in real time (allow / warn / require-approval / block); the destructive ones (`rm -rf`, force-push, piped shell installers, raw disk writes) are stopped *before* they run.
-- **Secret scanning** — keys and tokens in a diff are caught and redacted.
-- **Cost per session** — token spend by model, so a runaway loop is visible at once.
-- **PR ratification** — the same checks over a pull request, in the dashboard or CI, with a clear `pass / review / block` verdict.
+- **A git checkpoint before anything changes**, so rollback is one click and the safety net is already in place.
+- **Every file change as a diff you can read**: the authoritative patch, reviewed like a pull request.
+- **A guard on every command**, classified in real time as allow, warn, require-approval, or block. Destructive commands (`rm -rf`, force-push, piped shell installers, raw disk writes) are stopped before they run.
+- **Secret scanning** that catches and redacts keys and tokens in a diff.
+- **Cost per session**, token spend by model, so a runaway loop is visible immediately.
+- **PR ratification**: the same checks over a pull request, in the dashboard or in CI, with a clear `pass` / `review` / `block` verdict.
 
-Every check is deterministic pattern matching — **no LLM in the guard path, no
-API key** — so verdicts are instant, free, and identical everywhere. It's
-measured against a labeled red-team corpus you can reproduce yourself, and it
-runs entirely on `127.0.0.1`: your code never leaves your machine.
+Every check is deterministic pattern matching, with no LLM in the guard path and
+no API key, so verdicts are instant, free, and identical on every machine. The
+detection is measured against a labeled red-team corpus you can reproduce
+yourself, and everything runs on `127.0.0.1`. Your code never leaves your
+machine.
 
 ## Install
 
@@ -84,8 +83,8 @@ only). Roll back a run's changes with `trc rollback`.
 | `trc integrations [status]` | List integrations or check what is live. |
 | `trc github <status\|commits\|pulls\|cat>` | Read directly from the repo (incl. private). |
 | `trc check <file>` | Run a file (or `-` for stdin) through the command guard + secret scanner; non-zero exit on require_approval/block. A CI gate for scripts. |
-| `trc ratify <pr> [--fail-on-risky]` | Ratify a GitHub pull request against the policy engine — no daemon, no `trc init`, no API key. |
-| `trc review-diff [--range] [--fail-on-risky] [--json]` | Review a diff range with the policy engine — no daemon or `trc init` required. What CI uses. |
+| `trc ratify <pr> [--fail-on-risky]` | Ratify a GitHub pull request against the policy engine, no daemon, no `trc init`, no API key. |
+| `trc review-diff [--range] [--fail-on-risky] [--json]` | Review a diff range with the policy engine, no daemon or `trc init` required. What CI uses. |
 | `trc self-check` | Run the policy + red-team benchmarks against the real engines and print recall / precision. |
 | `trc update` | Update the `trc` binary to the latest release. |
 | `trc daemon start \| stop \| status` | Manage the local daemon. |
@@ -110,25 +109,25 @@ fake data in production.
 - Agent run timeline and Git checkpointing
 - Patch review grounded in the real Git diff
 - File-change tracking with a debounced watcher
-- **Rule-based command guarding** (allow / warn / require approval / block) —
+- **Rule-based command guarding** (allow / warn / require approval / block),
   understands evasions the naive blocklist misses: pipe-to-shell
-  (`curl … | sudo bash`), download-then-exec, base64-decoded payloads,
-  `find … -delete`, raw block-device writes, DB drops
-- **Deterministic policy engine** — secret detection, missing tests on
+  (`curl ,,� | sudo bash`), download-then-exec, base64-decoded payloads,
+  `find ,,� -delete`, raw block-device writes, DB drops
+- **Deterministic policy engine**: secret detection, missing tests on
   sensitive paths, swallowed errors, hardcoded localhost, dependency/lockfile
   changes, and more, with a real labeled-fixture benchmark (`trc self-check`
   / the dashboard's **Benchmarks** page) proving precision and recall rather
-  than asserting it. **No API key required — it's pure pattern matching.**
-- **Red-team benchmark** — an adversarial corpus (dangerous commands incl.
+  than asserting it. **No API key required, it's pure pattern matching.**
+- **Red-team benchmark**: an adversarial corpus (dangerous commands incl.
   evasions, planted API keys, unsafe prompts) run through the *real* engines
   and scored for recall and false positives, surfaced in `trc self-check`,
   the API, and the dashboard
-- **Ratify** — run the policy engine over a GitHub pull request's files and get
+- **Ratify**: run the policy engine over a GitHub pull request's files and get
   a `pass` / `review` / `block` verdict, from the dashboard, `trc ratify <pr>`,
   or the API. No key.
-- **`trc check`** — scan any file or script through the guard + secret
+- **`trc check`**: scan any file or script through the guard + secret
   scanner without executing it; non-zero exit for CI gating
-- **CI review** — `trc review-diff` runs the same deterministic engine from a
+- **CI review**: `trc review-diff` runs the same deterministic engine from a
   bare git checkout, no daemon needed; the GitHub Action installs and runs it
   automatically
 - Local secret detection with redaction (raw secrets are never stored)
@@ -136,7 +135,7 @@ fake data in production.
 - Build/test result recording and deterministic failure diagnosis
 - Rollback center backed by Git
 - Local SQLite history
-- **GitHub repo reading** — reads commits, PRs, and file contents directly from
+- **GitHub repo reading**: reads commits, PRs, and file contents directly from
   your repo (including private repos) via an authenticated, read-only token
 - Cross-platform desktop shell (macOS, Windows, Linux)
 
@@ -144,11 +143,10 @@ fake data in production.
 
 Each lives under `integrations/` and connects to the local daemon.
 
-- **Claude Code** — hooks adapter with wrapper fallback (`integrations/claude`)
-- **Codex** — CLI wrapper adapter (`integrations/codex`)
-- **Cursor** — MCP server exposing Trace tools (`integrations/cursor`)
-- **VS Code** — lightweight extension bridging to the daemon (`integrations/vscode`)
-- **GitHub** — App + Action running the deterministic policy engine
+- **Claude Code**: hooks adapter with wrapper fallback (`integrations/claude`)
+- **Codex**: CLI wrapper adapter (`integrations/codex`)
+- **Cursor**: MCP server exposing Trace tools (`integrations/cursor`)
+- **GitHub**: App + Action running the deterministic policy engine
   (`trc review-diff`) and posting sanitized summaries (`integrations/github`)
 
 GUI tools are observed via file changes and Git diffs; full command guarding
@@ -159,7 +157,7 @@ requires supported hooks or running through `trc run`.
 - **CLI** (`trc`) handles user commands, runs the wrapped command, and hosts
   the daemon in a detached child process.
 - **Daemon** (Axum) owns the local API, SQLite persistence, and dashboard
-  serving — bound to `127.0.0.1` only.
+  serving, bound to `127.0.0.1` only.
 - **Core** holds shared models, guard rules, the deterministic policy engine,
   the secret scanner, the Ratify verdict logic, the benchmark corpora, cost
   estimation, git/GitHub inspection, and the database schema. All deterministic.
@@ -173,29 +171,29 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full, module-by-module reference.
 
 ```
 trace
-├─ README.md
-├─ docs/                  # Markdown docs (single source)
-├─ crates/
-│  ├─ trace-cli/          # Rust CLI (binary: trace; hosts the daemon)
-│  ├─ trace-daemon/       # Rust local API + localhost GUI server
-│  └─ trace-core/         # shared logic
-├─ apps/
-│  ├─ web/                # React + Vite local dashboard
-│  ├─ desktop/            # native desktop shell (Tauri) wrapping the dashboard
-│  ├─ landing/            # public landing site (Vercel)
-│  └─ docs/               # docs site → GitHub Pages (renders /docs)
-├─ integrations/
-│  ├─ github/             # GitHub App / Actions
-│  ├─ vscode/             # VS Code extension
-│  ├─ cursor/             # Cursor MCP server
-│  ├─ claude/             # Claude Code hooks adapter
-│  └─ codex/              # Codex CLI adapter
-├─ packages/
-│  └─ npm/                # optional npm wrapper package
-├─ homebrew-trace/        # Homebrew formula (mirrors the tap repo)
-├─ firebase/              # optional static mirror / reserved identity
-├─ scripts/               # install.sh, install.ps1
-└─ .github/workflows/     # release.yml, landing-deploy.yml, ci.yml
+,,�,,, README.md
+,,�,,, docs/                  # Markdown docs (single source)
+,,�,,, crates/
+,,�  ,,�,,, trace-cli/          # Rust CLI (binary: trace; hosts the daemon)
+,,�  ,,�,,, trace-daemon/       # Rust local API + localhost GUI server
+,,�  ,,,,,, trace-core/         # shared logic
+,,�,,, apps/
+,,�  ,,�,,, web/                # React + Vite local dashboard
+,,�  ,,�,,, desktop/            # native desktop shell (Tauri) wrapping the dashboard
+,,�  ,,�,,, landing/            # public landing site (Vercel)
+,,�  ,,,,,, docs/               # docs site ,�� GitHub Pages (renders /docs)
+,,�,,, integrations/
+,,�  ,,�,,, github/             # GitHub App / Actions
+,,�  ,,�,,, vscode/             # VS Code extension
+,,�  ,,�,,, cursor/             # Cursor MCP server
+,,�  ,,�,,, claude/             # Claude Code hooks adapter
+,,�  ,,,,,, codex/              # Codex CLI adapter
+,,�,,, packages/
+,,�  ,,,,,, npm/                # optional npm wrapper package
+,,�,,, homebrew-trace/        # Homebrew formula (mirrors the tap repo)
+,,�,,, firebase/              # optional static mirror / reserved identity
+,,�,,, scripts/               # install.sh, install.ps1
+,,,,,, .github/workflows/     # release.yml, landing-deploy.yml, ci.yml
 ```
 
 ## Development setup
@@ -238,9 +236,9 @@ daemon.
 
 ## Security model
 
-- The local daemon binds only to `127.0.0.1` — never the local network.
+- The local daemon binds only to `127.0.0.1`, never the local network.
 - CORS is an explicit origin allow-list (the Vite dev server only), not a
-  wildcard — a permissive policy on a localhost daemon able to trigger
+  wildcard, a permissive policy on a localhost daemon able to trigger
   rollbacks would let *any webpage the user has open* script requests against
   it. Same-origin requests (the packaged app itself) don't need a CORS grant.
 - **No AI/LLM API key is ever required or stored.** Every detection is
@@ -251,7 +249,7 @@ daemon.
 - **GitHub token** (for `trc github`, `trc ratify`, and the CI action) is
   read-only, resolved from an env var / the `gh` CLI / `~/.trace/github.json`,
   and only ever sent to `api.github.com`. Nothing is written back to GitHub.
-- GitHub integration uploads only sanitized summaries — never raw files,
+- GitHub integration uploads only sanitized summaries, never raw files,
   secrets, or the local SQLite database.
 - Git is required for reliable checkpoints and rollback.
 
@@ -266,9 +264,9 @@ See [docs/security-model.mdx](docs/security-model.mdx).
   context mid-session) is only fully wired for Claude Code, which has a hook
   system Trace can inject into. Other wrapped agents (Cursor, Aider, Codex,
   OpenCode, Gemini) get the same live policy review, but findings surface as a
-  terminal alert to the human plus a dashboard flag — not something the agent
-  itself sees — because those tools don't expose an equivalent hook surface yet.
-- Ratify reads a repo's PR files via a personal/CLI token, not a GitHub App —
+  terminal alert to the human plus a dashboard flag, not something the agent
+  itself sees, because those tools don't expose an equivalent hook surface yet.
+- Ratify reads a repo's PR files via a personal/CLI token, not a GitHub App,
   fine for local, user-triggered ratification; an org-wide automatic version
   would need App infrastructure this doesn't include.
 - Cost is "unavailable" unless usage is routed through a proxy or imported.
@@ -282,7 +280,7 @@ See [docs/limitations.mdx](docs/limitations.mdx).
   runtime UI dependency). It is already a serious developer-tool layout;
   Tailwind + shadcn/ui can be adopted later without changing the API.
 - **Diff viewer:** a custom unified-diff renderer (no heavy dependency).
-- **Desktop shell:** Tauri wrapping the existing dashboard build — no second UI
+- **Desktop shell:** Tauri wrapping the existing dashboard build, no second UI
   to maintain.
 - **Analytics:** none on the landing site by default.
 - **Code signing:** not day-one; macOS/Windows may warn on downloaded binaries

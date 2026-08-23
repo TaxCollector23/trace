@@ -3,39 +3,72 @@ title: Security Model
 description: How Trace keeps your data local and safe.
 ---
 
-Trace is local-first and conservative by design.
+Trace is local-first and conservative by design. The guiding principle is that
+Trace should reduce the blast radius of an autonomous agent, not add a new one of
+its own.
 
 ## Network
 
-- The daemon binds to **`127.0.0.1` only** — never `0.0.0.0`, never the local
-  network. The dashboard is reachable only from your machine.
-- There is no account and no authentication for the MVP, because there is no
-  remotely reachable surface.
+- The daemon binds to **`127.0.0.1` only**, never `0.0.0.0` and never the local
+  network. The dashboard and API are reachable only from your machine.
+- There is no account and no authentication, because there is no remotely
+  reachable surface to protect.
+- The detection engines (command guard, secret scanner, policy engine) make **no
+  network calls at all**. They are pure pattern matching, so a decision cannot
+  depend on, or leak to, anything off-machine.
+- The only commands that touch the network are `trc github`, `trc ratify`, and
+  `trc update`, and they talk only to `api.github.com` (with a read-only token
+  you supply) or GitHub Releases.
+
+## No model in the guard path
+
+There is no LLM anywhere in the decision path, and no API key is required for any
+core feature. This removes an entire class of risk: no prompt-injection surface
+in the guard, no provider that has to be trusted with your commands or diffs, and
+no nondeterminism. See [Command Guard Rules](/command-guard-rules).
 
 ## Secrets
 
 - Raw secrets are **never stored**. Detected secrets are redacted to a short
-  prefix plus `...redacted` before storage or display.
-- Protected files (e.g. `.env`, `id_rsa`, `secrets.json`) raise warnings when
-  changed.
+  prefix plus `...redacted` before storage or display, and this is enforced as a
+  tested invariant. See [Secret Detection](/secret-detection).
+- Protected files (for example `.env`, `id_rsa`, `secrets.json`) raise warnings
+  when changed.
+- The command guard requires approval before a command uploads a local secret or
+  credential file to a remote host.
 
-## Uploads
+## Fail closed
+
+The guard fails toward safety. An unknown rule-pack decision value falls back to
+`warn` rather than `allow`, and a rule pack can only escalate a built-in verdict,
+never downgrade it, so a stale or hostile pack cannot turn a block into an allow.
+See [Rule Packs](/rule-packs).
+
+## Uploads and external surfaces
 
 - No cloud upload by default. Project data stays on your machine.
-- The GitHub integration uploads **only sanitized summaries** — never raw
-  project files, raw secrets, or the local SQLite database.
-- The Vercel landing page and the optional Firebase mirror are static and must
-  **not** connect to the local daemon.
+- The GitHub integration uploads **only sanitized summaries**: counts of files
+  changed, risk flags, and redacted findings. It never uploads raw project files,
+  raw secrets, or the local SQLite database.
+- The static landing page and any optional mirror must **not** connect to the
+  local daemon.
 
-## Git & rollback
+## Git and rollback
 
-- Rollback is Git-based and always confirmed. Checkpoints use `git stash create`
+- Rollback is git-based and always confirmed. Checkpoints use `git stash create`
   (capturing dirty state without disturbing the working tree) or `HEAD`.
+- Rollback cannot undo effects outside git, which is why the guard blocks
+  irreversible operations up front rather than relying on rollback. See
+  [Rollback](/rollback).
 
 ## Data locations
 
 | Path | Contents |
 | --- | --- |
 | `~/.trace/trace.db` | Local SQLite history |
-| `~/.trace/daemon.json` | Daemon pid/port/start time |
+| `~/.trace/daemon.json` | Daemon pid, port, start time |
+| `~/.trace/integrations/` | Installed hook and MCP files |
 | `<project>/.trace/` | Per-project config and run logs |
+
+Removing `~/.trace` clears all global state. Nothing leaves your machine unless
+you explicitly use a network command.

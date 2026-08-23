@@ -1,0 +1,89 @@
+---
+title: Policy Engine
+description: Deterministic diff-review rules for live runs and pull requests.
+---
+
+The policy engine runs deterministic rules over a set of file diffs and returns
+findings, each with a severity. It runs on any set of changes: a live agent run's
+file changes, or a GitHub pull request's changed files in CI. Because both paths
+call the same engine, a live coding session and a pull request are held to
+exactly the same standard.
+
+There are no network calls, no model, and no API key. It is pure pattern matching
+over the added (`+`-prefixed) lines of each diff, safe to run on every file-change
+event without rate limits.
+
+## Findings and severity
+
+Each finding has a `rule_key`, a title, a description, an optional file path, a
+severity, and a confidence. Confidence reflects how precise the **pattern** is,
+not uncertainty about a single instance, since the engine is deterministic.
+
+Severity is `low`, `medium`, or `high`, and it drives the pass/review/block
+verdict used by `trc ratify` and `trc review-diff`:
+
+- any **high** finding produces a `block` verdict,
+- **medium**-only produces `review`,
+- otherwise `pass`.
+
+See [CI Integration](/ci-integration).
+
+## Built-in rules
+
+| Rule key | What it flags | Severity |
+| --- | --- | --- |
+| `missing-tests-for-payments-paths` | A payment, billing, charge, checkout, or invoice file changed with no test file touched in the diff | high |
+| `secret-in-diff` | An added line matches a secret pattern (reuses the secret scanner) | high |
+| `command-injection-risk` | An interpolated string passed to `exec`/`spawn`/`os.system`/`subprocess` | high |
+| `sql-injection-risk` | A SQL statement built by interpolating or concatenating a variable | high |
+| `insecure-deserialization` | `pickle`/`marshal`/`unserialize` on untrusted data | high |
+| `tls-verification-disabled` | `rejectUnauthorized:false`, `verify=False`, `InsecureSkipVerify:true`, and similar | high |
+| `dependency-change-detection` | A dependency manifest or lockfile changed | medium |
+| `removed-test-file` | A test file was deleted | medium |
+| `direct-db-access-in-handler` | An HTTP handler path issues a raw database call | medium |
+| `migration-added` | A new database migration file was added | medium |
+| `swallowed-catch` | An empty catch block that discards the error | medium |
+| `hardcoded-localhost` | A hardcoded `localhost`/`127.0.0.1` URL in shipping code | medium |
+| `cors-wildcard` | A wildcard CORS origin (`*` or `origin: true`) | medium |
+| `weak-crypto` | MD5 or SHA-1 used for hashing | medium |
+| `todo-debug-code` | An added `TODO`, `FIXME`, `console.log`, or `debugger` | low |
+| `large-single-file-change` | More than 500 changed lines in one non-generated file | low |
+
+## Precision by construction
+
+Several rules are written to fire only on the genuinely risky shape, not the
+benign lookalike:
+
+- **Command injection** fires on `os.system(f"... {x}")` or an `exec(\`...${x}\`)`
+  template literal, but not on a static string like `os.system("ls -la")`.
+- **SQL injection** requires a SQL keyword **and** interpolation, so a
+  parameterized query with `$1` or `?` placeholders does not fire.
+- **CORS wildcard** fires on `origin: "*"` and `origin: true`, but not on an
+  explicit allow-listed origin.
+- **Weak crypto** fires on `md5`/`sha1` but not on `sha256`.
+- **Large-file-change** stays quiet on lockfiles and generated, minified,
+  vendored, or snapshot files, where a big line count is expected.
+
+Noise-prone rules (debug code, hardcoded localhost, the injection and crypto
+checks) skip test, doc, example, and template paths, where such patterns are
+expected. The `secret-in-diff` rule skips fixture and example paths.
+
+## Pack rules
+
+Beyond the built-ins, the active [rule pack](/rule-packs) can contribute
+data-driven `[[policy_rules]]`: a regex matched against added lines, with a
+severity and an optional `skip_test_doc`. Pack findings are tagged with source
+`policy-pack` to distinguish them from the built-in `policy-engine` findings.
+This is the "virus definitions" model applied to code review: new coverage ships
+as pack data, no binary rebuild required.
+
+## Where it runs
+
+| Surface | Command or endpoint |
+| --- | --- |
+| Live agent run | Automatic during `trc run` |
+| A git range in CI | `trc review-diff` |
+| A GitHub pull request | `trc ratify <pr>` and the dashboard **Ratify** tab |
+| The daemon API | `GET /api/github/ratify` |
+
+All of them share one implementation, so their verdicts always agree.

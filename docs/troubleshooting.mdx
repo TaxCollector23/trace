@@ -3,7 +3,14 @@ title: Troubleshooting
 description: Common issues and how to resolve them.
 ---
 
-## The dashboard won't open
+Start with the built-in system check, which inspects your toolchain, the daemon,
+key paths, and detected agents, and prints an actionable fix for anything wrong:
+
+```bash
+trc doctor
+```
+
+## The dashboard will not open
 
 Check the daemon:
 
@@ -24,30 +31,76 @@ free port. The active port is shown by `trc daemon status` and stored in
 
 ## Port 8757 is in use
 
-That is fine — Trace automatically tries `8758`, `8759`, and so on. Use the
-port reported by `trc daemon status`.
+That is fine. Trace automatically tries `8758`, `8759`, and so on. Use the port
+reported by `trc daemon status`.
 
 ## "not a Trace project"
 
-Run `trc init` in your project root first. Trace searches upward from the
-current directory for a `.trace/config.toml`.
+Run `trc init` in your project root first. Trace searches upward from the current
+directory for a `.trace/config.toml`, so run commands from inside the project.
 
-## Rollback says it needs Git
+## An agent is not being recorded
 
-Checkpoints and rollback require a Git repository. Run `git init` yourself (and
-commit a baseline) before relying on rollback. Trace will not initialize
-Git for you.
+Full command guarding and run attribution require launching the agent through the
+wrapper or a supported integration point:
+
+```bash
+trc run "claude ..."
+```
+
+If you installed the integrations, confirm they are live:
+
+```bash
+trc integrations status
+```
+
+Restart Cursor or Windsurf to load the MCP server; Claude Code hooks apply to new
+sessions. GUI tools that are not launched through the wrapper are observed only
+via file changes and git diffs. See [Limitations](/limitations).
+
+## An MCP integration is not showing up
+
+The MCP servers run under Node.js. If `trc integrations install` warned that Node
+was not found, install Node 18 or newer and re-run the installer. Then restart the
+editor so it reloads its MCP config. The installer patches the editor's own config
+file idempotently and backs it up first, so re-running it is safe.
+
+## Cost shows "unavailable"
+
+Cost is only known when traffic flows through the local proxy or usage is imported,
+and the model must be one Trace has pricing for. Otherwise the dashboard shows
+"cost unavailable" rather than guessing. See [Cost Tracking](/cost-tracking).
+
+## Rollback says it needs git
+
+Checkpoints and rollback require a git repository. Run `git init` yourself (and
+commit a baseline) before relying on rollback. Trace will not initialize git for
+you.
+
+## `trc ratify` or `trc github` cannot authenticate
+
+These need a read-only GitHub token, resolved from `GITHUB_TOKEN`/`GH_TOKEN`, the
+`gh` CLI, or `~/.trace/github.json`. Run `gh auth login`, or set the environment
+variable. For a private repo, make sure the token has read access. See
+[GitHub](/integrations/github).
+
+## `trc review-diff` cannot compute the range
+
+The range compares against a base ref, so the history must be present. In CI, check
+out with full history (for example `fetch-depth: 0` in GitHub Actions) or run
+`git fetch` first. See [CI Integration](/ci-integration).
 
 ## The daemon log
 
-The daemon writes to `~/.trace/daemon.log`. Check it if the server fails to
-start.
+The daemon writes to `~/.trace/daemon.log`. Check it if the server fails to start.
+For a more verbose error from any `trc` command, set `TRACE_DEBUG=1` to see the
+full error chain instead of the one-line summary.
 
 ## Resetting state
 
-Stopping the daemon and removing `~/.trace` clears all global state
-(database, daemon file, logs). Your projects' `.trace/` folders are
-separate.
+Stopping the daemon and removing `~/.trace` clears all global state (database,
+daemon file, logs, installed integrations). Your projects' `.trace/` folders are
+separate and are not touched.
 
 ```bash
 trc daemon stop

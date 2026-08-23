@@ -1,4 +1,4 @@
-// Shared platform → release-asset mapping for the npm wrapper.
+// Shared platform to release-asset mapping for the npm wrapper.
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
@@ -7,10 +7,10 @@ import { fileURLToPath } from "node:url";
 export const REPO = "TaxCollector23/trace";
 
 // Directory of THIS file, resolved correctly on every platform. The naive
-// `new URL(import.meta.url).pathname` returns "/C:/Users/…" on Windows — a
+// `new URL(import.meta.url).pathname` returns "/C:/Users/…" on Windows a
 // leading slash and forward slashes that path.join() mangles into a
 // drive-root path, which is how the binary ended up being written to
-// C:\Windows\System32. fileURLToPath handles the file:// → native conversion.
+// C:\Windows\System32. fileURLToPath handles the file:// to native conversion.
 const HERE =
   import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
 

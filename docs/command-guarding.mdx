@@ -1,35 +1,51 @@
 ---
 title: Command Guarding
-description: Rule-based classification of risky commands.
+description: Rule-based classification of risky commands before they run.
 ---
 
 Trace classifies the command you wrap into one of four decisions. It is
-**rule-based** — there is no trust score.
+**rule-based**. There is no trust score, no model, and no network call. The same
+command always gets the same verdict, and you can reproduce every decision with
+`trc check`.
 
 | Decision | Behaviour |
 | --- | --- |
 | `allow` | Runs normally. |
 | `warn` | Runs, but a warning is printed and recorded. |
 | `require_approval` | Prompts you in the terminal before running. |
-| `block` | Refused; recorded as a blocked run. |
+| `block` | Refused, and recorded as a blocked run. |
+
+For the full rule catalog and how evasions are handled, see
+[Command Guard Rules](/command-guard-rules).
 
 ## Examples
 
-Blocked or requiring approval:
+Blocked outright (catastrophic or irreversible):
 
 ```text
 rm -rf /
 sudo rm -rf ...
 curl <url> | sh
-wget <url> | sh
-git reset --hard
-git clean -fd
-chmod -R 777
-chown -R ...
+curl <url> | sudo bash
+dd if=... of=/dev/sda
+mkfs.ext4 /dev/sda
+find / -delete
 drop database / drop table
 ```
 
-Reading secrets (`cat .env`, `cat id_rsa`) and force-pushing are **warned**.
+Requiring approval (destructive but sometimes intended):
+
+```text
+rm -rf build/
+git reset --hard
+git clean -fd
+terraform destroy
+kubectl delete namespace prod
+delete from users where ...
+```
+
+Warned (risky but commonly fine): reading `.env`/`id_rsa`, force-pushing,
+`chmod 777`, clearing shell history, and plain `rm`.
 
 ## The approval prompt
 
@@ -41,10 +57,28 @@ Trace warning:
 Allow this command to run? [y] allow once  [n] block:
 ```
 
+Answer `y` to run it once, or `n` to block it. Passing `-y`/`--yes` to `trc run`
+auto-approves prompts for that run, which is useful in scripted contexts where
+you have already reviewed the commands.
+
 Each command event stores the command text, the decision, the reason, the
-timestamp, and the run ID. You can review them later in the **Risk Center**.
+timestamp, and the run id. Review them later in the **Risk Center** or with
+`trc risks <run_id>`.
+
+## Preflight a script
+
+You can classify a whole script or command list without running any of it:
+
+```bash
+trc check deploy.sh
+```
+
+Every non-comment line is classified and the file is swept for secrets. The
+command exits non-zero if anything reaches `require_approval` or `block`, so it
+works as a CI gate. See [CI Integration](/ci-integration).
 
 <Warning>
 The guard classifies the **top-level command** you pass to `trc run`. It cannot
-see sub-commands that a GUI tool issues internally. See [Limitations](/limitations).
+see sub-commands that a GUI tool issues internally. See
+[Limitations](/limitations).
 </Warning>

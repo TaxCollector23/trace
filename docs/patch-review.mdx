@@ -1,34 +1,63 @@
 ---
 title: Patch Review
-description: Review what an agent changed, grounded in the real Git diff.
+description: Review what an agent changed, grounded in the real git diff.
 ---
 
 The **Patch Review** page shows the code changes for a run. Everything is derived
-from the actual Git diff and file-change data — Trace does not invent facts.
+from the actual git diff and file-change data. Trace does not invent facts about
+what changed.
 
 It shows:
 
 - files added, modified, and deleted
-- dependency files changed (`package.json`, `Cargo.toml`, lockfiles, …)
-- config files changed (`tsconfig.json`, `vite.config.*`, …)
-- environment files touched (`.env`, `id_rsa`, `*.pem`, …)
+- dependency files changed (`package.json`, `Cargo.toml`, lockfiles, and so on)
+- config files changed (`tsconfig.json`, `vite.config.*`, `next.config.js`, and
+  similar)
+- environment files touched (`.env`, `id_rsa`, `*.pem`, and similar)
 - a plain-English change summary
 
-## Why the Git diff is the source of truth
+From the terminal, `trc patch <run_id>` prints the same changed-file list.
 
-The file watcher provides timeline detail (it shows *when* files changed during
-the run), but a flurry of editor saves is noisy. The **final Git diff** is what
-Trace uses for the authoritative list of changes, so the patch review
-matches exactly what is in your working tree relative to the run's starting
-commit.
+## Why the git diff is the source of truth
+
+The file watcher provides timeline detail. It shows *when* files changed during
+the run, which is useful for reconstructing the sequence of events. But a flurry
+of editor saves is noisy, and an intermediate save is not the same as the final
+result. The **final git diff** is what Trace uses for the authoritative list of
+changes, so patch review matches exactly what is in your working tree relative to
+the run's starting commit. What you review is what you would commit.
+
+## File classification
+
+Trace labels changed files so a risky change stands out in the list:
+
+- **Dependency files**: `package.json`, `package-lock.json`, `pnpm-lock.yaml`,
+  `yarn.lock`, `Cargo.toml`, `Cargo.lock`, `requirements.txt`, `poetry.lock`,
+  `pyproject.toml`, `go.mod`, `go.sum`.
+- **Config files**: `tsconfig.json`, `vite.config.*`, `webpack.config.js`,
+  `babel.config.js`, `.eslintrc`, `next.config.js`, `rollup.config.js`,
+  `jest.config.js`.
+- **Environment files**: `.env`-style and other protected or key files.
+
+These categories also feed the [policy engine](/policy-engine), which raises a
+finding when a dependency manifest or migration changes.
 
 ## Failure diagnosis
 
-When a run or a configured check fails, Trace adds **deterministic**
-diagnosis notes to the timeline — no AI guessing. For example:
+When a run or a configured check fails, Trace adds **deterministic** diagnosis
+notes to the timeline. There is no AI guessing here; each note is produced by
+matching the failure output against the run's actual file changes:
 
-- a "module not found" error plus a changed `package.json` → suggests a
-  dependency install is out of sync
-- a build failure plus a changed `tsconfig.json` → surfaces that config change
-- a TypeScript error plus changed `.ts` files → links them
-- an error message that names a deleted file → flags the deletion
+- a "module not found" error plus a changed dependency file suggests the install
+  is out of sync, so it recommends reinstalling dependencies
+- an error message that names a deleted file flags that the file was deleted in
+  this run
+- an error that mentions a file which was added or modified in the run links the
+  two
+- a build failure plus a changed config file (`tsconfig.json`, a bundler config)
+  surfaces that config change as a likely cause
+- TypeScript errors plus changed `.ts`/`.tsx` files link them
+
+Because the diagnosis is derived from real changes and real output, it is
+reproducible and never speculative. It points you at the most likely cause; it
+does not claim certainty.

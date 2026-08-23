@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Reveal, Section, Button } from "../components";
 import { DOCS_URL } from "../config";
 import HeroDemo from "../HeroDemo";
 import WorksEverywhere from "../WorksEverywhere";
+import Terminal, { type TermLine } from "../Terminal";
 
 const heroFade = {
   hidden: { opacity: 0, y: 14 },
@@ -13,6 +14,24 @@ const heroFade = {
     transition: { duration: 0.55, delay: 0.1 + i * 0.08, ease: [0.16, 1, 0.3, 1] as const },
   }),
 };
+
+// The real output of `trc integrations install all`, replayed line by line in
+// the wire-up terminal. Agent names are shown as proper nouns.
+const WIRE_UP_OUTPUT: TermLine[] = [
+  { text: "--- Claude Code ---", cls: "text-white/45" },
+  { text: "  wrote   ~/.trace/integrations/claude/trace-hook.sh" },
+  { text: "  patched ~/.claude/settings.json", cls: "text-emerald-400/90" },
+  { text: "--- Codex ---", cls: "text-white/45" },
+  { text: "  wrote   ~/.trace/integrations/codex/codex-adapter.sh" },
+  { text: "--- Cursor ---", cls: "text-white/45" },
+  { text: "  patched ~/.cursor/mcp.json", cls: "text-emerald-400/90" },
+  { text: "--- Windsurf ---", cls: "text-white/45" },
+  { text: "  patched ~/.codeium/windsurf/mcp_config.json", cls: "text-emerald-400/90" },
+  { text: "--- OpenCode ---", cls: "text-white/45" },
+  { text: "  patched ~/.config/opencode/opencode.json", cls: "text-emerald-400/90" },
+  { text: " " },
+  { text: "OK  every agent will report to Trace on its next run.", cls: "text-emerald-400" },
+];
 
 export default function Home() {
   return (
@@ -36,18 +55,19 @@ export default function Home() {
             variants={heroFade}
             className="mt-5 max-w-[520px] text-lg leading-relaxed text-text-dim"
           >
-            Trace records what your autonomous coding agents do — every file they
-            change, every command they run, what it costs, and a git checkpoint to
-            undo it. It all lands on a local dashboard you can actually read: full
-            diffs, per-command risk decisions, token spend, and one-click rollback,
-            with large diffs stored compressed. Nothing leaves your machine.
+            Trace records everything your AI coding agent does: every file it
+            changes, every command it runs, what it costs, and a git checkpoint you
+            can roll back to. It all lands on a local dashboard where you read the
+            full diff, see each command's risk, track spend, and undo any run in one
+            click. It runs entirely on your machine with no API key, so nothing is
+            ever sent anywhere.
           </motion.p>
           <motion.div
             custom={2}
             initial="hidden"
             animate="show"
             variants={heroFade}
-            className="mt-7 flex flex-wrap items-center gap-4"
+            className="mt-10 flex flex-wrap items-center gap-5"
           >
             <Button href="#install">Download the CLI</Button>
             <Button variant="secondary" href={DOCS_URL} target="_blank" rel="noreferrer">
@@ -67,48 +87,40 @@ export default function Home() {
 
       {/* ---------- Install (right below the hero) ---------- */}
       <section id="install" className="scroll-mt-24 py-6">
-        <InstallBlock />
+        <Terminal
+          label="trace - install"
+          command="npm i -g trace-dev"
+          copyText="npm i -g trace-dev"
+        />
       </section>
 
       {/* ---------- Works everywhere ---------- */}
       <Section
         id="integrations"
         title="Works with the agents you already run"
-        lede="Claude Code, Codex CLI, and opencode connect through Trace's hooks and local MCP server. Cursor, Windsurf, and VS Code are set up once in their own settings, then report back automatically. The same review engine runs in CI on every pull request."
+        lede="Claude Code, Codex CLI, and OpenCode connect through Trace's hooks and local MCP server. Cursor and Windsurf are set up once in their own settings, then report back automatically. The same review engine runs in CI on every pull request."
       >
         <WorksEverywhere />
       </Section>
 
-      {/* ---------- One-line hook install ---------- */}
+      {/* ---------- One command wires up every agent ---------- */}
       <Section
-        id="install"
+        id="wire-up"
         title="One command wires up every agent you use"
-        lede="No manual JSON editing. `trc integrations install all` writes the hook to ~/.trace/integrations, patches the config for Claude Code, Codex, Cursor, Windsurf, and opencode, and prints exactly what changed. Idempotent, with automatic backups."
+        lede="No manual JSON editing. `trc integrations install all` writes each hook to ~/.trace/integrations, patches the config for Claude Code, Codex, Cursor, Windsurf, and OpenCode, and prints exactly what changed. It is idempotent and backs up every file it touches."
       >
-        <Reveal>
-          <div className="overflow-hidden rounded-2xl border border-border bg-[#0d0d10] p-6 font-mono text-sm text-white">
-            <div className="text-white/40">$ trc integrations install all</div>
-            <div className="mt-2">─── claude ───</div>
-            <div>  wrote ~/.trace/integrations/claude/trace-hook.sh</div>
-            <div>  <span className="text-emerald-400">patched</span> ~/.claude/settings.json</div>
-            <div className="mt-1">─── codex ───</div>
-            <div>  wrote ~/.trace/integrations/codex/codex-adapter.sh</div>
-            <div className="mt-1">─── cursor ───</div>
-            <div>  <span className="text-emerald-400">patched</span> ~/.cursor/mcp.json</div>
-            <div className="mt-1">─── windsurf ───</div>
-            <div>  <span className="text-emerald-400">patched</span> ~/.codeium/windsurf/mcp_config.json</div>
-            <div className="mt-1">─── opencode ───</div>
-            <div>  <span className="text-emerald-400">patched</span> ~/.config/opencode/opencode.json</div>
-            <div className="mt-3 text-emerald-400">✓ every agent will call the Trace hook after a restart.</div>
-          </div>
-        </Reveal>
+        <Terminal
+          label="trace - integrations"
+          command="trc integrations install all"
+          output={WIRE_UP_OUTPUT}
+        />
       </Section>
 
       {/* ---------- Trace Ratification ---------- */}
       <Section
         id="ratification"
-        title="Ratify a pull request — right from the local dashboard"
-        lede="Connect a GitHub repo and ratify any PR against the exact same policy engine that guards your local edits: secret scanning, risky-change detection, disabled-test checks, and more. Pure pattern matching — no LLM, no API key — so every verdict is instant, free, and identical for everyone."
+        title="Ratify a pull request, right from the local dashboard"
+        lede="Connect a GitHub repo and ratify any PR against the exact same policy engine that guards your local edits: secret scanning, risky-change detection, disabled-test checks, and more. Pure pattern matching with no LLM and no API key, so every verdict is instant, free, and identical for everyone."
       >
         <Reveal>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -117,7 +129,7 @@ export default function Home() {
               <p className="mt-2 text-sm leading-relaxed text-text-dim">
                 The same deterministic rules run on a local file edit, in CI via{" "}
                 <span className="font-mono text-[13px]">trc review-diff</span>, and on a
-                GitHub pull request from the dashboard's Ratify tab. Consistent by construction —
+                GitHub pull request from the dashboard's Ratify tab. Consistent by construction:
                 one implementation, no drift.
               </p>
             </div>
@@ -125,7 +137,7 @@ export default function Home() {
               <div className="font-serif text-lg text-text">A clear, honest verdict</div>
               <p className="mt-2 text-sm leading-relaxed text-text-dim">
                 A PR is <b>block</b> if it trips any high-severity rule, <b>needs review</b> for
-                medium-only, else <b>pass</b> — with every finding, its file, and its severity
+                medium-only, else <b>pass</b>, with every finding, its file, and its severity
                 listed. Reads private repos with a token that only ever touches api.github.com.
               </p>
             </div>
@@ -137,7 +149,7 @@ export default function Home() {
       <Section
         id="benchmarks"
         title="Measured against an adversarial corpus, not vibes"
-        lede="Trace ships a labeled red-team corpus — dangerous commands (including evasions like curl … | sudo bash and base64-piped shells), planted API keys, and unsafe prompts — run through the exact guard, secret, and prompt engines the runtime hook uses. Reproduce every number yourself with `trc self-check`."
+        lede="Trace ships a labeled red-team corpus of dangerous commands (including evasions like curl ... | sudo bash and base64-piped shells), planted API keys, and unsafe prompts, run through the exact guard, secret, and prompt engines the runtime hook uses. Reproduce every number yourself with `trc self-check`."
       >
         <Reveal>
           <div className="overflow-hidden rounded-2xl border border-border bg-[#0d0d10] p-6 font-mono text-[13px] leading-relaxed text-white">
@@ -174,15 +186,15 @@ export default function Home() {
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <FeatureCard
               title="Evasions, not just the obvious"
-              body="Pipe-to-sudo-shell, download-then-exec, base64-decoded payloads, find -delete, and raw block-device writes are all caught — the tricks that slip past a naive substring blocklist."
+              body="Pipe-to-sudo-shell, download-then-exec, base64-decoded payloads, find -delete, and raw block-device writes are all caught. These are the tricks that slip past a naive substring blocklist."
             />
             <FeatureCard
               title="Zero false positives"
-              body="Benign look-alikes — a commit message mentioning “drop table”, a docs URL, clean source — stay clean. Recall means nothing if the tool cries wolf on real work."
+              body="Benign look-alikes, like a commit message mentioning 'drop table', a docs URL, or clean source, all stay clean. Recall means nothing if the tool cries wolf on real work."
             />
             <FeatureCard
               title="Runs on every build"
-              body="The corpus is a unit test and a CI gate. A regression that lets a threat through — or trips on something safe — fails the build before it ships."
+              body="The corpus is a unit test and a CI gate. A regression that lets a threat through, or trips on something safe, fails the build before it ships."
             />
           </div>
         </Reveal>
@@ -192,7 +204,7 @@ export default function Home() {
       <Section
         id="dashboard"
         title="Every session, laid out plainly"
-        lede="This is the real dashboard — click the sidebar. Session Timeline replays every step the agent took; Patch Review is the full diff of what changed; Command Risk shows the guard's allow-or-block decision on each command it ran; Token Spend breaks the bill down by model; Ratify runs the policy engine over a pull request; and Rollback Center restores any git checkpoint in one click. It serves on 127.0.0.1 and updates live."
+        lede="This is the real dashboard, so click the sidebar. Session Timeline replays every step the agent took; Patch Review is the full diff of what changed; Command Risk shows the guard's allow-or-block decision on each command it ran; Token Spend breaks the bill down by model; Ratify runs the policy engine over a pull request; and Rollback Center restores any git checkpoint in one click. It serves on 127.0.0.1 and updates live."
       >
         <Reveal>
           <DashboardPreview />
@@ -214,144 +226,6 @@ export default function Home() {
   );
 }
 
-// The exact startup banner the CLI prints (figlet "ANSI Shadow").
-const STARTUP_ART = `████████╗██████╗  █████╗  ██████╗███████╗
-╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██╔════╝
-   ██║   ██████╔╝███████║██║     █████╗
-   ██║   ██╔══██╗██╔══██║██║     ██╔══╝
-   ██║   ██║  ██║██║  ██║╚██████╗███████╗
-   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝`;
-const ART_LINES = STARTUP_ART.split("\n");
-
-// `trace-dev` is the npm package (the bare `trc`/`trace` names are owned by
-// others on npm); it installs the `trc` command on macOS, Linux, and Windows.
-const INSTALL_CMD = "npm i -g trace-dev";
-
-// A single npm install, presented as a real terminal booting: the banner
-// prints line by line, then the command types itself, then the caret blinks.
-// The sequence starts when the block scrolls into view so it's never missed.
-function InstallBlock() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [lines, setLines] = useState(0); // banner lines printed so far
-  const [typed, setTyped] = useState(""); // command chars typed so far
-  const [done, setDone] = useState(false); // command finished typing
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    const reduce = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setLines(ART_LINES.length);
-      setTyped(INSTALL_CMD);
-      setDone(true);
-      return;
-    }
-    const el = ref.current;
-    if (!el) return;
-    const timers: ReturnType<typeof setInterval>[] = [];
-    const run = () => {
-      let ln = 0;
-      const lineTimer = setInterval(() => {
-        ln += 1;
-        setLines(ln);
-        if (ln >= ART_LINES.length) {
-          clearInterval(lineTimer);
-          let i = 0;
-          const typeTimer = setInterval(() => {
-            i += 1;
-            setTyped(INSTALL_CMD.slice(0, i));
-            if (i >= INSTALL_CMD.length) {
-              clearInterval(typeTimer);
-              setDone(true);
-            }
-          }, 46);
-          timers.push(typeTimer);
-        }
-      }, 85);
-      timers.push(lineTimer);
-    };
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          io.disconnect();
-          run();
-        }
-      },
-      { threshold: 0.4 }
-    );
-    io.observe(el);
-    return () => {
-      io.disconnect();
-      timers.forEach(clearInterval);
-    };
-  }, []);
-
-  const copy = () => {
-    navigator.clipboard.writeText(INSTALL_CMD);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1400);
-  };
-
-  return (
-    <Reveal>
-      <div
-        ref={ref}
-        className="mx-auto max-w-[600px] overflow-hidden rounded-2xl border border-border bg-[#0d0d10] shadow-lg"
-      >
-        {/* Terminal title bar */}
-        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-          <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-          <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
-          <span className="h-3 w-3 rounded-full bg-[#28c840]" />
-          <span className="ml-2 font-mono text-xs text-white/40">trace — install</span>
-          <button
-            onClick={copy}
-            aria-label="Copy install command"
-            className="ml-auto flex h-7 w-7 items-center justify-center rounded-md border border-white/15 bg-white/5 text-white/80 transition-colors hover:bg-white/15"
-          >
-            {copied ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 6 9 17l-5-5" />
-              </svg>
-            ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2" />
-                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-              </svg>
-            )}
-          </button>
-        </div>
-
-        {/* Terminal body: startup art prints, then the command types */}
-        <div className="overflow-x-auto px-6 py-6">
-          <pre className="font-mono text-[9.5px] leading-[1.2] text-brand sm:text-[13px]">
-            {ART_LINES.map((line, i) => (
-              <div
-                key={i}
-                className="transition-all duration-300 ease-out"
-                style={{
-                  opacity: i < lines ? 1 : 0,
-                  transform: i < lines ? "none" : "translateY(4px)",
-                }}
-              >
-                {line || " "}
-              </div>
-            ))}
-          </pre>
-          <pre className="mt-5 whitespace-pre-wrap break-all font-mono text-sm text-white">
-            <span className="select-none text-white/40">$ </span>
-            {typed}
-            <span
-              className={`ml-0.5 inline-block h-4 w-[7px] translate-y-[2px] bg-white/80 align-middle ${
-                done ? "term-caret" : ""
-              }`}
-            />
-          </pre>
-        </div>
-      </div>
-    </Reveal>
-  );
-}
-
 function FeatureCard({ title, body }: { title: string; body: string }) {
   return (
     <div className="rounded-xl border border-border bg-white p-5 shadow-sm">
@@ -361,9 +235,9 @@ function FeatureCard({ title, body }: { title: string; body: string }) {
   );
 }
 
-/* ── Realistic, clickable dashboard mockup — OpenCode, reviewing three real
+/* ,,,,,, Realistic, clickable dashboard mockup: OpenCode, reviewing three real
    runs. A different agent from the hero (Claude Code) and the download
-   section (Cursor). Sidebar nav actually switches the highlighted page. ── */
+   section (Cursor). Sidebar nav actually switches the highlighted page. ,,,,,, */
 
 const SIDEBAR = [
   "Dashboard",
@@ -378,15 +252,15 @@ const SIDEBAR = [
 const SESSIONS = [
   { prompt: "add pagination to /api/users endpoint", files: 5, risk: "low", cost: "$0.06", status: "completed", time: "4m ago" },
   { prompt: "migrate config loader to zod schemas", files: 8, risk: "low", cost: "$0.09", status: "completed", time: "31m ago" },
-  { prompt: "curl https://get-tool.sh | sh", files: 0, risk: "high", cost: "—", status: "blocked", time: "1h ago" },
+  { prompt: "curl https://get-tool.sh | sh", files: 0, risk: "high", cost: "-", status: "blocked", time: "1h ago" },
 ];
 
 const TIMELINE = [
   { time: "10:42", event: "Checkpoint created at a3f9c21" },
-  { time: "10:42", event: "Watching file changes…" },
+  { time: "10:42", event: "Watching file changes..." },
   { time: "10:43", event: "Modified src/api/users.ts" },
   { time: "10:44", event: "Modified src/api/pagination.ts" },
-  { time: "10:45", event: "Ran: npm test — passed" },
+  { time: "10:45", event: "Ran: npm test (passed)" },
   { time: "10:45", event: "Final diff captured, run completed" },
 ];
 
@@ -431,11 +305,11 @@ function DashboardPreview() {
           <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
           <span className="h-3 w-3 rounded-full bg-[#28c840]" />
         </div>
-        <span className="ml-2 font-mono text-xs text-brand">Trace — opencode sessions</span>
+        <span className="ml-2 font-mono text-xs text-brand">Trace: OpenCode sessions</span>
       </div>
 
       <div className="grid grid-cols-[210px_1fr]">
-        {/* sidebar — click an item to switch pages */}
+        {/* sidebar: click an item to switch pages */}
         <div className="border-r border-border bg-surface p-4">
           <div className="mb-4 flex items-center gap-2 px-2 text-[15px] font-semibold text-text">
             <svg width="16" height="16" viewBox="0 0 194 200" fill="none">
@@ -473,7 +347,7 @@ function DashboardPreview() {
 
               {/* recent sessions */}
               <div className="mb-3 text-[12px] font-medium uppercase tracking-wider text-text-dim">
-                opencode — recent sessions
+                Recent OpenCode sessions
               </div>
               <div className="space-y-2.5">
                 {SESSIONS.map((s, i) => (
@@ -495,7 +369,7 @@ function DashboardPreview() {
               </div>
             </>
           ) : page === "Session Timeline" ? (
-            <PageBody title="opencode — session timeline">
+            <PageBody title="OpenCode session timeline">
               {TIMELINE.map((t, i) => (
                 <div key={i} className="flex gap-3 border-l-2 border-border pl-4">
                   <div className="w-16 shrink-0 font-mono text-[11px] text-text-dim">{t.time}</div>
@@ -504,7 +378,7 @@ function DashboardPreview() {
               ))}
             </PageBody>
           ) : page === "Patch Review" ? (
-            <PageBody title="opencode — files changed">
+            <PageBody title="OpenCode files changed">
               {PATCH.map((f) => (
                 <div key={f.path} className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
                   <span className="truncate font-mono text-[13px] text-text">{f.path}</span>
@@ -515,7 +389,7 @@ function DashboardPreview() {
               ))}
             </PageBody>
           ) : page === "Command Risk" ? (
-            <PageBody title="opencode — command decisions">
+            <PageBody title="OpenCode command decisions">
               {COMMANDS.map((c, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5">
                   <span className="truncate font-mono text-[13px] text-text-dim">{c.cmd}</span>
@@ -524,7 +398,7 @@ function DashboardPreview() {
               ))}
             </PageBody>
           ) : page === "Token Spend" ? (
-            <PageBody title="opencode — token spend">
+            <PageBody title="OpenCode token spend">
               {SPEND.map((s, i) => (
                 <div key={i} className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
                   <div>
@@ -536,7 +410,7 @@ function DashboardPreview() {
               ))}
             </PageBody>
           ) : page === "Ratify" ? (
-            <PageBody title="acme-webapp — ratify PR #142: block">
+            <PageBody title="acme-webapp: ratify PR #142 blocked">
               {RATIFY_FINDINGS.map((f, i) => (
                 <div key={i} className="rounded-lg border border-border px-4 py-2.5">
                   <div className="flex items-center justify-between gap-3">
@@ -560,7 +434,7 @@ function DashboardPreview() {
               ))}
             </PageBody>
           ) : (
-            <PageBody title="opencode — checkpoints">
+            <PageBody title="OpenCode checkpoints">
               {CHECKPOINTS.map((c, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5">
                   <div>
