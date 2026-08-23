@@ -58,7 +58,9 @@ enum Commands {
 
     /// Connect Trace to your coding agents (Claude Code, Cursor, Windsurf,
     /// Codex). `trc install agents` wires up every supported agent and
-    /// starts the daemon if needed.
+    /// starts the daemon if needed. Hidden alias for `trc integrations
+    /// install all`, which is the documented onboarding command.
+    #[command(hide = true)]
     Install {
         /// What to install. Currently: `agents`.
         #[arg(default_value = "agents")]
@@ -66,6 +68,7 @@ enum Commands {
     },
 
     /// Run a command under Trace monitoring (e.g. `trc run "claude fix the bug"`).
+    #[command(hide = true)]
     Run {
         /// The command to wrap. Quote multi-word commands.
         #[arg(required = true, trailing_var_arg = true, num_args = 1..)]
@@ -79,9 +82,11 @@ enum Commands {
     },
 
     /// Open the local dashboard in your browser (starts the daemon if needed).
+    #[command(hide = true)]
     Dashboard,
 
     /// Run system checks (toolchain, clipboard, daemon, agents, paths).
+    #[command(hide = true)]
     Doctor,
 
     /// Scan the current project and print its detected stack.
@@ -139,8 +144,9 @@ enum Commands {
         action: ConfigAction,
     },
 
-    /// List integrations or check what is live.
-    #[command(hide = true)]
+    /// Connect Trace to your coding agents. `trc integrations install all`
+    /// wires up Claude Code, Cursor, and Windsurf; `trc integrations status`
+    /// shows what is live.
     Integrations {
         #[command(subcommand)]
         action: Option<IntegrationsAction>,
@@ -155,6 +161,7 @@ enum Commands {
     },
 
     /// Update the trc binary to the latest GitHub release.
+    #[command(hide = true)]
     Update,
 
     /// Run Trace's own policy-engine benchmark (labeled fixtures, precision/recall).
