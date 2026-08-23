@@ -30,7 +30,7 @@ const CURSOR_MCP_JS: &str = include_str!("../../../../integrations/cursor/src/in
 
 /// The list of installable agents. `install <agent>` picks one; `install
 /// all` runs each in sequence and reports per-agent status.
-pub const SUPPORTED: &[&str] = &["claude", "codex", "cursor", "windsurf", "vscode"];
+pub const SUPPORTED: &[&str] = &["claude", "codex", "cursor", "windsurf", "opencode", "vscode"];
 
 pub fn install(agent: &str) -> Result<()> {
     if agent == "all" {
@@ -56,6 +56,7 @@ fn install_one(agent: &str) -> Result<()> {
         "codex" => install_codex(),
         "cursor" => install_cursor(),
         "windsurf" => install_windsurf(),
+        "opencode" => install_opencode(),
         "vscode" => install_vscode(),
         other => anyhow::bail!(
             "unknown agent '{other}'. Supported: {}",
@@ -191,9 +192,8 @@ fn install_codex() -> Result<()> {
         colors::green("✓")
     );
     println!(
-        "  To route every `codex` call through Trace, add this to your shell rc:\n    {} \"{}\"",
-        colors::bold("alias codex="),
-        adapter.display()
+        "  To route every `codex` call through Trace, add this to your shell rc:\n    {}",
+        colors::bold(&format!("alias codex=\"{}\"", adapter.display()))
     );
     Ok(())
 }
@@ -220,6 +220,61 @@ fn install_windsurf() -> Result<()> {
             .join("windsurf")
             .join("mcp_config.json"),
     )
+}
+
+/// opencode (github.com/sst/opencode) is an open-source terminal agent that
+/// speaks MCP. Unlike Cursor/Windsurf (which use a `mcpServers` map with
+/// `command` + `args`), opencode uses an `mcp` map whose entries are
+/// `{ type: "local", command: [ ... ], enabled: true }`, read from the global
+/// config at `~/.config/opencode/opencode.json` (XDG-aware). We reuse the same
+/// daemon-backed MCP server the other editors use.
+fn install_opencode() -> Result<()> {
+    let server = trace_integrations_dir()?.join("opencode").join("index.js");
+    write_executable(&server, CURSOR_MCP_JS)?;
+    println!("  wrote {}", colors::dim(&server.display().to_string()));
+
+    if which_bin("node").is_none() {
+        println!(
+            "  {} Node.js not found on PATH — install Node ≥ 18 for the MCP server to run.",
+            colors::yellow("warning:")
+        );
+    }
+
+    let home = dirs::home_dir().context("no home directory")?;
+    let config_base = std::env::var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| home.join(".config"));
+    let config_path = config_base.join("opencode").join("opencode.json");
+
+    let patch = json!({
+        "$schema": "https://opencode.ai/config.json",
+        "mcp": {
+            "trace": {
+                "type": "local",
+                "command": ["node", server.display().to_string()],
+                "enabled": true
+            }
+        }
+    });
+    let changed = merge_json_file(&config_path, &patch)?;
+    if changed {
+        println!(
+            "  {} {}",
+            colors::green("patched"),
+            colors::dim(&config_path.display().to_string())
+        );
+    } else {
+        println!(
+            "  {} {}",
+            colors::dim("already installed:"),
+            colors::dim(&config_path.display().to_string())
+        );
+    }
+    println!(
+        "\n  {} opencode will see Trace's MCP tools on its next start.",
+        colors::green("✓")
+    );
+    Ok(())
 }
 
 fn install_mcp(agent: &str, config_path: PathBuf) -> Result<()> {

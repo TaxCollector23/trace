@@ -6,7 +6,7 @@
 /// The user-facing product version. Single source of truth for the CLI,
 /// daemon, dashboard, and docs. Bump this (and the workspace Cargo version)
 /// when the project owner advances to the next subversion.
-pub const VERSION: &str = "1.2";
+pub const VERSION: &str = "1.3";
 
 /// The exact string printed by `trc --version`.
 pub fn version_string() -> String {
