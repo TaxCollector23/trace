@@ -129,13 +129,13 @@ export function DownloadMenu() {
               Command line
             </div>
             <div className="px-2 pb-2">
-              <Link
-                to="/cli"
+              <a
+                href="/#install"
                 className="block rounded-lg px-3 py-2.5 transition-colors hover:bg-brand/[0.06]"
               >
                 <div className="text-sm font-medium text-text">CLI</div>
-                <div className="mt-0.5 text-xs text-text-dim">brew  ·  curl | sh  ·  irm | iex</div>
-              </Link>
+                <div className="mt-0.5 text-xs text-text-dim">brew  ·  curl | sh  ·  irm | iex  ·  npm</div>
+              </a>
             </div>
             <a
               href={DOWNLOADS.releases}

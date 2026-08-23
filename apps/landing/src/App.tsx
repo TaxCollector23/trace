@@ -70,7 +70,7 @@ export default function App() {
             <ul className="space-y-2 text-sm">
               <li><Link className="text-text-dim transition-colors hover:text-text" to="/dashboard">Dashboard</Link></li>
               <li><Link className="text-text-dim transition-colors hover:text-text" to="/download">Download desktop</Link></li>
-              <li><Link className="text-text-dim transition-colors hover:text-text" to="/cli">CLI install</Link></li>
+              <li><a className="text-text-dim transition-colors hover:text-text" href="/#install">CLI install</a></li>
               <li><Link className="text-text-dim transition-colors hover:text-text" to="/about">About</Link></li>
             </ul>
           </div>
