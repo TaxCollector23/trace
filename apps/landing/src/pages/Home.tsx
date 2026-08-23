@@ -35,11 +35,11 @@ export default function Home() {
             variants={heroFade}
             className="mt-5 max-w-[520px] text-lg leading-relaxed text-text-dim"
           >
-            Trace watches every file Claude Code, Codex, Cursor, Windsurf, opencode,
-            and Aider touch. Each session becomes a diff you can review, a
-            policy-checked patch, a cost you can see, and a checkpoint you can undo —
-            guarded in real time by a deterministic engine that runs entirely on your
-            machine, with no API key.
+            Trace records what your autonomous coding agents do — every file they
+            change, every command they run, what it costs, and a git checkpoint to
+            undo it. It all lands on a local dashboard you can actually read: full
+            diffs, per-command risk decisions, token spend, and one-click rollback,
+            with large diffs stored compressed. Nothing leaves your machine.
           </motion.p>
           <motion.div
             custom={2}
@@ -71,6 +71,9 @@ export default function Home() {
         lede="Claude Code, Codex CLI, and opencode connect through Trace's hooks and local MCP server. Cursor, Windsurf, and VS Code are set up once in their own settings, then report back automatically. The same review engine runs in CI on every pull request."
       >
         <WorksEverywhere />
+        <div className="mt-10">
+          <InstallBlock />
+        </div>
       </Section>
 
       {/* ---------- One-line hook install ---------- */}
@@ -186,7 +189,7 @@ export default function Home() {
       <Section
         id="dashboard"
         title="Every session, laid out plainly"
-        lede="Timeline, patch review, cost, command risk, PR ratification, benchmarks, and rollback — one window, updated live."
+        lede="This is the real dashboard — click the sidebar. Session Timeline replays every step the agent took; Patch Review is the full diff of what changed; Command Risk shows the guard's allow-or-block decision on each command it ran; Token Spend breaks the bill down by model; Ratify runs the policy engine over a pull request; and Rollback Center restores any git checkpoint in one click. It serves on 127.0.0.1 and updates live."
       >
         <Reveal>
           <DashboardPreview />
@@ -205,6 +208,54 @@ export default function Home() {
         </Reveal>
       </section>
     </>
+  );
+}
+
+// The exact startup banner the CLI prints (figlet "ANSI Shadow"), followed by
+// the one-line install. Package name is `trace-dev` (the bare `trc`/`trace`
+// npm names are owned by others); it installs the `trc` command.
+const STARTUP_ART = `████████╗██████╗  █████╗  ██████╗███████╗
+╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██╔════╝
+   ██║   ██████╔╝███████║██║     █████╗
+   ██║   ██╔══██╗██╔══██║██║     ██╔══╝
+   ██║   ██║  ██║██║  ██║╚██████╗███████╗
+   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝`;
+
+const INSTALL_CMD = "npm i -g trace-dev";
+
+function InstallBlock() {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(INSTALL_CMD);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  };
+  return (
+    <Reveal>
+      <div className="relative mx-auto max-w-[560px] overflow-x-auto rounded-2xl border border-border bg-[#0d0d10] px-6 py-5 shadow-lg">
+        <button
+          onClick={copy}
+          aria-label="Copy install command"
+          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-md border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20"
+        >
+          {copied ? (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          )}
+        </button>
+        <pre className="font-mono text-[10px] leading-[1.2] text-brand sm:text-[13px]">{STARTUP_ART}</pre>
+        <pre className="mt-4 font-mono text-sm text-white">
+          <span className="select-none text-white/40">$ </span>
+          {INSTALL_CMD}
+        </pre>
+      </div>
+    </Reveal>
   );
 }
 
@@ -287,7 +338,7 @@ function DashboardPreview() {
           <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
           <span className="h-3 w-3 rounded-full bg-[#28c840]" />
         </div>
-        <span className="ml-2 font-mono text-xs text-brand">Trace — OpenCode Sessions</span>
+        <span className="ml-2 font-mono text-xs text-brand">Trace — opencode sessions</span>
       </div>
 
       <div className="grid grid-cols-[210px_1fr]">
@@ -329,7 +380,7 @@ function DashboardPreview() {
 
               {/* recent sessions */}
               <div className="mb-3 text-[12px] font-medium uppercase tracking-wider text-text-dim">
-                OpenCode — recent sessions
+                opencode — recent sessions
               </div>
               <div className="space-y-2.5">
                 {SESSIONS.map((s, i) => (
@@ -351,7 +402,7 @@ function DashboardPreview() {
               </div>
             </>
           ) : page === "Session Timeline" ? (
-            <PageBody title="OpenCode — session timeline">
+            <PageBody title="opencode — session timeline">
               {TIMELINE.map((t, i) => (
                 <div key={i} className="flex gap-3 border-l-2 border-border pl-4">
                   <div className="w-16 shrink-0 font-mono text-[11px] text-text-dim">{t.time}</div>
@@ -360,7 +411,7 @@ function DashboardPreview() {
               ))}
             </PageBody>
           ) : page === "Patch Review" ? (
-            <PageBody title="OpenCode — files changed">
+            <PageBody title="opencode — files changed">
               {PATCH.map((f) => (
                 <div key={f.path} className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
                   <span className="truncate font-mono text-[13px] text-text">{f.path}</span>
@@ -371,7 +422,7 @@ function DashboardPreview() {
               ))}
             </PageBody>
           ) : page === "Command Risk" ? (
-            <PageBody title="OpenCode — command decisions">
+            <PageBody title="opencode — command decisions">
               {COMMANDS.map((c, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5">
                   <span className="truncate font-mono text-[13px] text-text-dim">{c.cmd}</span>
@@ -380,7 +431,7 @@ function DashboardPreview() {
               ))}
             </PageBody>
           ) : page === "Token Spend" ? (
-            <PageBody title="OpenCode — token spend">
+            <PageBody title="opencode — token spend">
               {SPEND.map((s, i) => (
                 <div key={i} className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
                   <div>
@@ -416,7 +467,7 @@ function DashboardPreview() {
               ))}
             </PageBody>
           ) : (
-            <PageBody title="OpenCode — checkpoints">
+            <PageBody title="opencode — checkpoints">
               {CHECKPOINTS.map((c, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5">
                   <div>
