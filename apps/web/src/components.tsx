@@ -58,6 +58,106 @@ export function fmtTime(iso: string | null): string {
   return d.toLocaleString();
 }
 
+/** Human-friendly "N minutes ago" from an ISO timestamp. Kept intentionally
+ * small — no dependency, and it degrades to "—" for missing/invalid input. */
+export function relTime(iso: string | null): string {
+  if (!iso) return "—";
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "—";
+  const sec = Math.round((Date.now() - then) / 1000);
+  if (sec < 45) return "just now";
+  const min = Math.round(sec / 60);
+  if (sec < 90) return "1 minute ago";
+  if (min < 60) return `${min} minutes ago`;
+  const hr = Math.round(min / 60);
+  if (min < 90) return "1 hour ago";
+  if (hr < 24) return `${hr} hours ago`;
+  const day = Math.round(hr / 24);
+  if (hr < 36) return "1 day ago";
+  if (day < 30) return `${day} days ago`;
+  const mon = Math.round(day / 30);
+  if (day < 45) return "1 month ago";
+  if (mon < 12) return `${mon} months ago`;
+  const yr = Math.round(mon / 12);
+  return yr <= 1 ? "1 year ago" : `${yr} years ago`;
+}
+
+/** Friendly display names for the agents Trace recognises. Shared across the
+ * dashboard, run pickers and the usage page so labelling stays consistent. */
+const AGENT_LABELS: Record<string, string> = {
+  claude: "Claude Code",
+  codex: "Codex CLI",
+  cursor: "Cursor",
+  opencode: "OpenCode",
+  copilot: "GitHub Copilot",
+  unknown: "Unattributed",
+};
+
+export function agentLabel(name: string): string {
+  return AGENT_LABELS[name.toLowerCase()] ?? name;
+}
+
+/** The primary label for a run: the agent's friendly name, or "Command" when
+ * the run wasn't attributed to a known agent. */
+export function runTitle(r: { agent_name: string | null }): string {
+  return r.agent_name ? agentLabel(r.agent_name) : "Command";
+}
+
+/** A one-line "what changed" summary derived only from real RunSummary counts —
+ * never fabricated. Returns "" when there's nothing concrete to report. */
+export function whatChanged(r: RunSummary): string {
+  const parts: string[] = [];
+  if (r.files_changed > 0)
+    parts.push(`${r.files_changed} file${r.files_changed === 1 ? "" : "s"} changed`);
+  if (r.command_count > 0)
+    parts.push(`ran ${r.command_count} command${r.command_count === 1 ? "" : "s"}`);
+  if (r.secret_warnings > 0)
+    parts.push(`${r.secret_warnings} secret${r.secret_warnings === 1 ? "" : "s"} flagged`);
+  return parts.join(", ");
+}
+
+/** Compact byte formatting for the compression detail (e.g. "82 KB"). */
+export function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10 * 1024 ? 1 : 0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** A styled, copyable command box for anything the user is meant to run in a
+ * terminal. The command shown is the exact string copied to the clipboard. */
+export function CodeBox({ command, label }: { command: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard
+      ?.writeText(command)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {
+        /* clipboard blocked (insecure context) — the command is still visible */
+      });
+  };
+  return (
+    <div className="codebox">
+      {label && <div className="codebox-label">{label}</div>}
+      <div className="codebox-row">
+        <code className="codebox-cmd">
+          <span className="codebox-prompt" aria-hidden="true">$</span> {command}
+        </code>
+        <button
+          type="button"
+          className="codebox-copy"
+          onClick={copy}
+          aria-label={`Copy command: ${command}`}
+        >
+          {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function fmtCost(cost: number | null | undefined): string {
   if (cost === null || cost === undefined) return "unavailable";
   if (cost === 0) return "$0.00";
@@ -214,6 +314,6 @@ export function DiffView({ diff }: { diff: string }) {
 }
 
 function label(r: RunSummary): string {
-  const cmd = r.command.length > 50 ? r.command.slice(0, 50) + "…" : r.command;
-  return `${cmd}  ·  ${r.status}  ·  ${fmtTime(r.started_at)}`;
+  const who = runTitle(r);
+  return `${who} — ${r.project_name}  ·  ${relTime(r.started_at)}  ·  ${r.status.replace("_", " ")}`;
 }

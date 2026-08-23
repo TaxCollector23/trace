@@ -1,7 +1,7 @@
 import { useParams } from "react-router-dom";
-import type { FileChange } from "../api";
+import type { CompressionInfo, FileChange } from "../api";
 import { api } from "../api";
-import { DiffView, Loading, RunPicker, stagger, useAsync } from "../components";
+import { DiffView, Loading, RunPicker, fmtBytes, stagger, useAsync } from "../components";
 
 const DEP_FILES = [
   "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock",
@@ -42,7 +42,7 @@ export default function PatchReview() {
     [current]
   );
   const diffQ = useAsync(
-    () => (current ? api.diff(current) : Promise.resolve({ diff: "" })),
+    () => (current ? api.diff(current) : Promise.resolve({ diff: "", compression: null })),
     [current]
   );
   const changes = changesQ.data ?? [];
@@ -92,7 +92,10 @@ export default function PatchReview() {
               {diffQ.loading ? (
                 <Loading error={diffQ.error} />
               ) : (
-                <DiffView diff={diffQ.data?.diff ?? ""} />
+                <>
+                  <CompressionNote compression={diffQ.data?.compression ?? null} />
+                  <DiffView diff={diffQ.data?.diff ?? ""} />
+                </>
               )}
             </>
           )}
@@ -115,6 +118,20 @@ function summary(
   if (configs.length) notes.push("build config changed");
   if (envs.length) notes.push("environment files touched");
   return notes.length ? `${parts}. Notable: ${notes.join("; ")}.` : `${parts}.`;
+}
+
+/** Subtle one-liner showing how much space the stored diff saved by being
+ * compressed. Renders nothing when the daemon didn't report compression. */
+function CompressionNote({ compression }: { compression: CompressionInfo | null }) {
+  if (!compression || compression.original_bytes <= 0) return null;
+  const { original_bytes, compressed_bytes } = compression;
+  const pct = Math.round((1 - compressed_bytes / original_bytes) * 100);
+  if (pct <= 0) return null;
+  return (
+    <div className="compression-note">
+      Diff stored compressed: {fmtBytes(original_bytes)} → {fmtBytes(compressed_bytes)} ({pct}% smaller)
+    </div>
+  );
 }
 
 function Section({

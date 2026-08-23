@@ -5,10 +5,9 @@ import App from "./App";
 import Dashboard from "./pages/Dashboard";
 import RunTimeline from "./pages/RunTimeline";
 import PatchReview from "./pages/PatchReview";
-import CostCenter from "./pages/CostCenter";
+import Usage from "./pages/Usage";
 import RiskCenter from "./pages/RiskCenter";
 import RollbackCenter from "./pages/RollbackCenter";
-import Analytics from "./pages/Analytics";
 import GitHub from "./pages/GitHub";
 import Ratify from "./pages/Ratify";
 import Benchmarks from "./pages/Benchmarks";
@@ -27,13 +26,12 @@ const router = createHashRouter([
       { path: "timeline/:runId", element: <RunTimeline /> },
       { path: "patch", element: <PatchReview /> },
       { path: "patch/:runId", element: <PatchReview /> },
-      { path: "cost", element: <CostCenter /> },
-      { path: "cost/:runId", element: <CostCenter /> },
+      { path: "usage", element: <Usage /> },
+      { path: "usage/:runId", element: <Usage /> },
       { path: "risk", element: <RiskCenter /> },
       { path: "risk/:runId", element: <RiskCenter /> },
       { path: "benchmarks", element: <Benchmarks /> },
       { path: "rollback", element: <RollbackCenter /> },
-      { path: "analytics", element: <Analytics /> },
       { path: "github", element: <GitHub /> },
       { path: "ratify", element: <Ratify /> },
       { path: "*", element: <NotFound /> },

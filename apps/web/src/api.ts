@@ -122,6 +122,17 @@ export interface DashboardData {
   projects: Project[];
 }
 
+export interface CompressionInfo {
+  original_bytes: number;
+  compressed_bytes: number;
+}
+
+export interface DiffResponse {
+  diff: string;
+  /** Present when the diff was stored compressed; null otherwise. */
+  compression: CompressionInfo | null;
+}
+
 export interface GithubRepoInfo {
   full_name: string;
   private: boolean;
@@ -276,7 +287,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 export const api = {
   dashboard: () => get<DashboardData>("/dashboard"),
-  diff: (id: string) => get<{ diff: string }>(`/runs/${id}/diff`),
+  diff: (id: string) => get<DiffResponse>(`/runs/${id}/diff`),
   githubStatus: (projectId: string) =>
     get<GithubStatus>(`/github/status?project_id=${projectId}`),
   githubCommits: (projectId: string, limit = 20) =>

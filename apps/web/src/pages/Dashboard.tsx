@@ -1,6 +1,16 @@
 import { Link } from "react-router-dom";
 import { api } from "../api";
-import { StatusBadge, fmtCost, fmtTime, Loading, stagger, useAsync } from "../components";
+import {
+  CodeBox,
+  StatusBadge,
+  fmtCost,
+  Loading,
+  relTime,
+  runTitle,
+  stagger,
+  useAsync,
+  whatChanged,
+} from "../components";
 
 function IntelStrip() {
   const benchQ = useAsync(() => api.benchmarks());
@@ -98,46 +108,39 @@ export default function Dashboard() {
 
       {runs.length === 0 ? (
         <div className="empty">
-          Start your first monitored AI coding session with{" "}
-          <span className="mono">trace run claude</span>.
+          <p style={{ margin: "0 0 14px" }}>
+            No monitored runs yet. Install agent shims, then start a session:
+          </p>
+          <CodeBox label="Set up agent monitoring" command="trace install agents" />
+          <CodeBox label="Run a monitored session" command='trace run "claude"' />
         </div>
       ) : (
-        runs.map((r, i) => (
-          <Link
-            key={r.id}
-            to={`/timeline/${r.id}`}
-            className="card card-link enter"
-            style={stagger(i)}
-          >
-            <div className="run-head">
-              <div className="run-cmd">{r.command}</div>
-              <StatusBadge status={r.status} />
-            </div>
-            <div className="run-meta">
-              <span>
-                <b>{r.project_name}</b>
-              </span>
-              {r.agent_name && (
-                <span>
-                  agent <b>{r.agent_name}</b>
-                </span>
-              )}
-              <span>started {fmtTime(r.started_at)}</span>
-              <span>ended {fmtTime(r.ended_at)}</span>
-              <span>
-                <b>{r.files_changed}</b> files
-              </span>
-              <span>
-                <b>{r.command_count}</b> commands
-              </span>
-              <span>
-                <b>{r.secret_warnings}</b> secrets
-              </span>
-              <span>cost {fmtCost(r.estimated_cost)}</span>
-              {r.checks_status && <span>checks {r.checks_status}</span>}
-            </div>
-          </Link>
-        ))
+        runs.map((r, i) => {
+          const changed = whatChanged(r);
+          return (
+            <Link
+              key={r.id}
+              to={`/timeline/${r.id}`}
+              className="card card-link enter"
+              style={stagger(i)}
+            >
+              <div className="run-head">
+                <div className="run-title">
+                  <span className="run-who">{runTitle(r)}</span>
+                  <span className="run-project"> — {r.project_name}</span>
+                </div>
+                <StatusBadge status={r.status} />
+              </div>
+              <div className="run-cmd-line mono">{r.command}</div>
+              {changed && <div className="run-changed">{changed}</div>}
+              <div className="run-meta">
+                <span>{relTime(r.started_at)}</span>
+                <span>cost {fmtCost(r.estimated_cost)}</span>
+                {r.checks_status && <span>checks {r.checks_status}</span>}
+              </div>
+            </Link>
+          );
+        })
       )}
     </div>
   );
