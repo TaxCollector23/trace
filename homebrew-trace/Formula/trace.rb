@@ -12,22 +12,22 @@ class Trace < Formula
   on_macos do
     on_arm do
       url "https://github.com/TaxCollector23/trace/releases/download/v1.3.0/trace-macos-arm64"
-      sha256 "986a6fa5f8ce69431b351cf11c9dda783c7727422fc238a37122238cb20353c6"
+      sha256 "52dc02beb4ae74bd5c72639d50b4405a63fc264a0699274bbacf85187ad387cd"
     end
     on_intel do
       url "https://github.com/TaxCollector23/trace/releases/download/v1.3.0/trace-macos-x64"
-      sha256 "8f7689ba7a2e9dfc305d5731d686a27e32d5f3876d46dfdde4b4df2044fe9a89"
+      sha256 "a9d88e602e61b39a11d779b90c05a7d8473156371f0abdfdaabeac2583790e49"
     end
   end
 
   on_linux do
     on_arm do
       url "https://github.com/TaxCollector23/trace/releases/download/v1.3.0/trace-linux-arm64"
-      sha256 "083d0a6dd6e7dbbc55c7622ed4c74dd456e9cd6f8def5c00805d1d0ab166380e"
+      sha256 "5bd423ad38d3c43e5e75fa3eb3e0028dda0f7a31756c281528311c2a4c46cbde"
     end
     on_intel do
       url "https://github.com/TaxCollector23/trace/releases/download/v1.3.0/trace-linux-x64"
-      sha256 "ee96c975a7fb886a5901eeecdce4962e656aad412ccfb3c3c000c8d8f41c4e7b"
+      sha256 "cbaa8a46c03ce7e7851e157f3719fdace62cd5ec34345220d637e97de30538bc"
     end
   end
 
