@@ -35,10 +35,11 @@ export default function Home() {
             variants={heroFade}
             className="mt-5 max-w-[520px] text-lg leading-relaxed text-text-dim"
           >
-            Trace watches every file Claude Code, Codex, Cursor, Windsurf, and Aider
-            touch. Each session becomes a diff you can review, a policy-checked patch,
-            a cost you can see, and a checkpoint you can undo — with three independent
-            models double-checking the risky calls in real time.
+            Trace watches every file Claude Code, Codex, Cursor, Windsurf, opencode,
+            and Aider touch. Each session becomes a diff you can review, a
+            policy-checked patch, a cost you can see, and a checkpoint you can undo —
+            guarded in real time by a deterministic engine that runs entirely on your
+            machine, with no API key.
           </motion.p>
           <motion.div
             custom={2}
@@ -67,7 +68,7 @@ export default function Home() {
       <Section
         id="integrations"
         title="Works with the agents you already run"
-        lede="Claude Code, Codex CLI, and OpenCode are launched directly by the desktop app. Cursor and GitHub Copilot are set up once in their own settings, then report back automatically. The same review engine runs in CI on every pull request."
+        lede="Claude Code, Codex CLI, and opencode connect through Trace's hooks and local MCP server. Cursor, Windsurf, and VS Code are set up once in their own settings, then report back automatically. The same review engine runs in CI on every pull request."
       >
         <WorksEverywhere />
       </Section>
@@ -76,7 +77,7 @@ export default function Home() {
       <Section
         id="install"
         title="One command wires up every agent you use"
-        lede="No manual JSON editing. `trc integrations install all` writes the hook to ~/.trace/integrations, patches the config for Claude Code, Cursor, and Windsurf, and prints exactly what changed. Idempotent, with automatic backups."
+        lede="No manual JSON editing. `trc integrations install all` writes the hook to ~/.trace/integrations, patches the config for Claude Code, Codex, Cursor, Windsurf, and opencode, and prints exactly what changed. Idempotent, with automatic backups."
       >
         <Reveal>
           <div className="overflow-hidden rounded-2xl border border-border bg-[#0d0d10] p-6 font-mono text-sm text-white">
@@ -84,10 +85,14 @@ export default function Home() {
             <div className="mt-2">─── claude ───</div>
             <div>  wrote ~/.trace/integrations/claude/trace-hook.sh</div>
             <div>  <span className="text-emerald-400">patched</span> ~/.claude/settings.json</div>
+            <div className="mt-1">─── codex ───</div>
+            <div>  wrote ~/.trace/integrations/codex/codex-adapter.sh</div>
             <div className="mt-1">─── cursor ───</div>
             <div>  <span className="text-emerald-400">patched</span> ~/.cursor/mcp.json</div>
             <div className="mt-1">─── windsurf ───</div>
             <div>  <span className="text-emerald-400">patched</span> ~/.codeium/windsurf/mcp_config.json</div>
+            <div className="mt-1">─── opencode ───</div>
+            <div>  <span className="text-emerald-400">patched</span> ~/.config/opencode/opencode.json</div>
             <div className="mt-3 text-emerald-400">✓ every agent will call the Trace hook after a restart.</div>
           </div>
         </Reveal>
