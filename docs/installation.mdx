@@ -3,41 +3,20 @@ title: Installation
 description: Install the trace CLI on macOS, Linux, or Windows.
 ---
 
-Trace ships a single binary, `trc`.
-
-## macOS (Homebrew, recommended)
-
-```bash
-brew tap TaxCollector23/trace
-brew install trace
-```
-
-Update later with `brew upgrade trace`.
-
-## macOS / Linux (shell script)
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh
-```
-
-This downloads the correct binary for your OS and architecture, installs it to
-`~/.trace/bin/trace`, marks it executable, and prints PATH instructions if
-needed.
-
-## Windows
-
-```powershell
-irm https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.ps1 | iex
-```
-
-This installs `trace.exe` to `%USERPROFILE%\.trace\bin\trace.exe` and updates
-your user PATH. Open a new terminal afterwards.
-
-## npm (optional fallback)
+Trace ships a single binary, `trc`. Install it with npm on macOS, Linux, and
+Windows:
 
 ```bash
 npm install -g trace-dev
 ```
+
+Requires Node.js 18+. The npm package is named `trace-dev` (the bare
+`trc`/`trace` names are already taken on npm); the command it installs is
+`trc`. The package downloads the matching prebuilt binary from GitHub Releases —
+if that step is ever skipped (for example `--ignore-scripts`), the first `trc`
+run fetches it automatically.
+
+Pin a version with `TRACE_VERSION=v1.3.0 npm install -g trace-dev`.
 
 ## Verify
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Reveal, Section, Button } from "../components";
-import { LANDING_URL } from "../config";
+import { DOCS_URL } from "../config";
 import HeroDemo from "../HeroDemo";
 import WorksEverywhere from "../WorksEverywhere";
 
@@ -49,9 +49,9 @@ export default function Home() {
             variants={heroFade}
             className="mt-7 flex flex-wrap items-center gap-4"
           >
-            <Button to="/download">Download Trace</Button>
-            <Button variant="secondary" href="#install">
-              Install the CLI
+            <Button href="#install">Download the CLI</Button>
+            <Button variant="secondary" href={DOCS_URL} target="_blank" rel="noreferrer">
+              Read the documentation
             </Button>
           </motion.div>
         </div>
@@ -205,8 +205,8 @@ export default function Home() {
           <h2 className="font-serif text-3xl text-text">See every AI edit for yourself.</h2>
           <p className="mt-3 text-text-dim">Review the diff. Check the cost. Roll back safely.</p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
-            <Button to="/download">Download Trace</Button>
-            <Button variant="secondary" href="#install">Install the CLI</Button>
+            <Button href="#install">Download the CLI</Button>
+            <Button variant="secondary" href={DOCS_URL} target="_blank" rel="noreferrer">Read the documentation</Button>
           </div>
         </Reveal>
       </section>
@@ -223,116 +223,128 @@ const STARTUP_ART = `████████╗██████╗  ███
    ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝`;
 const ART_LINES = STARTUP_ART.split("\n");
 
-// Every install path. `trace-dev` is the npm package (the bare `trc`/`trace`
-// npm names are owned by others); all of these put the `trc` command on PATH.
-const METHODS = [
-  { key: "npm", os: "Any OS", via: "npm", command: "npm i -g trace-dev" },
-  { key: "macos", os: "macOS", via: "Homebrew", command: "brew install taxcollector23/trace/trace" },
-  { key: "unix", os: "macOS · Linux", via: "curl", command: `curl -fsSL ${LANDING_URL}/install.sh | sh` },
-  { key: "windows", os: "Windows", via: "PowerShell", command: `irm ${LANDING_URL}/install.ps1 | iex` },
-];
+// `trace-dev` is the npm package (the bare `trc`/`trace` names are owned by
+// others on npm); it installs the `trc` command on macOS, Linux, and Windows.
+const INSTALL_CMD = "npm i -g trace-dev";
 
+// A single npm install, presented as a real terminal booting: the banner
+// prints line by line, then the command types itself, then the caret blinks.
+// The sequence starts when the block scrolls into view so it's never missed.
 function InstallBlock() {
-  const [sel, setSel] = useState(0);
-  const [typed, setTyped] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  const [lines, setLines] = useState(0); // banner lines printed so far
+  const [typed, setTyped] = useState(""); // command chars typed so far
+  const [done, setDone] = useState(false); // command finished typing
   const [copied, setCopied] = useState(false);
-  const reduce = useRef(false);
 
   useEffect(() => {
-    reduce.current =
-      typeof window !== "undefined" &&
-      !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  }, []);
-
-  // Typewriter — retype the command whenever the selected method changes, so
-  // switching OS feels like it's being typed into the terminal.
-  useEffect(() => {
-    const cmd = METHODS[sel].command;
-    if (reduce.current) {
-      setTyped(cmd);
+    const reduce = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      setLines(ART_LINES.length);
+      setTyped(INSTALL_CMD);
+      setDone(true);
       return;
     }
-    setTyped("");
-    let i = 0;
-    const id = setInterval(() => {
-      i += 1;
-      setTyped(cmd.slice(0, i));
-      if (i >= cmd.length) clearInterval(id);
-    }, 26);
-    return () => clearInterval(id);
-  }, [sel]);
+    const el = ref.current;
+    if (!el) return;
+    const timers: ReturnType<typeof setInterval>[] = [];
+    const run = () => {
+      let ln = 0;
+      const lineTimer = setInterval(() => {
+        ln += 1;
+        setLines(ln);
+        if (ln >= ART_LINES.length) {
+          clearInterval(lineTimer);
+          let i = 0;
+          const typeTimer = setInterval(() => {
+            i += 1;
+            setTyped(INSTALL_CMD.slice(0, i));
+            if (i >= INSTALL_CMD.length) {
+              clearInterval(typeTimer);
+              setDone(true);
+            }
+          }, 46);
+          timers.push(typeTimer);
+        }
+      }, 85);
+      timers.push(lineTimer);
+    };
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          io.disconnect();
+          run();
+        }
+      },
+      { threshold: 0.4 }
+    );
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      timers.forEach(clearInterval);
+    };
+  }, []);
 
   const copy = () => {
-    navigator.clipboard.writeText(METHODS[sel].command);
+    navigator.clipboard.writeText(INSTALL_CMD);
     setCopied(true);
     setTimeout(() => setCopied(false), 1400);
   };
 
   return (
     <Reveal>
-      <div className="mx-auto grid max-w-[920px] grid-cols-1 gap-4 md:grid-cols-[236px_1fr]">
-        {/* Choose your OS / install method */}
-        <div className="flex flex-row flex-wrap gap-2 md:flex-col">
-          {METHODS.map((m, i) => (
-            <button
-              key={m.key}
-              onClick={() => setSel(i)}
-              aria-pressed={sel === i}
-              className={`flex-1 rounded-xl border px-4 py-3 text-left transition-colors md:flex-none ${
-                sel === i
-                  ? "border-brand bg-brand-soft"
-                  : "border-border bg-white hover:border-brand/40"
-              }`}
-            >
-              <div className={`text-sm font-medium ${sel === i ? "text-brand-dim" : "text-text"}`}>
-                {m.os}
-              </div>
-              <div className="mt-0.5 text-xs text-text-dim">{m.via}</div>
-            </button>
-          ))}
-        </div>
-
-        {/* Terminal: animated startup art + the typed install command */}
-        <div className="relative overflow-x-auto rounded-2xl border border-border bg-[#0d0d10] px-6 py-5 shadow-lg">
+      <div
+        ref={ref}
+        className="mx-auto max-w-[600px] overflow-hidden rounded-2xl border border-border bg-[#0d0d10] shadow-lg"
+      >
+        {/* Terminal title bar */}
+        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+          <span className="h-3 w-3 rounded-full bg-[#ff5f57]" />
+          <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
+          <span className="h-3 w-3 rounded-full bg-[#28c840]" />
+          <span className="ml-2 font-mono text-xs text-white/40">trace — install</span>
           <button
             onClick={copy}
             aria-label="Copy install command"
-            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-md border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20"
+            className="ml-auto flex h-7 w-7 items-center justify-center rounded-md border border-white/15 bg-white/5 text-white/80 transition-colors hover:bg-white/15"
           >
             {copied ? (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 6 9 17l-5-5" />
               </svg>
             ) : (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="9" y="9" width="13" height="13" rx="2" />
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
               </svg>
             )}
           </button>
+        </div>
 
-          <motion.pre
-            aria-label="Trace startup banner"
-            initial="hidden"
-            animate="show"
-            variants={{ show: { transition: { staggerChildren: 0.07 } } }}
-            className="font-mono text-[9.5px] leading-[1.2] text-brand sm:text-[13px]"
-          >
+        {/* Terminal body: startup art prints, then the command types */}
+        <div className="overflow-x-auto px-6 py-6">
+          <pre className="font-mono text-[9.5px] leading-[1.2] text-brand sm:text-[13px]">
             {ART_LINES.map((line, i) => (
-              <motion.div
+              <div
                 key={i}
-                variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
-                transition={{ duration: 0.16 }}
+                className="transition-all duration-300 ease-out"
+                style={{
+                  opacity: i < lines ? 1 : 0,
+                  transform: i < lines ? "none" : "translateY(4px)",
+                }}
               >
-                {line}
-              </motion.div>
+                {line || " "}
+              </div>
             ))}
-          </motion.pre>
-
-          <pre className="mt-4 whitespace-pre-wrap break-all font-mono text-sm text-white">
+          </pre>
+          <pre className="mt-5 whitespace-pre-wrap break-all font-mono text-sm text-white">
             <span className="select-none text-white/40">$ </span>
             {typed}
-            <span className="ml-0.5 inline-block h-4 w-[7px] translate-y-[2px] animate-pulse bg-white/70 align-middle" />
+            <span
+              className={`ml-0.5 inline-block h-4 w-[7px] translate-y-[2px] bg-white/80 align-middle ${
+                done ? "term-caret" : ""
+              }`}
+            />
           </pre>
         </div>
       </div>

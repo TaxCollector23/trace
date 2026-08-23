@@ -61,3 +61,12 @@ pre {
 .rec-dot {
   animation: rec-dot 1.8s ease-in-out infinite;
 }
+
+/* Terminal caret — a crisp on/off blink (not a soft pulse), like a real TTY. */
+@keyframes term-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.term-caret {
+  animation: term-blink 1s steps(1, end) infinite;
+}

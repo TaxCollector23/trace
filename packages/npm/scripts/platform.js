@@ -2,8 +2,17 @@
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 
 export const REPO = "TaxCollector23/trace";
+
+// Directory of THIS file, resolved correctly on every platform. The naive
+// `new URL(import.meta.url).pathname` returns "/C:/Users/…" on Windows — a
+// leading slash and forward slashes that path.join() mangles into a
+// drive-root path, which is how the binary ended up being written to
+// C:\Windows\System32. fileURLToPath handles the file:// → native conversion.
+const HERE =
+  import.meta.dirname ?? path.dirname(fileURLToPath(import.meta.url));
 
 /** Map the current platform/arch to a GitHub Release asset name. */
 export function assetName() {
@@ -24,7 +33,7 @@ export function assetName() {
 /** Local path where the downloaded binary is stored inside the package. */
 export function binPath() {
   const exe = os.platform() === "win32" ? "trc.exe" : "trc";
-  return path.join(import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname), "..", "bin", exe);
+  return path.join(HERE, "..", "bin", exe);
 }
 
 export function downloadUrl(version) {
