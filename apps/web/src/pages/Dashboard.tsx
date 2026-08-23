@@ -111,8 +111,8 @@ export default function Dashboard() {
           <p style={{ margin: "0 0 14px" }}>
             No monitored runs yet. Install agent shims, then start a session:
           </p>
-          <CodeBox label="Set up agent monitoring" command="trace install agents" />
-          <CodeBox label="Run a monitored session" command='trace run "claude"' />
+          <CodeBox label="Set up agent monitoring" command="trc install agents" />
+          <CodeBox label="Run a monitored session" command='trc run "claude"' />
         </div>
       ) : (
         runs.map((r, i) => {

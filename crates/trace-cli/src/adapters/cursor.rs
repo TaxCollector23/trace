@@ -1,4 +1,4 @@
-//! Cursor adapter for the terminal wrapper path (`trace run "cursor ..."`).
+//! Cursor adapter for the terminal wrapper path (`trc run "cursor ..."`).
 //!
 //! This is distinct from `integrations/cursor`, which is Cursor's *primary*
 //! integration surface: an MCP server Cursor talks to directly. Cursor is a

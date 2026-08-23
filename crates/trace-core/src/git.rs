@@ -40,7 +40,7 @@ fn git_stdout(cwd: &Path, args: &[&str]) -> Result<String> {
 }
 
 /// The top level of the git working tree containing `path`, if any. Lets
-/// `trace init` associate with the repository root rather than a subdirectory.
+/// `trc init` associate with the repository root rather than a subdirectory.
 pub fn repo_root(path: &Path) -> Option<std::path::PathBuf> {
     let top = git_stdout(path, &["rev-parse", "--show-toplevel"]).ok()?;
     if top.is_empty() {

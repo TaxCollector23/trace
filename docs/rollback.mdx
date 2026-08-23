@@ -22,7 +22,7 @@ Checkpoints are labelled by run, e.g. `trace/run-<run_id>-before`.
 ## Rolling back
 
 ```bash
-trace rollback
+trc rollback
 ```
 
 This restores the most recent checkpoint, or asks you to choose when several are
@@ -37,5 +37,5 @@ target before confirming.
 ## Requirements
 
 Rollback and checkpoints require Git. If your project is not a Git repository,
-`trace init` warns you, and runs are recorded without checkpoint/rollback support.
+`trc init` warns you, and runs are recorded without checkpoint/rollback support.
 Trace will not run `git init` for you.

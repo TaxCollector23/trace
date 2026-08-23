@@ -21,4 +21,4 @@ code .
 
 The extension reads the daemon port from `~/.trace/daemon.json` and talks
 only to `http://127.0.0.1:<port>`. If the daemon is not running it offers to run
-`trace dashboard` for you. It never connects to any remote service.
+`trc dashboard` for you. It never connects to any remote service.

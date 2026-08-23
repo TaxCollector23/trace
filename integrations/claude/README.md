@@ -3,8 +3,8 @@
 ## Wrapper (recommended, works everywhere)
 
 ```bash
-trace run claude
-trace run "claude fix the login bug"
+trc run claude
+trc run "claude fix the login bug"
 ```
 
 This is what makes the hooks below actually able to find your run — it sets
@@ -26,7 +26,7 @@ process it launches, and every hook `claude` fires inherits them.
 
 ### Install
 
-1. Make sure Trace is installed and the daemon can run (`trace daemon start`).
+1. Make sure Trace is installed and the daemon can run (`trc daemon start`).
 2. Copy this folder somewhere stable, e.g.:
    ```bash
    mkdir -p ~/.trace/integrations/claude
@@ -43,7 +43,7 @@ process it launches, and every hook `claude` fires inherits them.
 ### Behaviour
 
 - If the daemon is **not** running, the hook is a no-op — it never blocks Claude.
-- If Claude wasn't launched via `trace run` (no `TRACE_RUN_ID` in its
+- If Claude wasn't launched via `trc run` (no `TRACE_RUN_ID` in its
   environment), the `PostToolUse` path is a no-op too — there's no run to
   attach the review to. `PreToolUse` command guarding still works either way.
 - Every edit goes through the deterministic policy engine and any findings

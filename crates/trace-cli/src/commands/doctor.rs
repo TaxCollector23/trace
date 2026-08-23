@@ -1,4 +1,4 @@
-//! `trace doctor` — system checks with actionable fixes.
+//! `trc doctor` — system checks with actionable fixes.
 
 use anyhow::Result;
 use trace_core::{agents, paths};
@@ -85,7 +85,7 @@ pub fn run() -> Result<()> {
         None => line(
             "daemon",
             false,
-            "not running — start with `trace daemon start`",
+            "not running — start with `trc daemon start`",
         ),
     }
 
@@ -96,7 +96,7 @@ pub fn run() -> Result<()> {
         "self-check",
         report.passed == report.total,
         &format!(
-            "{}/{} fixtures passed ({:.0}% precision, {:.0}% recall) — full report: `trace self-check`",
+            "{}/{} fixtures passed ({:.0}% precision, {:.0}% recall) — full report: `trc self-check`",
             report.passed,
             report.total,
             report.precision * 100.0,
@@ -151,6 +151,6 @@ pub fn run() -> Result<()> {
         &format!("{} available (no install needed)", web.len()),
     );
 
-    println!("\nRun a detected tool directly, e.g. `trace run claude \"<prompt>\"`.");
+    println!("\nRun a detected tool directly, e.g. `trc run claude \"<prompt>\"`.");
     Ok(())
 }

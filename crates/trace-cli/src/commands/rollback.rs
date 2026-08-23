@@ -1,4 +1,4 @@
-//! `trace rollback` — restore a checkpoint via git, with confirmation.
+//! `trc rollback` — restore a checkpoint via git, with confirmation.
 //!
 //! Rollback is always Git-based and never destructive without an explicit
 //! confirmation from the user.

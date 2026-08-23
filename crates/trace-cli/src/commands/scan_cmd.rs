@@ -1,4 +1,4 @@
-//! `trace scan` — detect the current project's stack and print it.
+//! `trc scan` — detect the current project's stack and print it.
 
 use anyhow::Result;
 use trace_core::scan;

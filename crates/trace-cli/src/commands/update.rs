@@ -1,4 +1,4 @@
-//! `trace update` — replace the running binary with the latest GitHub release.
+//! `trc update` — replace the running binary with the latest GitHub release.
 //!
 //! Downloads the correct release asset for this platform and atomically swaps it
 //! in place. Falls back to printing the install command if the binary cannot be
@@ -55,7 +55,7 @@ pub fn run() -> Result<()> {
         .with_context(|| format!("replacing {} (need write permission)", exe.display()))?;
 
     println!("Updated: {}", exe.display());
-    println!("Run `trace --version` to confirm.");
+    println!("Run `trc --version` to confirm.");
     Ok(())
 }
 

@@ -1,4 +1,4 @@
-//! `trace integrations install <agent>` — one-shot hook/MCP installer.
+//! `trc integrations install <agent>` — one-shot hook/MCP installer.
 //!
 //! Ships every integration's source file embedded in the binary so the
 //! install works from a fresh binary with no repo checkout. For each agent:
@@ -177,7 +177,7 @@ fn install_claude() -> Result<()> {
         "\n  {} Claude Code will call the Trace hook on Bash + Edit/Write tool use.",
         colors::green("✓")
     );
-    println!("  Start the daemon with `trace daemon start` to enable live review.");
+    println!("  Start the daemon with `trc daemon start` to enable live review.");
     Ok(())
 }
 

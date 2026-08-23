@@ -12,7 +12,7 @@ async function main() {
   const out = binPath();
   fs.mkdirSync(path.dirname(out), { recursive: true });
 
-  process.stdout.write(`trace: downloading ${url}\n`);
+  process.stdout.write(`trc: downloading ${url}\n`);
   const res = await fetch(url, { redirect: "follow" });
   if (!res.ok) {
     throw new Error(`download failed: ${res.status} ${res.statusText}`);
@@ -22,12 +22,12 @@ async function main() {
   if (process.platform !== "win32") {
     fs.chmodSync(out, 0o755);
   }
-  process.stdout.write(`trace: installed ${out}\n`);
+  process.stdout.write(`trc: installed ${out}\n`);
 }
 
 main().catch((e) => {
   process.stderr.write(
-    `trace: could not download the binary (${e.message}).\n` +
+    `trc: could not download the binary (${e.message}).\n` +
       `You can install manually from https://github.com/TaxCollector23/trace/releases\n`
   );
   // Do not fail the whole npm install.

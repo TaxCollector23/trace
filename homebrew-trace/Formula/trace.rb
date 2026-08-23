@@ -34,17 +34,17 @@ class Trace < Formula
   def install
     # The downloaded artifact is the bare binary; install it as `trace`.
     binary = Dir["*"].first
-    bin.install binary => "trace"
+    bin.install binary => "trc"
   end
 
   def caveats
     <<~EOS
       Start the local dashboard with:
-        trace dashboard
+        trc dashboard
     EOS
   end
 
   test do
-    assert_match "Trace 1.2", shell_output("#{bin}/trace --version")
+    assert_match "Trace 1.2", shell_output("#{bin}/trc --version")
   end
 end

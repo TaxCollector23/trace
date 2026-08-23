@@ -17,7 +17,7 @@ pub struct ProjectConfig {
     #[serde(default)]
     pub created_at: String,
     /// GitHub repo this project is tied to, as `owner/repo`, detected from the
-    /// `origin` remote at `trace init`. `None` for local-only projects.
+    /// `origin` remote at `trc init`. `None` for local-only projects.
     #[serde(default)]
     pub github_repo: Option<String>,
     /// The repo's current branch at init time (informational; runs record the

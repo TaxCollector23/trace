@@ -26,7 +26,7 @@ runs:
       if: inputs.install == 'true'
       shell: bash
       run: |
-        if ! command -v trace >/dev/null 2>&1; then
+        if ! command -v trc >/dev/null 2>&1; then
           curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh
           echo "$HOME/.trace/bin" >> "$GITHUB_PATH"
         fi

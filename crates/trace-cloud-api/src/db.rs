@@ -85,7 +85,7 @@ impl Store {
     }
 
     /// Look up or create a user by opaque bearer token. Kept simple on
-    /// purpose: users provision a token in `trace daemon cloud-login`
+    /// purpose: users provision a token in `trc daemon cloud-login`
     /// (future) or paste one from the web dashboard. First use registers
     /// the token → user_id binding.
     pub fn upsert_user_by_token(&self, token: &str) -> Result<String> {

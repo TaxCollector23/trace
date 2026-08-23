@@ -4,7 +4,7 @@
 //! any) should fire on them — run through the actual `run_policy_checks`
 //! and scored. This is deliberately not a static "we tested this once and
 //! here are the numbers" artifact: it's a function anyone can call, right
-//! now, against whatever the current rules do. Run it via `trace self-check`.
+//! now, against whatever the current rules do. Run it via `trc self-check`.
 //!
 //! Every fixture pairs a "should fire" case with at least one "should NOT
 //! fire" near-miss for the same rule — precision matters as much as recall

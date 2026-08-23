@@ -1,4 +1,4 @@
-//! `trace review-diff` — review a diff range with the deterministic policy
+//! `trc review-diff` — review a diff range with the deterministic policy
 //! engine without needing a registered Trace project or a running daemon.
 //! Built for CI: point it at a git checkout, get a report and an exit code.
 //! This is the same `policy.rs` engine the live daemon uses — CI and the local
@@ -90,7 +90,7 @@ pub fn run(opts: ReviewDiffOptions) -> Result<()> {
 
     let findings = policy::run_policy_checks(&diffs);
     // Single source of truth for pass/review/block — the same summarizer the
-    // daemon's ratify endpoint and `trace ratify` use, instead of a private
+    // daemon's ratify endpoint and `trc ratify` use, instead of a private
     // high-severity count.
     let summary = ratify_summarize(&findings);
     let high_severity_count = summary.counts.high;

@@ -1,9 +1,9 @@
-//! `trace install <target>` — the friendly, top-level installer.
+//! `trc install <target>` — the friendly, top-level installer.
 //!
 //! Today the only target is `agents`, which wires Trace into every supported
 //! coding agent (Claude Code, Cursor, Windsurf, Codex) and starts the local
 //! daemon so live review works immediately. It's a thin, well-labeled wrapper
-//! over the same idempotent installer behind `trace integrations install all`,
+//! over the same idempotent installer behind `trc integrations install all`,
 //! surfaced as a primary onboarding command.
 
 use anyhow::Result;
@@ -17,7 +17,7 @@ pub fn run(target: &str) -> Result<()> {
         "agents" | "agent" | "all" => install_agents(),
         other => {
             anyhow::bail!(
-                "unknown install target '{other}'. Try `trace install agents` to connect your coding agents."
+                "unknown install target '{other}'. Try `trc install agents` to connect your coding agents."
             );
         }
     }
@@ -33,7 +33,7 @@ fn install_agents() -> Result<()> {
             colors::green("✓")
         ),
         Err(e) => println!(
-            "{} couldn't start the daemon ({e}). Agents will still connect; run `trace daemon start` later for live review.\n",
+            "{} couldn't start the daemon ({e}). Agents will still connect; run `trc daemon start` later for live review.\n",
             colors::yellow("note:")
         ),
     }

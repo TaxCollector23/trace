@@ -49,7 +49,7 @@ async fn bind_available(start_port: u16) -> Result<(TcpListener, u16)> {
 /// applies to this app. The real place to set it is here, as a response
 /// header, which has the added benefit of covering the *other* legitimate
 /// way to view the dashboard: a plain browser pointed at the daemon
-/// (`trace dashboard`). Since the dashboard is entirely self-contained (own
+/// (`trc dashboard`). Since the dashboard is entirely self-contained (own
 /// bundled JS, no CDN/external script dependencies), a strict same-origin
 /// policy costs nothing functionally.
 async fn security_headers(request: Request, next: Next) -> Response {

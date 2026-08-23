@@ -21,12 +21,12 @@ fn short(s: &str, n: usize) -> String {
     }
 }
 
-/// `trace runs` — list recent runs.
+/// `trc runs` — list recent runs.
 pub fn runs() -> Result<()> {
     let c = client()?;
     let runs: Vec<RunSummary> = c.get_json("/api/runs?limit=50")?;
     if runs.is_empty() {
-        println!("No runs yet. Try `trace run \"claude ...\"`.");
+        println!("No runs yet. Try `trc run \"claude ...\"`.");
         return Ok(());
     }
     println!(
@@ -48,7 +48,7 @@ pub fn runs() -> Result<()> {
     Ok(())
 }
 
-/// `trace show <run_id>` — run summary + timeline.
+/// `trc show <run_id>` — run summary + timeline.
 pub fn show(run_id: &str) -> Result<()> {
     let c = client()?;
     let r: RunSummary = c.get_json(&format!("/api/runs/{run_id}"))?;
@@ -85,7 +85,7 @@ pub fn show(run_id: &str) -> Result<()> {
     Ok(())
 }
 
-/// `trace patch <run_id>` — changed files.
+/// `trc patch <run_id>` — changed files.
 pub fn patch(run_id: &str) -> Result<()> {
     let c = client()?;
     let changes: Vec<FileChange> = c.get_json(&format!("/api/runs/{run_id}/file-changes"))?;
@@ -109,7 +109,7 @@ pub fn patch(run_id: &str) -> Result<()> {
     Ok(())
 }
 
-/// `trace risks <run_id>` — guarded commands + secret warnings (redacted).
+/// `trc risks <run_id>` — guarded commands + secret warnings (redacted).
 pub fn risks(run_id: &str) -> Result<()> {
     let c = client()?;
     let cmds: Vec<CommandRecord> = c.get_json(&format!("/api/runs/{run_id}/commands"))?;
@@ -143,7 +143,7 @@ pub fn risks(run_id: &str) -> Result<()> {
     Ok(())
 }
 
-/// `trace costs <run_id>` — API usage + estimated cost.
+/// `trc costs <run_id>` — API usage + estimated cost.
 pub fn costs(run_id: &str) -> Result<()> {
     let c = client()?;
     let resp: Value = c.get_json(&format!("/api/runs/{run_id}/cost"))?;
@@ -186,7 +186,7 @@ pub fn costs(run_id: &str) -> Result<()> {
     Ok(())
 }
 
-/// `trace checkpoints` — checkpoints across recent runs (for rollback).
+/// `trc checkpoints` — checkpoints across recent runs (for rollback).
 pub fn checkpoints() -> Result<()> {
     let c = client()?;
     let runs: Vec<RunSummary> = c.get_json("/api/runs?limit=50")?;

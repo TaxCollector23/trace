@@ -1,8 +1,8 @@
-//! `trace replay <run_id>` — replay a run's recorded events, commands, and
+//! `trc replay <run_id>` — replay a run's recorded events, commands, and
 //! file changes in the order they actually happened, paced by their real
 //! recorded timestamps (compressed so replay never drags on a long run).
 //!
-//! This reads the same data `trace show`/`patch`/`risks` read — nothing is
+//! This reads the same data `trc show`/`patch`/`risks` read — nothing is
 //! invented or simulated. It merges three real timelines into one and plays
 //! them back.
 

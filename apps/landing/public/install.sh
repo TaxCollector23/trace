@@ -4,12 +4,12 @@
 #   curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh
 #
 # Downloads the correct `trace` binary from GitHub Releases, installs it to
-# ~/.trace/bin/trace, makes it executable, and prints PATH instructions.
+# ~/.trace/bin/trc, makes it executable, and prints PATH instructions.
 set -eu
 
-REPO="TaxCollector23/trace"
+REPO="TaxCollector23/trc"
 INSTALL_DIR="${HOME}/.trace/bin"
-BIN="${INSTALL_DIR}/trace"
+BIN="${INSTALL_DIR}/trc"
 
 err() { printf 'error: %s\n' "$1" >&2; exit 1; }
 
@@ -50,17 +50,17 @@ fi
 
 chmod +x "$BIN"
 
-printf '\nInstalled trace to %s\n' "$BIN"
+printf '\nInstalled trc to %s\n' "$BIN"
 
 # --- PATH guidance ---
 case ":${PATH}:" in
   *":${INSTALL_DIR}:"*)
-    printf 'Trace is on your PATH. Run: trace --help\n'
+    printf 'Trace is on your PATH. Run: trc --help\n'
     ;;
   *)
     printf '\nAdd Trace to your PATH by adding this line to your shell profile\n'
     printf '(~/.zshrc, ~/.bashrc, or ~/.profile):\n\n'
     printf '  export PATH="%s:$PATH"\n\n' "$INSTALL_DIR"
-    printf 'Then restart your shell and run: trace --help\n'
+    printf 'Then restart your shell and run: trc --help\n'
     ;;
 esac

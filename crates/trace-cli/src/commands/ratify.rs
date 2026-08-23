@@ -1,5 +1,5 @@
-//! `trace ratify <pr>` — ratify a GitHub pull request against the deterministic
-//! policy engine, straight from a git checkout. No daemon, no `trace init`, no
+//! `trc ratify <pr>` — ratify a GitHub pull request against the deterministic
+//! policy engine, straight from a git checkout. No daemon, no `trc init`, no
 //! API key. Resolves the repo from the current directory's `origin` remote and
 //! a read-only token (env, `gh` CLI, or `~/.trace/github.json`), fetches the
 //! PR's changed files, and prints findings + a pass/review/block verdict.

@@ -76,11 +76,11 @@ export default function Home() {
       <Section
         id="install"
         title="One command wires up every agent you use"
-        lede="No manual JSON editing. `trace integrations install all` writes the hook to ~/.trace/integrations, patches the config for Claude Code, Cursor, and Windsurf, and prints exactly what changed. Idempotent, with automatic backups."
+        lede="No manual JSON editing. `trc integrations install all` writes the hook to ~/.trace/integrations, patches the config for Claude Code, Cursor, and Windsurf, and prints exactly what changed. Idempotent, with automatic backups."
       >
         <Reveal>
           <div className="overflow-hidden rounded-2xl border border-border bg-[#0d0d10] p-6 font-mono text-sm text-white">
-            <div className="text-white/40">$ trace integrations install all</div>
+            <div className="text-white/40">$ trc integrations install all</div>
             <div className="mt-2">─── claude ───</div>
             <div>  wrote ~/.trace/integrations/claude/trace-hook.sh</div>
             <div>  <span className="text-emerald-400">patched</span> ~/.claude/settings.json</div>
@@ -105,7 +105,7 @@ export default function Home() {
               <div className="font-serif text-lg text-text">One engine, edit to PR</div>
               <p className="mt-2 text-sm leading-relaxed text-text-dim">
                 The same deterministic rules run on a local file edit, in CI via{" "}
-                <span className="font-mono text-[13px]">trace review-diff</span>, and on a
+                <span className="font-mono text-[13px]">trc review-diff</span>, and on a
                 GitHub pull request from the dashboard's Ratify tab. Consistent by construction —
                 one implementation, no drift.
               </p>
@@ -126,11 +126,11 @@ export default function Home() {
       <Section
         id="benchmarks"
         title="Measured against an adversarial corpus, not vibes"
-        lede="Trace ships a labeled red-team corpus — dangerous commands (including evasions like curl … | sudo bash and base64-piped shells), planted API keys, and unsafe prompts — run through the exact guard, secret, and prompt engines the runtime hook uses. Reproduce every number yourself with `trace self-check`."
+        lede="Trace ships a labeled red-team corpus — dangerous commands (including evasions like curl … | sudo bash and base64-piped shells), planted API keys, and unsafe prompts — run through the exact guard, secret, and prompt engines the runtime hook uses. Reproduce every number yourself with `trc self-check`."
       >
         <Reveal>
           <div className="overflow-hidden rounded-2xl border border-border bg-[#0d0d10] p-6 font-mono text-[13px] leading-relaxed text-white">
-            <div className="text-white/40">$ trace self-check</div>
+            <div className="text-white/40">$ trc self-check</div>
             <div className="mt-3 text-white/70">Trace red-team detection benchmark</div>
             <div className="mt-1">
               <span className="text-emerald-400">59/59</span> threats caught

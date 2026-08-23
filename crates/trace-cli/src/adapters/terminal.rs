@@ -1,6 +1,6 @@
 //! The reference [`Adapter`] implementation: any terminal-launched coding
 //! agent, wrapped rather than modified. This is what every
-//! `trace run "<agent> ..."` session uses today, regardless of which agent
+//! `trc run "<agent> ..."` session uses today, regardless of which agent
 //! name (if any) was recognized in the command.
 
 use anyhow::Result;

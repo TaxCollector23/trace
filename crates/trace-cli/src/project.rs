@@ -24,11 +24,11 @@ pub struct Project {
 }
 
 /// Load the project containing the current working directory, or error with a
-/// hint to run `trace init`.
+/// hint to run `trc init`.
 pub fn load_current() -> Result<Project> {
     let cwd = std::env::current_dir()?;
     let root = find_project_root(&cwd)
-        .ok_or_else(|| anyhow!("not a Trace project (run `trace init` first)"))?;
+        .ok_or_else(|| anyhow!("not a Trace project (run `trc init` first)"))?;
     let config = ProjectConfig::load(&paths::project_config_path(&root))?;
     Ok(Project { root, config })
 }

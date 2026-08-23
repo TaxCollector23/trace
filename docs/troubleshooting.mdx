@@ -8,28 +8,28 @@ description: Common issues and how to resolve them.
 Check the daemon:
 
 ```bash
-trace daemon status
+trc daemon status
 ```
 
 If it is not running, start it and open the dashboard:
 
 ```bash
-trace daemon start
-trace dashboard
+trc daemon start
+trc dashboard
 ```
 
 The daemon binds to `127.0.0.1` and prefers port `8757`, falling back to the next
-free port. The active port is shown by `trace daemon status` and stored in
+free port. The active port is shown by `trc daemon status` and stored in
 `~/.trace/daemon.json`.
 
 ## Port 8757 is in use
 
 That is fine — Trace automatically tries `8758`, `8759`, and so on. Use the
-port reported by `trace daemon status`.
+port reported by `trc daemon status`.
 
 ## "not a Trace project"
 
-Run `trace init` in your project root first. Trace searches upward from the
+Run `trc init` in your project root first. Trace searches upward from the
 current directory for a `.trace/config.toml`.
 
 ## Rollback says it needs Git
@@ -50,6 +50,6 @@ Stopping the daemon and removing `~/.trace` clears all global state
 separate.
 
 ```bash
-trace daemon stop
+trc daemon stop
 rm -rf ~/.trace
 ```

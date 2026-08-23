@@ -1,4 +1,4 @@
-//! `trace config show` and `trace config set <key> <value>` for the current project.
+//! `trc config show` and `trc config set <key> <value>` for the current project.
 
 use anyhow::{anyhow, Result};
 use trace_core::paths;

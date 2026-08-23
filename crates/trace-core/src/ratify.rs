@@ -2,7 +2,7 @@
 //! the policy engine and turn its findings into a single verdict.
 //!
 //! Pure, no I/O, no API key — the same rules that guard local edits. Shared by
-//! the daemon's `/github/ratify` endpoint and the `trace ratify` CLI command so
+//! the daemon's `/github/ratify` endpoint and the `trc ratify` CLI command so
 //! the two can never drift.
 
 use serde::Serialize;
