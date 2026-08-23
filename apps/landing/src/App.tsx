@@ -1,6 +1,5 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { Mark } from "./Mark";
-import { DownloadMenu } from "./components";
 import { DOCS_URL, GITHUB_REPO } from "./config";
 
 export default function App() {
@@ -46,7 +45,12 @@ export default function App() {
             >
               <img src="/logos/github.png" alt="GitHub" className="h-6 w-6 object-contain" />
             </a>
-            <DownloadMenu />
+            <a
+              href="/#install"
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-brand px-4 text-sm font-medium text-white shadow-sm transition-transform hover:-translate-y-[1px]"
+            >
+              Download the CLI
+            </a>
           </nav>
         </div>
       </header>
@@ -69,8 +73,7 @@ export default function App() {
             <div className="mb-3 text-xs font-medium uppercase tracking-wide text-text-dim">Product</div>
             <ul className="space-y-2 text-sm">
               <li><Link className="text-text-dim transition-colors hover:text-text" to="/dashboard">Dashboard</Link></li>
-              <li><Link className="text-text-dim transition-colors hover:text-text" to="/download">Download desktop</Link></li>
-              <li><a className="text-text-dim transition-colors hover:text-text" href="/#install">CLI install</a></li>
+              <li><a className="text-text-dim transition-colors hover:text-text" href="/#install">Install the CLI</a></li>
               <li><Link className="text-text-dim transition-colors hover:text-text" to="/about">About</Link></li>
             </ul>
           </div>

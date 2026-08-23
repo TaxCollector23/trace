@@ -16,44 +16,47 @@ is no account, and your project data stays on your machine by default.
 
 ## Why it exists
 
-AI agents can edit files, run commands, touch secrets, change dependencies,
-break builds, and spend API money — often faster than you can follow. Trace
-gives you a reliable, local record of those actions and a **deterministic**
-detection engine — a command guard, a secret scanner, and a policy engine —
-that catches the obvious problems instantly. It's pure pattern matching, so it
-runs in microseconds and needs **no AI/LLM API key**. It does not replace your
-agent and it does not write code for you — it watches, flags, and lets you undo.
+Companies are handing every engineer an enterprise subscription to an
+autonomous coding agent. Those agents don't just suggest code anymore — they
+have a shell. They install packages, rewrite configs, run migrations, delete
+files, and push branches, on real machines with real credentials, faster than
+anyone can read.
+
+The agent isn't malicious. It's confident and fast — which is the problem. One
+session decides the cleanest fix is to wipe a directory and takes the wrong one
+with it; another force-pushes over a teammate's branch, deletes the failing test
+instead of fixing the bug, commits an API key, or runs a `curl … | sh`. By the
+time a human looks up, it's done and the context is gone.
+
+Trace turns every session into something you can **see, stop, and undo**:
+
+- **A git checkpoint before anything changes** — so rollback is one click, and the safety net is already there.
+- **Every file change as a diff you can read** — the authoritative patch, reviewed like a PR, not a summary.
+- **A guard on every command** — classified in real time (allow / warn / require-approval / block); the destructive ones (`rm -rf`, force-push, piped shell installers, raw disk writes) are stopped *before* they run.
+- **Secret scanning** — keys and tokens in a diff are caught and redacted.
+- **Cost per session** — token spend by model, so a runaway loop is visible at once.
+- **PR ratification** — the same checks over a pull request, in the dashboard or CI, with a clear `pass / review / block` verdict.
+
+Every check is deterministic pattern matching — **no LLM in the guard path, no
+API key** — so verdicts are instant, free, and identical everywhere. It's
+measured against a labeled red-team corpus you can reproduce yourself, and it
+runs entirely on `127.0.0.1`: your code never leaves your machine.
 
 ## Install
 
-**macOS (Homebrew, recommended)**
-```bash
-brew tap TaxCollector23/trace
-brew install trace
-```
-
-**Linux / macOS (shell script)**
-```bash
-curl -fsSL https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.sh | sh
-```
-
-**Windows (PowerShell)**
-```powershell
-irm https://raw.githubusercontent.com/TaxCollector23/trace/main/scripts/install.ps1 | iex
-```
-
-**npm (optional fallback)**
 ```bash
 npm install -g trace-dev
 ```
 
-All methods install a single `trc` binary.
+This installs the `trc` command on macOS, Linux, and Windows. (The npm package
+is named `trace-dev` because the bare `trc`/`trace` names are already taken on
+npm; the command it installs is `trc`.)
 
 ## Quickstart
 
 ```bash
 trc init
-trc run claude
+trc run "<your agent>"
 trc dashboard
 ```
 
