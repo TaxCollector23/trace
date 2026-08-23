@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { motion } from "framer-motion";
 import { Reveal, Section, Button } from "../components";
+import { LANDING_URL } from "../config";
 import HeroDemo from "../HeroDemo";
 import WorksEverywhere from "../WorksEverywhere";
 
@@ -49,8 +50,8 @@ export default function Home() {
             className="mt-7 flex flex-wrap items-center gap-4"
           >
             <Button to="/download">Download Trace</Button>
-            <Button variant="secondary" to="/cli">
-              Download the CLI
+            <Button variant="secondary" href="#install">
+              Install the CLI
             </Button>
           </motion.div>
         </div>
@@ -64,6 +65,11 @@ export default function Home() {
         </motion.div>
       </section>
 
+      {/* ---------- Install (right below the hero) ---------- */}
+      <section id="install" className="scroll-mt-24 py-6">
+        <InstallBlock />
+      </section>
+
       {/* ---------- Works everywhere ---------- */}
       <Section
         id="integrations"
@@ -71,9 +77,6 @@ export default function Home() {
         lede="Claude Code, Codex CLI, and opencode connect through Trace's hooks and local MCP server. Cursor, Windsurf, and VS Code are set up once in their own settings, then report back automatically. The same review engine runs in CI on every pull request."
       >
         <WorksEverywhere />
-        <div className="mt-10">
-          <InstallBlock />
-        </div>
       </Section>
 
       {/* ---------- One-line hook install ---------- */}
@@ -203,7 +206,7 @@ export default function Home() {
           <p className="mt-3 text-text-dim">Review the diff. Check the cost. Roll back safely.</p>
           <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
             <Button to="/download">Download Trace</Button>
-            <Button variant="secondary" to="/cli">Download the CLI</Button>
+            <Button variant="secondary" href="#install">Install the CLI</Button>
           </div>
         </Reveal>
       </section>
@@ -211,49 +214,127 @@ export default function Home() {
   );
 }
 
-// The exact startup banner the CLI prints (figlet "ANSI Shadow"), followed by
-// the one-line install. Package name is `trace-dev` (the bare `trc`/`trace`
-// npm names are owned by others); it installs the `trc` command.
+// The exact startup banner the CLI prints (figlet "ANSI Shadow").
 const STARTUP_ART = `████████╗██████╗  █████╗  ██████╗███████╗
 ╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██╔════╝
    ██║   ██████╔╝███████║██║     █████╗
    ██║   ██╔══██╗██╔══██║██║     ██╔══╝
    ██║   ██║  ██║██║  ██║╚██████╗███████╗
    ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝`;
+const ART_LINES = STARTUP_ART.split("\n");
 
-const INSTALL_CMD = "npm i -g trace-dev";
+// Every install path. `trace-dev` is the npm package (the bare `trc`/`trace`
+// npm names are owned by others); all of these put the `trc` command on PATH.
+const METHODS = [
+  { key: "npm", os: "Any OS", via: "npm", command: "npm i -g trace-dev" },
+  { key: "macos", os: "macOS", via: "Homebrew", command: "brew install taxcollector23/trace/trace" },
+  { key: "unix", os: "macOS · Linux", via: "curl", command: `curl -fsSL ${LANDING_URL}/install.sh | sh` },
+  { key: "windows", os: "Windows", via: "PowerShell", command: `irm ${LANDING_URL}/install.ps1 | iex` },
+];
 
 function InstallBlock() {
+  const [sel, setSel] = useState(0);
+  const [typed, setTyped] = useState("");
   const [copied, setCopied] = useState(false);
+  const reduce = useRef(false);
+
+  useEffect(() => {
+    reduce.current =
+      typeof window !== "undefined" &&
+      !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  }, []);
+
+  // Typewriter — retype the command whenever the selected method changes, so
+  // switching OS feels like it's being typed into the terminal.
+  useEffect(() => {
+    const cmd = METHODS[sel].command;
+    if (reduce.current) {
+      setTyped(cmd);
+      return;
+    }
+    setTyped("");
+    let i = 0;
+    const id = setInterval(() => {
+      i += 1;
+      setTyped(cmd.slice(0, i));
+      if (i >= cmd.length) clearInterval(id);
+    }, 26);
+    return () => clearInterval(id);
+  }, [sel]);
+
   const copy = () => {
-    navigator.clipboard.writeText(INSTALL_CMD);
+    navigator.clipboard.writeText(METHODS[sel].command);
     setCopied(true);
     setTimeout(() => setCopied(false), 1400);
   };
+
   return (
     <Reveal>
-      <div className="relative mx-auto max-w-[560px] overflow-x-auto rounded-2xl border border-border bg-[#0d0d10] px-6 py-5 shadow-lg">
-        <button
-          onClick={copy}
-          aria-label="Copy install command"
-          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-md border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20"
-        >
-          {copied ? (
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-          ) : (
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="9" y="9" width="13" height="13" rx="2" />
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-            </svg>
-          )}
-        </button>
-        <pre className="font-mono text-[10px] leading-[1.2] text-brand sm:text-[13px]">{STARTUP_ART}</pre>
-        <pre className="mt-4 font-mono text-sm text-white">
-          <span className="select-none text-white/40">$ </span>
-          {INSTALL_CMD}
-        </pre>
+      <div className="mx-auto grid max-w-[920px] grid-cols-1 gap-4 md:grid-cols-[236px_1fr]">
+        {/* Choose your OS / install method */}
+        <div className="flex flex-row flex-wrap gap-2 md:flex-col">
+          {METHODS.map((m, i) => (
+            <button
+              key={m.key}
+              onClick={() => setSel(i)}
+              aria-pressed={sel === i}
+              className={`flex-1 rounded-xl border px-4 py-3 text-left transition-colors md:flex-none ${
+                sel === i
+                  ? "border-brand bg-brand-soft"
+                  : "border-border bg-white hover:border-brand/40"
+              }`}
+            >
+              <div className={`text-sm font-medium ${sel === i ? "text-brand-dim" : "text-text"}`}>
+                {m.os}
+              </div>
+              <div className="mt-0.5 text-xs text-text-dim">{m.via}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Terminal: animated startup art + the typed install command */}
+        <div className="relative overflow-x-auto rounded-2xl border border-border bg-[#0d0d10] px-6 py-5 shadow-lg">
+          <button
+            onClick={copy}
+            aria-label="Copy install command"
+            className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-md border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20"
+          >
+            {copied ? (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            ) : (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            )}
+          </button>
+
+          <motion.pre
+            aria-label="Trace startup banner"
+            initial="hidden"
+            animate="show"
+            variants={{ show: { transition: { staggerChildren: 0.07 } } }}
+            className="font-mono text-[9.5px] leading-[1.2] text-brand sm:text-[13px]"
+          >
+            {ART_LINES.map((line, i) => (
+              <motion.div
+                key={i}
+                variants={{ hidden: { opacity: 0 }, show: { opacity: 1 } }}
+                transition={{ duration: 0.16 }}
+              >
+                {line}
+              </motion.div>
+            ))}
+          </motion.pre>
+
+          <pre className="mt-4 whitespace-pre-wrap break-all font-mono text-sm text-white">
+            <span className="select-none text-white/40">$ </span>
+            {typed}
+            <span className="ml-0.5 inline-block h-4 w-[7px] translate-y-[2px] animate-pulse bg-white/70 align-middle" />
+          </pre>
+        </div>
       </div>
     </Reveal>
   );
