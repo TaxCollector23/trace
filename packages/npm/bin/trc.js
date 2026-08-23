@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 // Launcher: exec the downloaded `trc` binary, forwarding all args and stdio.
+//
+// Self-healing: if the binary isn't present yet (postinstall was skipped or
+// blocked, e.g. `npm install --ignore-scripts`), download it now on first run
+// so the user never sees "binary not found".
 import { spawnSync } from "node:child_process";
-import fs from "node:fs";
-import { binPath } from "../scripts/platform.js";
+import { ensureBinary } from "../scripts/platform.js";
 
-const bin = binPath();
-if (!fs.existsSync(bin)) {
+let bin;
+try {
+  bin = await ensureBinary({ log: process.stderr });
+} catch (e) {
   process.stderr.write(
-    "trc: binary not found. Re-run `npm install -g trace-dev`,\n" +
-      "or install from https://github.com/TaxCollector23/trace/releases\n"
+    `trc: could not obtain the binary (${e.message}).\n` +
+      "Install manually from https://github.com/TaxCollector23/trace/releases\n"
   );
   process.exit(1);
 }

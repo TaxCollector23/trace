@@ -9,7 +9,7 @@ interface Connector {
 const CONNECTORS: Connector[] = [
   { name: "Claude Code", logo: "/logos/claude.png" },
   { name: "Codex CLI", logo: "/logos/codex.png" },
-  { name: "OpenCode", logo: "/logos/opencode.png" },
+  { name: "opencode", logo: "/logos/opencode.png" },
   { name: "Cursor", logo: "/logos/cursor.png" },
   { name: "GitHub Copilot", logo: "/logos/copilot.png" },
 ];
