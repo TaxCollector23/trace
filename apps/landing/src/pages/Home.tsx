@@ -18,19 +18,12 @@ const heroFade = {
 // The real output of `trc integrations install all`, replayed line by line in
 // the wire-up terminal. Agent names are shown as proper nouns.
 const WIRE_UP_OUTPUT: TermLine[] = [
-  { text: "--- Claude Code ---", cls: "text-white/45" },
-  { text: "  wrote   ~/.trace/integrations/claude/trace-hook.sh" },
-  { text: "  patched ~/.claude/settings.json", cls: "text-emerald-400/90" },
-  { text: "--- Codex ---", cls: "text-white/45" },
-  { text: "  wrote   ~/.trace/integrations/codex/codex-adapter.sh" },
-  { text: "--- Cursor ---", cls: "text-white/45" },
-  { text: "  patched ~/.cursor/mcp.json", cls: "text-emerald-400/90" },
-  { text: "--- Windsurf ---", cls: "text-white/45" },
-  { text: "  patched ~/.codeium/windsurf/mcp_config.json", cls: "text-emerald-400/90" },
-  { text: "--- OpenCode ---", cls: "text-white/45" },
-  { text: "  patched ~/.config/opencode/opencode.json", cls: "text-emerald-400/90" },
-  { text: " " },
-  { text: "OK  every agent will report to Trace on its next run.", cls: "text-emerald-400" },
+  { text: "Connecting your agents to Trace", cls: "text-white/55" },
+  { text: "  ✓ Claude Code   PreToolUse + PostToolUse hooks", cls: "text-emerald-400/90" },
+  { text: "  ✓ Codex         wrapper script", cls: "text-emerald-400/90" },
+  { text: "  ✓ Cursor        MCP tools + enforcing guard hook", cls: "text-emerald-400/90" },
+  { text: "  ✓ Windsurf      MCP tools", cls: "text-emerald-400/90" },
+  { text: "  ✓ OpenCode      MCP tools + enforcing guard plugin", cls: "text-emerald-400/90" },
 ];
 
 export default function Home() {

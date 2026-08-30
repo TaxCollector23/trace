@@ -48,25 +48,86 @@ pub fn display_name(agent: &str) -> &str {
     }
 }
 
+/// What an agent got wired up with, for the minimal install summary.
+struct Wired {
+    /// Short description of the mechanism, e.g. "MCP + enforcing guard hook".
+    kind: &'static str,
+    /// An optional one-line manual step (e.g. the Codex shell alias).
+    note: Option<String>,
+}
+
 pub fn install(agent: &str) -> Result<()> {
     if agent == "all" {
+        println!("{}", colors::bold("Connecting your agents to Trace"));
+        let mut notes: Vec<String> = Vec::new();
         let mut any_err = false;
         for a in SUPPORTED {
-            println!("\n{}", colors::bold(&format!("─── {} ───", display_name(a))));
-            if let Err(e) = install_one(a) {
-                eprintln!("  {} {e}", colors::red("failed:"));
-                any_err = true;
+            match install_one(a) {
+                Ok(w) => {
+                    println!(
+                        "  {} {:<12} {}",
+                        colors::green("✓"),
+                        display_name(a),
+                        colors::dim(w.kind)
+                    );
+                    if let Some(n) = w.note {
+                        notes.push(n);
+                    }
+                }
+                Err(e) => {
+                    println!(
+                        "  {} {:<12} {}",
+                        colors::red("✗"),
+                        display_name(a),
+                        colors::dim(&e.to_string())
+                    );
+                    any_err = true;
+                }
             }
         }
+        print_next_steps(&notes);
         if any_err {
             anyhow::bail!("one or more installs failed");
         }
         return Ok(());
     }
-    install_one(agent)
+
+    let w = install_one(agent)?;
+    println!(
+        "{} {} wired up ({}).",
+        colors::green("✓"),
+        display_name(agent),
+        w.kind
+    );
+    print_next_steps(&w.note.into_iter().collect::<Vec<_>>());
+    Ok(())
 }
 
-fn install_one(agent: &str) -> Result<()> {
+/// The short footer after an install: any manual steps, then the two reminders
+/// that actually matter (restart the editor, run the daemon).
+fn print_next_steps(notes: &[String]) {
+    println!();
+    if which_bin("node").is_none() {
+        println!(
+            "  {} {}",
+            colors::yellow("→"),
+            "Install Node 18+ for the MCP servers (Cursor, Windsurf, OpenCode)."
+        );
+    }
+    for n in notes {
+        println!("  {} {}", colors::yellow("→"), n);
+    }
+    println!(
+        "  {}",
+        colors::dim("Restart any running editor to load the change.")
+    );
+    println!(
+        "  {}",
+        colors::dim("The guard needs the daemon running:  trc daemon start")
+    );
+}
+
+fn install_one(agent: &str) -> Result<Wired> {
     match agent {
         "claude" => install_claude(),
         "codex" => install_codex(),
@@ -248,11 +309,65 @@ fn deep_merge(target: &mut Value, patch: &Value) {
     }
 }
 
-fn install_claude() -> Result<()> {
-    let dir = trace_integrations_dir()?.join("claude");
-    let hook = dir.join("trace-hook.sh");
+/// Set our own named entry inside a top-level container object of `config_path`,
+/// REPLACING any previous value for that entry while preserving every sibling.
+///
+/// This is the right merge for an MCP server entry: we own the whole "trace"
+/// object, so deep-merging it would (for example) append to its `args` array on
+/// every re-install. JSONC-safe and abort-on-unparseable, like `merge_json_file`.
+fn set_mcp_entry(
+    config_path: &Path,
+    container: &str,
+    entry_key: &str,
+    entry: Value,
+    schema: Option<&str>,
+) -> Result<bool> {
+    let mut config = if config_path.exists() {
+        let raw = fs::read_to_string(config_path)
+            .with_context(|| format!("reading {}", config_path.display()))?;
+        parse_config(&raw)
+            .with_context(|| format!("{}: refusing to overwrite it", config_path.display()))?
+    } else {
+        if let Some(parent) = config_path.parent() {
+            fs::create_dir_all(parent).ok();
+        }
+        Value::Object(Default::default())
+    };
+    if !config.is_object() {
+        anyhow::bail!("{} is not a JSON object", config_path.display());
+    }
+    let before = config.clone();
+    let obj = config.as_object_mut().unwrap();
+    if let Some(s) = schema {
+        obj.entry("$schema".to_string())
+            .or_insert_with(|| Value::String(s.to_string()));
+    }
+    let cont = obj
+        .entry(container.to_string())
+        .or_insert_with(|| Value::Object(Default::default()));
+    if !cont.is_object() {
+        *cont = Value::Object(Default::default());
+    }
+    cont.as_object_mut()
+        .unwrap()
+        .insert(entry_key.to_string(), entry);
+
+    if config == before {
+        return Ok(false);
+    }
+    if config_path.exists() {
+        let ts = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+        let backup = config_path.with_extension(format!("trace-backup-{ts}"));
+        fs::copy(config_path, &backup).ok();
+    }
+    fs::write(config_path, serde_json::to_string_pretty(&config)?)
+        .with_context(|| format!("writing {}", config_path.display()))?;
+    Ok(true)
+}
+
+fn install_claude() -> Result<Wired> {
+    let hook = trace_integrations_dir()?.join("claude").join("trace-hook.sh");
     write_executable(&hook, CLAUDE_HOOK_SH)?;
-    println!("  wrote {}", colors::dim(&hook.display().to_string()));
 
     let home = dirs::home_dir().context("no home directory")?;
     let settings = home.join(".claude").join("settings.json");
@@ -269,57 +384,36 @@ fn install_claude() -> Result<()> {
             }]
         }
     });
-    let changed = merge_json_file(&settings, &patch)?;
-    if changed {
-        println!(
-            "  {} {}",
-            colors::green("patched"),
-            colors::dim(&settings.display().to_string())
-        );
-    } else {
-        println!(
-            "  {} {}",
-            colors::dim("already installed:"),
-            colors::dim(&settings.display().to_string())
-        );
-    }
-    println!(
-        "\n  {} Claude Code will call the Trace hook on Bash + Edit/Write tool use.",
-        colors::green("✓")
-    );
-    println!("  Start the daemon with `trc daemon start` to enable live review.");
-    Ok(())
+    merge_json_file(&settings, &patch)?;
+    Ok(Wired {
+        kind: "PreToolUse + PostToolUse hooks (enforced)",
+        note: None,
+    })
 }
 
-fn install_codex() -> Result<()> {
-    let dir = trace_integrations_dir()?.join("codex");
-    let adapter = dir.join("codex-adapter.sh");
+fn install_codex() -> Result<Wired> {
+    let adapter = trace_integrations_dir()?.join("codex").join("codex-adapter.sh");
     write_executable(&adapter, CODEX_ADAPTER_SH)?;
-    println!("  wrote {}", colors::dim(&adapter.display().to_string()));
-    println!(
-        "\n  {} Codex integration is a wrapper script (no upstream config to patch).",
-        colors::green("✓")
-    );
-    println!(
-        "  To route every `codex` call through Trace, add this to your shell rc:\n    {}",
-        colors::bold(&format!("alias codex=\"{}\"", adapter.display()))
-    );
-    Ok(())
+    Ok(Wired {
+        kind: "wrapper script",
+        note: Some(format!(
+            "Codex: add to your shell rc  ->  alias codex=\"{}\"",
+            adapter.display()
+        )),
+    })
 }
 
-fn install_cursor() -> Result<()> {
+fn install_cursor() -> Result<Wired> {
     let home = dirs::home_dir().context("no home directory")?;
     let cursor_dir = home.join(".cursor");
 
-    // 1. MCP server — Trace's read tools (recent runs, patch summary, rollback).
+    // 1. MCP server: Trace's read tools (recent runs, patch summary, rollback).
     write_mcp("cursor", &cursor_dir.join("mcp.json"))?;
 
-    // 2. Enforcing guard — a beforeShellExecution hook that denies dangerous
-    //    commands before Cursor runs them. This is what makes the Cursor guard
-    //    real rather than advisory.
+    // 2. Enforcing guard: a beforeShellExecution hook that denies dangerous
+    //    commands before Cursor runs them.
     let hook = trace_integrations_dir()?.join("cursor").join("cursor-hook.sh");
     write_executable(&hook, CURSOR_HOOK_SH)?;
-    println!("  wrote {}", colors::dim(&hook.display().to_string()));
     let hooks_json = cursor_dir.join("hooks.json");
     let patch = json!({
         "version": 1,
@@ -327,37 +421,27 @@ fn install_cursor() -> Result<()> {
             "beforeShellExecution": [{ "command": hook.display().to_string() }]
         }
     });
-    let changed = merge_json_file(&hooks_json, &patch)?;
-    let label = if changed { "patched" } else { "already set:" };
-    println!(
-        "  {} {}",
-        if changed { colors::green(label) } else { colors::dim(label) },
-        colors::dim(&hooks_json.display().to_string())
-    );
-
-    println!(
-        "\n  {} Cursor gets Trace's MCP tools and an enforcing guard hook (dangerous commands are blocked). Restart Cursor to load both.",
-        colors::green("✓")
-    );
-    Ok(())
+    merge_json_file(&hooks_json, &patch)?;
+    Ok(Wired {
+        kind: "MCP tools + enforcing guard hook",
+        note: None,
+    })
 }
 
-fn install_windsurf() -> Result<()> {
+fn install_windsurf() -> Result<Wired> {
     // Windsurf ships MCP config at ~/.codeium/windsurf/mcp_config.json, the
-    // same `mcpServers` shape as Cursor. It gets its own server directory so
-    // the layout matches what `integrations status` reports. Windsurf does not
-    // expose a command hook today, so this is MCP (advisory) only.
+    // same `mcpServers` shape as Cursor, in its own server directory. Windsurf
+    // does not expose a command hook today, so this is MCP (read tools) only.
     let config = dirs::home_dir()
         .context("no home directory")?
         .join(".codeium")
         .join("windsurf")
         .join("mcp_config.json");
     write_mcp("windsurf", &config)?;
-    println!(
-        "\n  {} Windsurf will see Trace's MCP tools after a restart.",
-        colors::green("✓")
-    );
-    Ok(())
+    Ok(Wired {
+        kind: "MCP tools (read only)",
+        note: None,
+    })
 }
 
 /// opencode (github.com/sst/opencode) is an open-source terminal agent that
@@ -366,17 +450,9 @@ fn install_windsurf() -> Result<()> {
 /// `{ type: "local", command: [ ... ], enabled: true }`, read from the global
 /// config at `~/.config/opencode/opencode.json` (XDG-aware). We reuse the same
 /// daemon-backed MCP server the other editors use.
-fn install_opencode() -> Result<()> {
+fn install_opencode() -> Result<Wired> {
     let server = trace_integrations_dir()?.join("opencode").join("index.js");
     write_executable(&server, CURSOR_MCP_JS)?;
-    println!("  wrote {}", colors::dim(&server.display().to_string()));
-
-    if which_bin("node").is_none() {
-        println!(
-            "  {} Node.js not found on PATH. Install Node 18+ for the MCP server to run.",
-            colors::yellow("warning:")
-        );
-    }
 
     let home = dirs::home_dir().context("no home directory")?;
     let config_base = std::env::var_os("XDG_CONFIG_HOME")
@@ -384,71 +460,40 @@ fn install_opencode() -> Result<()> {
         .unwrap_or_else(|| home.join(".config"));
     let config_path = config_base.join("opencode").join("opencode.json");
 
-    let patch = json!({
-        "$schema": "https://opencode.ai/config.json",
-        "mcp": {
-            "trace": {
-                "type": "local",
-                "command": ["node", server.display().to_string()],
-                "enabled": true
-            }
-        }
+    // Replace (not deep-merge) our own `mcp.trace` entry, and set $schema only
+    // if the file has none.
+    let entry = json!({
+        "type": "local",
+        "command": ["node", server.display().to_string()],
+        "enabled": true
     });
-    let changed = merge_json_file(&config_path, &patch)?;
-    let label = if changed { "patched" } else { "already set:" };
-    println!(
-        "  {} {}",
-        if changed { colors::green(label) } else { colors::dim(label) },
-        colors::dim(&config_path.display().to_string())
-    );
+    set_mcp_entry(
+        &config_path,
+        "mcp",
+        "trace",
+        entry,
+        Some("https://opencode.ai/config.json"),
+    )?;
 
-    // Enforcing guard: a `tool.execute.before` plugin that blocks dangerous
-    // bash commands before they run. Auto-loaded from the global plugin dir,
-    // so no config entry is needed.
+    // Enforcing guard: a `tool.execute.before` plugin, auto-loaded from the
+    // global plugin dir, that blocks dangerous bash commands before they run.
     let plugin = config_base.join("opencode").join("plugin").join("trace.js");
     write_executable(&plugin, OPENCODE_PLUGIN_JS)?;
-    println!("  wrote {}", colors::dim(&plugin.display().to_string()));
 
-    println!(
-        "\n  {} OpenCode gets Trace's MCP tools and an enforcing guard plugin (dangerous commands are blocked). Restart OpenCode to load both.",
-        colors::green("✓")
-    );
-    Ok(())
+    Ok(Wired {
+        kind: "MCP tools + enforcing guard plugin",
+        note: None,
+    })
 }
 
 /// Write the shared daemon-backed MCP server into `~/.trace/integrations/
-/// <server_dir>/index.js` and register it in `config_path` as an
-/// `mcpServers` entry (Cursor/Windsurf shape). Prints wrote/patched lines but
-/// not a summary, so callers can compose it with a hook install.
+/// <server_dir>/index.js` and register it as an `mcpServers.trace` entry in
+/// `config_path` (Cursor/Windsurf shape). Quiet; callers report the summary.
 fn write_mcp(server_dir: &str, config_path: &Path) -> Result<()> {
     let server = trace_integrations_dir()?.join(server_dir).join("index.js");
     write_executable(&server, CURSOR_MCP_JS)?;
-    println!("  wrote {}", colors::dim(&server.display().to_string()));
-
-    // Preflight: MCP requires Node.js. Warn but don't fail — user may
-    // install Node after.
-    if which_bin("node").is_none() {
-        println!(
-            "  {} Node.js not found on PATH. Install Node 18+ for the MCP server to run.",
-            colors::yellow("warning:")
-        );
-    }
-
-    let patch = json!({
-        "mcpServers": {
-            "trace": {
-                "command": "node",
-                "args": [server.display().to_string()]
-            }
-        }
-    });
-    let changed = merge_json_file(config_path, &patch)?;
-    let label = if changed { "patched" } else { "already set:" };
-    println!(
-        "  {} {}",
-        if changed { colors::green(label) } else { colors::dim(label) },
-        colors::dim(&config_path.display().to_string())
-    );
+    let entry = json!({ "command": "node", "args": [server.display().to_string()] });
+    set_mcp_entry(config_path, "mcpServers", "trace", entry, None)?;
     Ok(())
 }
 
@@ -508,6 +553,33 @@ mod tests {
         // The user's server survived, and ours was added.
         assert_eq!(out["mcpServers"]["mine"]["command"], "node");
         assert_eq!(out["mcpServers"]["trace"]["command"], "node");
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn set_mcp_entry_replaces_our_entry_and_keeps_siblings() {
+        let dir = std::env::temp_dir().join(format!("trc-setmcp-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("mcp.json");
+        // A config where our own trace entry has a STALE path, plus a user's server.
+        fs::write(
+            &path,
+            r#"{ "mcpServers": {
+                "mine": { "command": "node", "args": ["keep.js"] },
+                "trace": { "command": "node", "args": ["OLD/path.js"] }
+            } }"#,
+        )
+        .unwrap();
+
+        let entry = json!({ "command": "node", "args": ["NEW/path.js"] });
+        let changed = set_mcp_entry(&path, "mcpServers", "trace", entry, None).unwrap();
+        assert!(changed);
+
+        let out: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        // Our args were REPLACED (one path, the new one), not appended.
+        assert_eq!(out["mcpServers"]["trace"]["args"], serde_json::json!(["NEW/path.js"]));
+        // The user's server is untouched.
+        assert_eq!(out["mcpServers"]["mine"]["args"], serde_json::json!(["keep.js"]));
         fs::remove_dir_all(&dir).ok();
     }
 
