@@ -4,10 +4,14 @@ description: Connect Trace to OpenCode, the open-source terminal coding agent, o
 ---
 
 [OpenCode](https://github.com/sst/opencode) is an open-source terminal coding
-agent that speaks the Model Context Protocol (MCP). Trace connects to it as a
-local MCP server, the same daemon-backed server used by the Cursor and Windsurf
-integrations, so OpenCode can classify commands, record runs, and read patch and
-rollback state through Trace. Everything stays on `127.0.0.1`.
+agent. Trace connects to it two ways:
+
+1. A **local MCP server** exposing Trace's read tools (recent runs, patch summary, rollback), the same daemon-backed server used by the Cursor and Windsurf integrations.
+2. An **enforcing guard plugin** on OpenCode's `tool.execute.before` hook that classifies every `bash` command and **blocks** the dangerous ones before they run.
+
+The plugin is the important half. MCP tools are advisory; the plugin fires on
+every command and can stop it, the same way the Claude Code and Cursor
+integrations do. Everything stays on `127.0.0.1`.
 
 ## Install
 
@@ -37,10 +41,25 @@ backing it up first and preserving any config you already have. The entry it add
 
 OpenCode uses an `mcp` map whose entries are `{ type: "local", command: [ ... ],
 enabled: true }`, which differs from the `mcpServers` map that Cursor and Windsurf
-use, so the installer writes the OpenCode-native shape. OpenCode merges every
-config file under `~/.config/opencode/`, so this coexists with other MCP servers
-you already run. The MCP server runs under Node.js, so install Node 18 or newer.
-Restart OpenCode to load it.
+use, so the installer writes the OpenCode-native shape.
+
+The installer also writes the guard plugin to
+`~/.config/opencode/plugin/trace.js`. OpenCode auto-loads every plugin in that
+directory at startup, so no config entry is needed. Restart OpenCode to load
+both. The MCP server and plugin both run under Node, so install Node 18 or newer.
+
+## How the guard plugin decides
+
+The plugin registers a `tool.execute.before` hook. Before OpenCode runs a `bash`
+command, the plugin asks the daemon's deterministic guard:
+
+- A high-risk command (a recursive force-delete, a force-push, a piped shell
+  installer, a raw disk write) makes the plugin throw, which cancels the command
+  before it runs.
+- Anything else runs normally.
+
+The plugin **fails open**: if the daemon is not running or the request errors, the
+command is allowed, so Trace can never wedge OpenCode.
 
 ## Verify
 
@@ -48,8 +67,8 @@ Restart OpenCode to load it.
 trc integrations status
 ```
 
-OpenCode should read **connected**. Start the daemon with `trc daemon start` if it
-is not already running.
+OpenCode should read **connected** with "MCP tools + enforcing guard plugin".
+Start the daemon with `trc daemon start` if it is not already running.
 
 ## Tools exposed
 

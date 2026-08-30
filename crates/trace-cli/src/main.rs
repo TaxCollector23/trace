@@ -145,8 +145,8 @@ enum Commands {
     },
 
     /// Connect Trace to your coding agents. `trc integrations install all`
-    /// wires up Claude Code, Cursor, and Windsurf; `trc integrations status`
-    /// shows what is live.
+    /// wires up Claude Code, Codex, Cursor, Windsurf, and OpenCode;
+    /// `trc integrations status` shows what is live.
     Integrations {
         #[command(subcommand)]
         action: Option<IntegrationsAction>,
@@ -231,7 +231,7 @@ enum IntegrationsAction {
     /// Writes to ~/.trace/integrations/ and patches the agent's own
     /// config file idempotently.
     Install {
-        /// One of: claude, codex, cursor, windsurf, vscode, all
+        /// One of: claude, codex, cursor, windsurf, opencode, all
         agent: String,
     },
 }

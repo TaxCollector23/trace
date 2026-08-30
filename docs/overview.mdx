@@ -75,9 +75,10 @@ everything in a local SQLite database. You review it all in a local dashboard at
 `trc show`, `trc patch`, and `trc risks`.
 
 <Note>
-Trace observes terminal-based agents most directly. For GUI-based tools it can
-still watch file changes and git diffs, but it cannot guard the tool's internal
-actions. See [Limitations](/limitations).
+Trace enforces the guard wherever an agent exposes a command hook (Claude Code,
+Cursor, OpenCode) or when you launch it with `trc run`. An agent with no hook
+surface is observe-only: file changes and git diffs are recorded, but a command
+Trace never sees cannot be blocked. See [Limitations](/limitations).
 </Note>
 
 ## Where to go next
