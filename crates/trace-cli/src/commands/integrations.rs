@@ -41,13 +41,13 @@ fn agent_connections() -> Vec<(&'static str, bool, &'static str)> {
         (
             "Cursor",
             contains(&[".cursor", "mcp.json"], ".trace/integrations/cursor"),
-            "MCP server",
+            "MCP tools + enforcing guard hook",
         ),
         (
             "Windsurf",
             contains(
                 &[".codeium", "windsurf", "mcp_config.json"],
-                ".trace/integrations/cursor",
+                ".trace/integrations/windsurf",
             ),
             "MCP server",
         ),
@@ -57,12 +57,12 @@ fn agent_connections() -> Vec<(&'static str, bool, &'static str)> {
             "wrapper script (add the shell alias to finish)",
         ),
         (
-            "opencode",
+            "OpenCode",
             contains(
                 &[".config", "opencode", "opencode.json"],
                 ".trace/integrations/opencode",
             ),
-            "MCP server",
+            "MCP tools + enforcing guard plugin",
         ),
     ]
 }
@@ -70,9 +70,9 @@ fn agent_connections() -> Vec<(&'static str, bool, &'static str)> {
 const INTEGRATIONS: &[(&str, &str, &str)] = &[
     ("Claude Code", "wrapper + hooks", "integrations/claude"),
     ("Codex CLI", "wrapper", "integrations/codex"),
-    ("Cursor", "MCP server", "integrations/cursor"),
-    ("opencode", "MCP server", "integrations/opencode"),
-    ("VS Code", "extension", "integrations/vscode"),
+    ("Cursor", "MCP tools + guard hook", "integrations/cursor"),
+    ("Windsurf", "MCP server", "integrations/windsurf"),
+    ("OpenCode", "MCP tools + guard plugin", "integrations/opencode"),
     (
         "GitHub",
         "Actions + App + direct repo read",

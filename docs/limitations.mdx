@@ -19,15 +19,22 @@ and run attribution require using the wrapper** or a supported integration point
 (Claude Code hooks, or the MCP servers). Without one of those, the guard never
 gets to see a command before it runs.
 
-## GUI-based tools
+## What can be enforced depends on the agent's hook surface
 
-For terminal-based agents, Trace wraps the command directly and can guard it. For
-GUI-based tools it may still watch file changes and capture git diffs, but it
-**cannot block or even see the tool's internal actions**. Command guarding applies
-to the top-level command you pass to `trc run`, not to sub-commands a tool issues
-on its own. This is why the Cursor and Windsurf adapters honestly report that they
-observe filesystem and git but not piped terminal output. See
-[Integrations](/integrations/overview).
+Trace's guard can only block a command if the agent gives it a place to intercept
+one. There are three tiers:
+
+- **Enforced.** Agents that expose a command hook are guarded before a command
+  runs: Claude Code (`PreToolUse`), Cursor (`beforeShellExecution`), and OpenCode
+  (`tool.execute.before`). A dangerous command is denied, not just recorded.
+- **Enforced via the wrapper.** Anything you launch with `trc run` is guarded at
+  the shell boundary.
+- **Observe-only.** An agent with no hook surface and not launched through the
+  wrapper can still have its file changes and git diffs recorded, but Trace
+  cannot block a command it never sees. Windsurf is observe-only today (MCP read
+  tools, no command hook exposed yet).
+
+See [Integrations](/integrations/overview).
 
 ## Detection is pattern-based
 

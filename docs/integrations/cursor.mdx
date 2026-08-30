@@ -3,9 +3,14 @@ title: Cursor
 description: An MCP server exposing Trace tools to Cursor.
 ---
 
-The Cursor integration is an **MCP server** that exposes Trace operations as
-tools, backed by the local daemon. Cursor calls the tools directly, so it can
-classify commands, record runs, and read patch and rollback state through Trace.
+The Cursor integration has two parts:
+
+1. An **MCP server** that exposes Trace's read tools (recent runs, patch summary, rollback options), backed by the local daemon.
+2. An **enforcing guard hook** on `beforeShellExecution` that classifies every shell command Cursor is about to run and **denies** the dangerous ones before they execute.
+
+The hook is the important half. MCP tools are advisory, the agent chooses whether
+to call them, but the hook fires on every command and can block it, the same way
+the Claude Code integration does.
 
 ## Install
 
@@ -13,9 +18,15 @@ classify commands, record runs, and read patch and rollback state through Trace.
 trc integrations install cursor
 ```
 
-This writes the MCP server to `~/.trace/integrations/cursor/index.js` and
-idempotently patches Cursor's MCP config at `~/.cursor/mcp.json`, backing it up
-first and preserving any servers you already run. The entry it adds:
+This writes the MCP server to `~/.trace/integrations/cursor/index.js` and the
+guard hook to `~/.trace/integrations/cursor/cursor-hook.sh`, then idempotently
+patches two Cursor configs, backing each up first and preserving anything you
+already run:
+
+- `~/.cursor/mcp.json` gets the MCP server entry.
+- `~/.cursor/hooks.json` gets the `beforeShellExecution` hook.
+
+The MCP entry it adds:
 
 ```json
 {
@@ -28,8 +39,34 @@ first and preserving any servers you already run. The entry it adds:
 }
 ```
 
+The hook entry it adds:
+
+```json
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      { "command": "/Users/you/.trace/integrations/cursor/cursor-hook.sh" }
+    ]
+  }
+}
+```
+
 The MCP server runs under Node.js, so install Node 18 or newer. Restart Cursor to
-load the server.
+load both.
+
+## How the guard hook decides
+
+On every shell command, Cursor sends the command to the hook, which asks the
+daemon's deterministic guard and returns a decision:
+
+- A high-risk command (a recursive force-delete, a force-push, a piped shell
+  installer, a raw disk write) returns `{"permission":"deny"}` with a reason,
+  and Cursor does not run it.
+- Anything else returns `{"permission":"allow"}`.
+
+The hook **fails open**: if the daemon is not running or anything errors, the
+command is allowed, so Trace can never wedge Cursor.
 
 ## Tools exposed
 
@@ -52,12 +89,4 @@ without Trace; the integration never blocks your agent.
 trc integrations status
 ```
 
-Cursor should read **connected** with "MCP server".
-
-## Honest limitation
-
-<Note>
-Trace can observe project file changes and git diffs. Full command blocking
-requires supported integration points or running commands through `trc`. See
-[Limitations](/limitations).
-</Note>
+Cursor should read **connected** with "MCP tools + enforcing guard hook".
