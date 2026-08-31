@@ -2,6 +2,7 @@
 import os from "node:os";
 import path from "node:path";
 import fs from "node:fs";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 export const REPO = "TaxCollector23/trace";
@@ -69,15 +70,63 @@ export async function ensureBinary({ log } = {}) {
   if (!res.ok) {
     throw new Error(`download failed: ${res.status} ${res.statusText} (${url})`);
   }
+  const bytes = Buffer.from(await res.arrayBuffer());
+
+  // Verify the SHA-256 checksum published next to the asset BEFORE writing the
+  // binary to disk or marking it executable. A mismatch aborts hard.
+  await verifyChecksum(url, bytes, log);
+
   fs.mkdirSync(path.dirname(out), { recursive: true });
   // Write to a temp path then rename so a partial download never leaves a
   // truncated binary in place (which would defeat the size check above).
   const tmp = `${out}.download-${process.pid}`;
-  fs.writeFileSync(tmp, Buffer.from(await res.arrayBuffer()));
+  fs.writeFileSync(tmp, bytes);
   if (process.platform !== "win32") {
     fs.chmodSync(tmp, 0o755);
   }
   fs.renameSync(tmp, out);
   log?.write(`trc: installed ${out}\n`);
   return out;
+}
+
+/**
+ * Verify `bytes` against the `<asset>.sha256` published alongside it.
+ *
+ * - checksum present + matches -> proceed.
+ * - checksum present + mismatch -> throw (never write a tampered/corrupt binary).
+ * - checksum absent (e.g. an older release, or a fetch error) -> proceed with a
+ *   note, UNLESS `TRACE_REQUIRE_CHECKSUM` is set, in which case throw. This keeps
+ *   pre-checksum releases installable while verifying every release that ships one.
+ */
+async function verifyChecksum(url, bytes, log) {
+  const sumUrl = `${url}.sha256`;
+  let published;
+  try {
+    const res = await fetch(sumUrl, { redirect: "follow" });
+    if (res.ok) {
+      published = (await res.text()).trim().split(/\s+/)[0]?.toLowerCase();
+    }
+  } catch {
+    // network error fetching the checksum; handled as "absent" below
+  }
+
+  if (!published) {
+    if (process.env.TRACE_REQUIRE_CHECKSUM) {
+      throw new Error(
+        `no checksum published at ${sumUrl} and TRACE_REQUIRE_CHECKSUM is set`
+      );
+    }
+    log?.write("trc: no checksum published for this release; skipping verification\n");
+    return;
+  }
+
+  const actual = crypto.createHash("sha256").update(bytes).digest("hex");
+  if (actual.toLowerCase() !== published) {
+    throw new Error(
+      `checksum mismatch for ${url}\n  expected ${published}\n  got      ${actual}\n` +
+        "Refusing to install. Try again, or download manually from " +
+        `https://github.com/${REPO}/releases`
+    );
+  }
+  log?.write("trc: checksum verified\n");
 }

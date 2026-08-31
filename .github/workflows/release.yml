@@ -74,32 +74,47 @@ jobs:
         if: matrix.cross
         run: cross build --release --target ${{ matrix.target }} -p trace-cli
 
-      # --- Stage the artifact under its release name ---
+      # --- Stage the artifact + a SHA-256 checksum sidecar so `npm`/install.sh
+      #     can verify the binary before trusting it. The `.sha256` file holds
+      #     just the lowercase hex digest (no filename column), which is what
+      #     the verifiers read.
       - name: Stage artifact (unix)
         if: runner.os != 'Windows'
         run: |
           mkdir -p dist
           cp "target/${{ matrix.target }}/release/trc" "dist/${{ matrix.artifact }}"
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "dist/${{ matrix.artifact }}" | awk '{print $1}' > "dist/${{ matrix.artifact }}.sha256"
+          else
+            shasum -a 256 "dist/${{ matrix.artifact }}" | awk '{print $1}' > "dist/${{ matrix.artifact }}.sha256"
+          fi
       - name: Stage artifact (windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          mkdir dist
-          copy "target\${{ matrix.target }}\release\trc.exe" "dist\${{ matrix.artifact }}"
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item "target\${{ matrix.target }}\release\trc.exe" "dist\${{ matrix.artifact }}"
+          $hash = (Get-FileHash -Algorithm SHA256 "dist\${{ matrix.artifact }}").Hash.ToLower()
+          Set-Content -NoNewline -Path "dist\${{ matrix.artifact }}.sha256" -Value $hash
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: dist/${{ matrix.artifact }}
+          path: |
+            dist/${{ matrix.artifact }}
+            dist/${{ matrix.artifact }}.sha256
 
-      # Publish each binary to the Release as soon as it is built. This makes the
-      # release resilient: a single platform stuck waiting for a runner does not
-      # block the others from publishing. softprops upserts the release.
+      # Publish each binary + its checksum to the Release as soon as it is built.
+      # This makes the release resilient: a single platform stuck waiting for a
+      # runner does not block the others from publishing. softprops upserts.
       - name: Publish asset to GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          files: dist/${{ matrix.artifact }}
+          files: |
+            dist/${{ matrix.artifact }}
+            dist/${{ matrix.artifact }}.sha256
           generate_release_notes: true
           fail_on_unmatched_files: true
 

@@ -29,7 +29,32 @@ if ($version -eq "latest") {
 Write-Host "Installing Trace ($asset) ..."
 New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 
-Invoke-WebRequest -Uri $url -OutFile $Bin -UseBasicParsing
+$tmp = "$Bin.download"
+Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
+
+# Verify the SHA-256 checksum published next to the asset before trusting it.
+# A missing checksum (older releases) is allowed unless TRACE_REQUIRE_CHECKSUM.
+$published = $null
+try {
+    $published = (Invoke-WebRequest -Uri "$url.sha256" -UseBasicParsing).Content.Trim().Split()[0].ToLower()
+} catch {
+    $published = $null
+}
+if ($published) {
+    $local = (Get-FileHash -Algorithm SHA256 $tmp).Hash.ToLower()
+    if ($local -ne $published) {
+        Remove-Item $tmp -Force
+        throw "checksum mismatch for $asset (expected $published, got $local)"
+    }
+    Write-Host "Checksum verified."
+} elseif ($env:TRACE_REQUIRE_CHECKSUM) {
+    Remove-Item $tmp -Force
+    throw "no checksum published for $asset and TRACE_REQUIRE_CHECKSUM is set"
+} else {
+    Write-Host "note: no checksum published for this release; skipping verification"
+}
+
+Move-Item -Force $tmp $Bin
 
 Write-Host ""
 Write-Host "Installed trc to $InstallDir"

@@ -40,15 +40,57 @@ fi
 printf 'Installing Trace (%s) ...\n' "$asset"
 mkdir -p "$INSTALL_DIR"
 
-if command -v curl >/dev/null 2>&1; then
-  curl -fSL "$url" -o "$BIN" || err "download failed from $url"
-elif command -v wget >/dev/null 2>&1; then
-  wget -qO "$BIN" "$url" || err "download failed from $url"
+fetch_to() { # fetch <url> <out-file>; nonzero on failure
+  if command -v curl >/dev/null 2>&1; then
+    curl -fSL "$1" -o "$2"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO "$2" "$1"
+  else
+    err "neither curl nor wget is available"
+  fi
+}
+fetch_text() { # fetch <url> to stdout, quietly; empty on failure
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$1" 2>/dev/null
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO- "$1" 2>/dev/null
+  fi
+}
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  else
+    echo ""
+  fi
+}
+
+tmp="${BIN}.download.$$"
+fetch_to "$url" "$tmp" || err "download failed from $url"
+
+# Verify the SHA-256 checksum published next to the asset before trusting it.
+# Missing checksum (older releases) is allowed unless TRACE_REQUIRE_CHECKSUM.
+published=$(fetch_text "${url}.sha256" | awk '{print $1}' | head -1)
+if [ -n "$published" ]; then
+  local_sum=$(sha256_of "$tmp")
+  if [ -z "$local_sum" ]; then
+    printf 'note: no sha256 tool found; skipping checksum verification\n' >&2
+  elif [ "$local_sum" != "$published" ]; then
+    rm -f "$tmp"
+    err "checksum mismatch for $asset (expected $published, got $local_sum)"
+  else
+    printf 'Checksum verified.\n'
+  fi
+elif [ -n "${TRACE_REQUIRE_CHECKSUM:-}" ]; then
+  rm -f "$tmp"
+  err "no checksum published for $asset and TRACE_REQUIRE_CHECKSUM is set"
 else
-  err "neither curl nor wget is available"
+  printf 'note: no checksum published for this release; skipping verification\n' >&2
 fi
 
-chmod +x "$BIN"
+chmod +x "$tmp"
+mv "$tmp" "$BIN"
 
 printf '\nInstalled trc to %s\n' "$BIN"
 
