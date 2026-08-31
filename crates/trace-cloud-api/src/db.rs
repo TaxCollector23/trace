@@ -225,3 +225,90 @@ impl Store {
         Ok(Some((run, events)))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn store() -> Store {
+        Store::open(":memory:").unwrap()
+    }
+
+    fn upload(id: &str, events: usize) -> RunUpload {
+        RunUpload {
+            run: RunSummary {
+                id: id.into(),
+                project_name: "proj".into(),
+                agent_name: Some("claude".into()),
+                command: "echo hi".into(),
+                user_prompt: None,
+                status: "completed".into(),
+                exit_code: Some(0),
+                created_at: "2026-01-01T00:00:00Z".into(),
+                completed_at: None,
+                event_count: 0,
+            },
+            events: (0..events)
+                .map(|i| CloudEvent {
+                    event_type: "run_created".into(),
+                    message: format!("event {i}"),
+                    metadata_json: None,
+                    created_at: None,
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn upsert_user_by_token_is_idempotent_and_distinct() {
+        let s = store();
+        let a1 = s.upsert_user_by_token("tok-a").unwrap();
+        let a2 = s.upsert_user_by_token("tok-a").unwrap();
+        assert_eq!(a1, a2, "same token must map to the same user_id");
+        let b = s.upsert_user_by_token("tok-b").unwrap();
+        assert_ne!(a1, b, "different tokens must map to different users");
+    }
+
+    #[test]
+    fn insert_list_get_roundtrip() {
+        let s = store();
+        let uid = s.upsert_user_by_token("t").unwrap();
+        s.insert_run(&uid, &upload("r1", 2)).unwrap();
+
+        let runs = s.list_runs(&uid, 50).unwrap();
+        assert_eq!(runs.len(), 1);
+        assert_eq!(runs[0].id, "r1");
+        assert_eq!(runs[0].event_count, 2);
+
+        let (run, events) = s.get_run(&uid, "r1").unwrap().expect("run exists");
+        assert_eq!(run.command, "echo hi");
+        assert_eq!(events.len(), 2);
+    }
+
+    #[test]
+    fn runs_are_isolated_per_user() {
+        let s = store();
+        let a = s.upsert_user_by_token("a").unwrap();
+        let b = s.upsert_user_by_token("b").unwrap();
+        s.insert_run(&a, &upload("secret", 1)).unwrap();
+
+        // b must not see a's run, by list or by direct id lookup.
+        assert!(s.list_runs(&b, 50).unwrap().is_empty());
+        assert!(
+            s.get_run(&b, "secret").unwrap().is_none(),
+            "a token holder must not be able to probe another user's run id"
+        );
+    }
+
+    #[test]
+    fn reupload_replaces_events_rather_than_appending() {
+        let s = store();
+        let uid = s.upsert_user_by_token("t").unwrap();
+        s.insert_run(&uid, &upload("r1", 3)).unwrap();
+        s.insert_run(&uid, &upload("r1", 1)).unwrap(); // retry with fewer events
+
+        let (_run, events) = s.get_run(&uid, "r1").unwrap().unwrap();
+        assert_eq!(events.len(), 1, "re-upload must replace events, not append");
+        assert_eq!(s.list_runs(&uid, 50).unwrap().len(), 1, "still one run row");
+    }
+}

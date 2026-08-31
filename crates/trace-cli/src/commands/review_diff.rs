@@ -127,12 +127,19 @@ pub fn run(opts: ReviewDiffOptions) -> Result<()> {
 }
 
 fn default_range() -> String {
-    if let Ok(base) = std::env::var("GITHUB_BASE_REF") {
-        if !base.trim().is_empty() {
-            return format!("origin/{}...HEAD", base.trim());
-        }
+    range_from_base_ref(std::env::var("GITHUB_BASE_REF").ok().as_deref())
+}
+
+/// Compute the default review range from an optional GitHub base ref. A
+/// `pull_request` event sets `GITHUB_BASE_REF` to the target branch, so we
+/// review against `origin/<base>`; a plain push leaves it unset, so we fall
+/// back to the previous commit. Pure, so the CI range logic is testable
+/// without touching process env.
+fn range_from_base_ref(base_ref: Option<&str>) -> String {
+    match base_ref.map(str::trim) {
+        Some(base) if !base.is_empty() => format!("origin/{base}...HEAD"),
+        _ => "HEAD~1...HEAD".to_string(),
     }
-    "HEAD~1...HEAD".to_string()
 }
 
 fn print_policy_report(findings: &[policy::PolicyFinding]) {
@@ -174,5 +181,37 @@ mod tests {
     #[test]
     fn counts_empty_patch_as_zero() {
         assert_eq!(count_add_del(""), (0, 0));
+    }
+
+    #[test]
+    fn counts_ignore_headers_and_no_newline_marker() {
+        // Only file headers and a `\ No newline` marker: no content add/del.
+        let patch = "--- a/x\n+++ b/x\n@@ -1 +1 @@\n\\ No newline at end of file\n";
+        assert_eq!(count_add_del(patch), (0, 0));
+    }
+
+    #[test]
+    fn range_from_pull_request_base_ref() {
+        assert_eq!(
+            range_from_base_ref(Some("main")),
+            "origin/main...HEAD",
+            "a PR event should review against origin/<base>"
+        );
+        // Whitespace around the ref is trimmed.
+        assert_eq!(
+            range_from_base_ref(Some("  develop ")),
+            "origin/develop...HEAD"
+        );
+    }
+
+    #[test]
+    fn range_falls_back_to_last_commit_without_a_base_ref() {
+        for empty in [None, Some(""), Some("   ")] {
+            assert_eq!(
+                range_from_base_ref(empty),
+                "HEAD~1...HEAD",
+                "a plain push (no base ref) should diff the last commit"
+            );
+        }
     }
 }

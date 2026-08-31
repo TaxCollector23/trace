@@ -78,9 +78,42 @@ fn confirm(question: &str) -> Result<bool> {
     std::io::stdout().flush().ok();
     let mut input = String::new();
     std::io::stdin().read_line(&mut input)?;
-    Ok(matches!(input.trim().to_lowercase().as_str(), "y" | "yes"))
+    Ok(is_affirmative(&input))
+}
+
+/// Whether a prompt answer means "yes". Defaults to NO for anything unclear,
+/// so rollback (which mutates the working tree) never proceeds on ambiguous
+/// input like Enter, "yep", or a stray word.
+fn is_affirmative(input: &str) -> bool {
+    matches!(input.trim().to_lowercase().as_str(), "y" | "yes")
 }
 
 fn short(git_ref: &str) -> String {
     git_ref.chars().take(10).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_y_and_yes_confirm() {
+        for yes in ["y", "Y", "yes", "YES", "Yes", "  y  ", "yes\n"] {
+            assert!(is_affirmative(yes), "{yes:?} should confirm");
+        }
+    }
+
+    #[test]
+    fn everything_else_cancels() {
+        // Enter, explicit no, and anything ambiguous must NOT roll back.
+        for no in ["", "\n", "n", "no", "nope", "yep", "sure", "1", "yay"] {
+            assert!(!is_affirmative(no), "{no:?} must not confirm a rollback");
+        }
+    }
+
+    #[test]
+    fn short_ref_is_ten_chars() {
+        assert_eq!(short("0123456789abcdef"), "0123456789");
+        assert_eq!(short("abc"), "abc");
+    }
 }

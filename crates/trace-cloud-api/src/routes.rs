@@ -188,3 +188,126 @@ impl utoipa::Modify for SecurityAddon {
         );
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::{header, Request, StatusCode};
+    use http_body_util::BodyExt;
+    use tower::ServiceExt; // for `oneshot`
+
+    fn app() -> Router {
+        router(AppState::new(Store::open(":memory:").unwrap()))
+    }
+
+    async fn body_json(resp: axum::response::Response) -> serde_json::Value {
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null)
+    }
+
+    fn get(path: &str) -> Request<Body> {
+        Request::get(path).body(Body::empty()).unwrap()
+    }
+
+    fn get_auth(path: &str, bearer: &str) -> Request<Body> {
+        Request::get(path)
+            .header(header::AUTHORIZATION, bearer)
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn healthz_is_public_and_ok() {
+        let resp = app().oneshot(get("/healthz")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(body_json(resp).await["status"], "ok");
+    }
+
+    #[tokio::test]
+    async fn missing_authorization_header_is_401() {
+        let resp = app().oneshot(get("/v1/runs")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn wrong_scheme_is_401() {
+        // Not a `Bearer` token (e.g. Basic / Token) must be rejected.
+        let resp = app()
+            .oneshot(get_auth("/v1/runs", "Token abc123"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn empty_bearer_token_is_401() {
+        let resp = app()
+            .oneshot(get_auth("/v1/runs", "Bearer    "))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn valid_token_registers_user_and_returns_empty_list() {
+        let resp = app()
+            .oneshot(get_auth("/v1/runs", "Bearer trace_opaque_123"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(body_json(resp).await.as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn upload_list_get_and_cross_user_isolation() {
+        // One app instance -> one shared in-memory store across requests.
+        let app = app();
+        let upload = serde_json::json!({
+            "run": {
+                "id": "r1", "project_name": "p", "agent_name": null, "command": "echo",
+                "user_prompt": null, "status": "completed", "exit_code": 0,
+                "created_at": "2026-01-01T00:00:00Z", "completed_at": null, "event_count": 0
+            },
+            "events": [
+                { "event_type": "run_created", "message": "start", "metadata_json": null, "created_at": null }
+            ]
+        });
+
+        // Upload as user A.
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::post("/v1/runs")
+                    .header(header::AUTHORIZATION, "Bearer tok-A")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(upload.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        // A sees exactly one run.
+        let resp = app
+            .clone()
+            .oneshot(get_auth("/v1/runs", "Bearer tok-A"))
+            .await
+            .unwrap();
+        assert_eq!(body_json(resp).await.as_array().unwrap().len(), 1);
+
+        // A can fetch it; B gets 404 (isolation, not 403 that would leak existence).
+        let resp = app
+            .clone()
+            .oneshot(get_auth("/v1/runs/r1", "Bearer tok-A"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = app
+            .clone()
+            .oneshot(get_auth("/v1/runs/r1", "Bearer tok-B"))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+}

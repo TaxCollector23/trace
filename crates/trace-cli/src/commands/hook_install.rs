@@ -109,9 +109,8 @@ fn print_next_steps(notes: &[String]) {
     println!();
     if which_bin("node").is_none() {
         println!(
-            "  {} {}",
-            colors::yellow("→"),
-            "Install Node 18+ for the MCP servers (Cursor, Windsurf, OpenCode)."
+            "  {} Install Node 18+ for the MCP servers (Cursor, Windsurf, OpenCode).",
+            colors::yellow("→")
         );
     }
     for n in notes {
@@ -366,7 +365,9 @@ fn set_mcp_entry(
 }
 
 fn install_claude() -> Result<Wired> {
-    let hook = trace_integrations_dir()?.join("claude").join("trace-hook.sh");
+    let hook = trace_integrations_dir()?
+        .join("claude")
+        .join("trace-hook.sh");
     write_executable(&hook, CLAUDE_HOOK_SH)?;
 
     let home = dirs::home_dir().context("no home directory")?;
@@ -392,7 +393,9 @@ fn install_claude() -> Result<Wired> {
 }
 
 fn install_codex() -> Result<Wired> {
-    let adapter = trace_integrations_dir()?.join("codex").join("codex-adapter.sh");
+    let adapter = trace_integrations_dir()?
+        .join("codex")
+        .join("codex-adapter.sh");
     write_executable(&adapter, CODEX_ADAPTER_SH)?;
     Ok(Wired {
         kind: "wrapper script",
@@ -412,7 +415,9 @@ fn install_cursor() -> Result<Wired> {
 
     // 2. Enforcing guard: a beforeShellExecution hook that denies dangerous
     //    commands before Cursor runs them.
-    let hook = trace_integrations_dir()?.join("cursor").join("cursor-hook.sh");
+    let hook = trace_integrations_dir()?
+        .join("cursor")
+        .join("cursor-hook.sh");
     write_executable(&hook, CURSOR_HOOK_SH)?;
     let hooks_json = cursor_dir.join("hooks.json");
     let patch = json!({
@@ -577,9 +582,15 @@ mod tests {
 
         let out: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         // Our args were REPLACED (one path, the new one), not appended.
-        assert_eq!(out["mcpServers"]["trace"]["args"], serde_json::json!(["NEW/path.js"]));
+        assert_eq!(
+            out["mcpServers"]["trace"]["args"],
+            serde_json::json!(["NEW/path.js"])
+        );
         // The user's server is untouched.
-        assert_eq!(out["mcpServers"]["mine"]["args"], serde_json::json!(["keep.js"]));
+        assert_eq!(
+            out["mcpServers"]["mine"]["args"],
+            serde_json::json!(["keep.js"])
+        );
         fs::remove_dir_all(&dir).ok();
     }
 

@@ -84,8 +84,36 @@ pub fn run(opts: RatifyOptions) -> Result<()> {
         painted, summary.counts.high, summary.counts.medium, summary.counts.low
     );
 
-    if opts.fail_on_risky && summary.verdict.is_block() {
+    if ci_should_fail(summary.verdict, opts.fail_on_risky) {
         std::process::exit(1);
     }
     Ok(())
+}
+
+/// The CI gate: exit non-zero only when the caller opted into `--fail-on-risky`
+/// AND the verdict is a hard `block`. A `review` (medium-only) or `pass` never
+/// fails the build, so ratify can run informationally on every PR.
+fn ci_should_fail(verdict: RatifyVerdict, fail_on_risky: bool) -> bool {
+    fail_on_risky && verdict.is_block()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gate_fails_only_on_block_with_the_flag() {
+        // block: fails iff --fail-on-risky was passed.
+        assert!(ci_should_fail(RatifyVerdict::Block, true));
+        assert!(!ci_should_fail(RatifyVerdict::Block, false));
+
+        // review and pass never fail the build, flag or not.
+        for verdict in [RatifyVerdict::Review, RatifyVerdict::Pass] {
+            assert!(
+                !ci_should_fail(verdict, true),
+                "{verdict:?} must not fail CI"
+            );
+            assert!(!ci_should_fail(verdict, false));
+        }
+    }
 }

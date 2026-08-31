@@ -1188,4 +1188,115 @@ mod tests {
             "expected a secret-in-diff finding to be persisted, got: {findings:?}"
         );
     }
+
+    // --- Full-stack route tests: drive requests through `router()` so routing,
+    //     method dispatch, path/query extraction, and (de)serialization are all
+    //     exercised, not just the handler body. Offline; no socket is bound. ---
+    mod routes {
+        use super::*;
+        use axum::body::Body;
+        use axum::http::{header, Request, StatusCode};
+        use tower::ServiceExt; // for `oneshot`
+
+        fn app() -> axum::Router {
+            router().with_state(test_state())
+        }
+
+        fn post_json(path: &str, body: serde_json::Value) -> Request<Body> {
+            Request::post(path)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap()
+        }
+
+        #[tokio::test]
+        async fn health_route_ok() {
+            let resp = app()
+                .oneshot(Request::get("/health").body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+            assert_eq!(body_json(resp).await["service"], "trace-daemon");
+        }
+
+        #[tokio::test]
+        async fn check_command_route_blocks_and_allows() {
+            let blocked = app()
+                .oneshot(post_json(
+                    "/check-command",
+                    serde_json::json!({ "command": "rm -rf /" }),
+                ))
+                .await
+                .unwrap();
+            assert_eq!(body_json(blocked).await["decision"], "block");
+
+            let allowed = app()
+                .oneshot(post_json(
+                    "/check-command",
+                    serde_json::json!({ "command": "ls -la" }),
+                ))
+                .await
+                .unwrap();
+            assert_eq!(body_json(allowed).await["decision"], "allow");
+        }
+
+        #[tokio::test]
+        async fn project_then_run_roundtrip_through_router() {
+            let app = app();
+
+            // Create a project.
+            let resp = app
+                .clone()
+                .oneshot(post_json(
+                    "/projects",
+                    serde_json::json!({
+                        "name": "Demo",
+                        "path": "/tmp/demo",
+                        "config_path": "/tmp/demo/.trace/config.toml"
+                    }),
+                ))
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+            let project_id = body_json(resp).await["id"].as_str().unwrap().to_string();
+
+            // Create a run in it.
+            let resp = app
+                .clone()
+                .oneshot(post_json(
+                    "/runs",
+                    serde_json::json!({ "project_id": project_id, "command": "echo hi" }),
+                ))
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+            let run_id = body_json(resp).await["id"].as_str().unwrap().to_string();
+
+            // Fetch it back as a summary.
+            let resp = app
+                .clone()
+                .oneshot(
+                    Request::get(format!("/runs/{run_id}"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+            assert_eq!(body_json(resp).await["command"], "echo hi");
+        }
+
+        #[tokio::test]
+        async fn unknown_run_id_is_404() {
+            let resp = app()
+                .oneshot(
+                    Request::get("/runs/does-not-exist")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        }
+    }
 }

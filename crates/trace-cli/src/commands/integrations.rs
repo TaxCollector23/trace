@@ -72,7 +72,11 @@ const INTEGRATIONS: &[(&str, &str, &str)] = &[
     ("Codex CLI", "wrapper", "integrations/codex"),
     ("Cursor", "MCP tools + guard hook", "integrations/cursor"),
     ("Windsurf", "MCP server", "integrations/windsurf"),
-    ("OpenCode", "MCP tools + guard plugin", "integrations/opencode"),
+    (
+        "OpenCode",
+        "MCP tools + guard plugin",
+        "integrations/opencode",
+    ),
     (
         "GitHub",
         "Actions + App + direct repo read",

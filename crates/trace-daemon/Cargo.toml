@@ -32,3 +32,7 @@ rust-embed = { version = "8", features = ["mime-guess"] }
 mime_guess = "2"
 ureq = { version = "2", default-features = false, features = ["json", "gzip", "tls", "native-certs"] }
 dotenvy = "0.15"
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }
+http-body-util = "0.1"

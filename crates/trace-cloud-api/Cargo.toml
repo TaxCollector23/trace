@@ -26,3 +26,7 @@ uuid = { workspace = true }
 utoipa = { version = "4", features = ["axum_extras", "chrono"] }
 utoipa-swagger-ui = { version = "7", features = ["axum"] }
 ureq = { version = "2", default-features = false, features = ["json", "gzip", "tls", "native-certs"] }
+
+[dev-dependencies]
+tower = { version = "0.4", features = ["util"] }
+http-body-util = "0.1"
