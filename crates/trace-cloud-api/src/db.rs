@@ -84,12 +84,21 @@ impl Store {
         })
     }
 
+    /// Lock the connection, recovering the guard if a previous caller panicked
+    /// while holding it. A poisoned lock means an earlier request died
+    /// mid-query; the SQLite connection itself is still usable, so we take the
+    /// guard back and keep serving instead of panicking every future request.
+    /// Mirrors the daemon's `store()` helper.
+    fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
+        self.conn.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     /// Look up or create a user by opaque bearer token. Kept simple on
     /// purpose: users provision a token in `trc daemon cloud-login`
     /// (future) or paste one from the web dashboard. First use registers
     /// the token → user_id binding.
     pub fn upsert_user_by_token(&self, token: &str) -> Result<String> {
-        let c = self.conn.lock().unwrap();
+        let c = self.conn();
         if let Ok(uid) = c.query_row(
             "SELECT user_id FROM users WHERE token = ?1",
             params![token],
@@ -106,7 +115,7 @@ impl Store {
     }
 
     pub fn insert_run(&self, user_id: &str, upload: &RunUpload) -> Result<()> {
-        let mut c = self.conn.lock().unwrap();
+        let mut c = self.conn();
         let tx = c.transaction()?;
         tx.execute(
             "INSERT OR REPLACE INTO runs
@@ -149,7 +158,7 @@ impl Store {
     }
 
     pub fn list_runs(&self, user_id: &str, limit: usize) -> Result<Vec<RunSummary>> {
-        let c = self.conn.lock().unwrap();
+        let c = self.conn();
         let mut stmt = c.prepare(
             "SELECT r.id, r.project_name, r.agent_name, r.command, r.user_prompt, r.status,
                     r.exit_code, r.created_at, r.completed_at,
@@ -183,7 +192,7 @@ impl Store {
         user_id: &str,
         run_id: &str,
     ) -> Result<Option<(RunSummary, Vec<CloudEvent>)>> {
-        let c = self.conn.lock().unwrap();
+        let c = self.conn();
         let run = c
             .query_row(
                 "SELECT id, project_name, agent_name, command, user_prompt, status,
@@ -298,6 +307,27 @@ mod tests {
             s.get_run(&b, "secret").unwrap().is_none(),
             "a token holder must not be able to probe another user's run id"
         );
+    }
+
+    #[test]
+    fn store_recovers_from_a_poisoned_lock() {
+        use std::sync::Arc;
+        let s = Arc::new(store());
+        s.upsert_user_by_token("before").unwrap();
+
+        // Poison the mutex: a thread panics while holding the connection lock.
+        let s2 = Arc::clone(&s);
+        let _ = std::thread::spawn(move || {
+            let _guard = s2.conn.lock().unwrap();
+            panic!("boom while holding the lock");
+        })
+        .join();
+
+        // A plain `.lock().unwrap()` would now panic forever. `conn()` recovers,
+        // so the store keeps serving.
+        let uid = s.upsert_user_by_token("after").unwrap();
+        assert!(!uid.is_empty());
+        assert_eq!(s.list_runs(&uid, 10).unwrap().len(), 0);
     }
 
     #[test]

@@ -336,6 +336,7 @@ fn set_mcp_entry(
         anyhow::bail!("{} is not a JSON object", config_path.display());
     }
     let before = config.clone();
+    // Safe: the `!config.is_object()` bail above guarantees an object here.
     let obj = config.as_object_mut().unwrap();
     if let Some(s) = schema {
         obj.entry("$schema".to_string())
@@ -347,6 +348,7 @@ fn set_mcp_entry(
     if !cont.is_object() {
         *cont = Value::Object(Default::default());
     }
+    // Safe: `cont` was just reset to an object on the line above if it wasn't one.
     cont.as_object_mut()
         .unwrap()
         .insert(entry_key.to_string(), entry);
