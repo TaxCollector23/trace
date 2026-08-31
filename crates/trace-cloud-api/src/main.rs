@@ -17,16 +17,45 @@
 
 mod auth;
 mod db;
+mod ratelimit;
 mod routes;
 
-use axum::Router;
 use std::net::SocketAddr;
-use tower_http::cors::{Any, CorsLayer};
+use std::sync::Arc;
+
+use axum::http::{HeaderValue, Method};
+use axum::Router;
+use tower_http::cors::{AllowHeaders, AllowMethods, AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 use utoipa::OpenApi;
 use utoipa_swagger_ui::SwaggerUi;
 
 use routes::{ApiDoc, AppState};
+
+/// Browser origins allowed to call this API. Deliberately an explicit
+/// allow-list, not `Any`: the endpoints are token-gated, but a wildcard would
+/// still let any page the user has open script cross-origin reads of the
+/// response for a token it somehow obtained. Mirrors the daemon's `dev_origins`.
+/// Extend for a preview/custom deploy with `TRACE_ALLOWED_ORIGINS` (comma-sep).
+fn allowed_origins() -> Vec<HeaderValue> {
+    let mut origins: Vec<String> = vec![
+        "http://localhost:5173".into(),
+        "http://127.0.0.1:5173".into(),
+        "https://landing-one-hazel-88.vercel.app".into(),
+        "https://ratify-zeta-dusky.vercel.app".into(),
+    ];
+    origins.extend(
+        std::env::var("TRACE_ALLOWED_ORIGINS")
+            .unwrap_or_default()
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty()),
+    );
+    origins
+        .iter()
+        .filter_map(|o| HeaderValue::from_str(o).ok())
+        .collect()
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -46,18 +75,24 @@ async fn main() -> anyhow::Result<()> {
     let store = db::Store::open(&db_path)?;
     let state = AppState::new(store);
 
-    // CORS: allow the Vercel dashboards (both Trace's landing and Ratify)
-    // to hit this API from a browser. Explicit allow-list would be safer
-    // long-term, but the endpoints are token-gated regardless — a browser
-    // origin without a valid bearer token gets a 401 no matter what.
+    // CORS: explicit origin allow-list (see `allowed_origins`). Only the known
+    // dashboards may read responses cross-origin; everything else is a network
+    // error in the browser even before auth runs.
     let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+        .allow_origin(AllowOrigin::list(allowed_origins()))
+        .allow_methods(AllowMethods::list([Method::GET, Method::POST]))
+        .allow_headers(AllowHeaders::any());
+
+    // Per-token rate limiting (default 120 req/token/min; TRACE_RATE_LIMIT_PER_MIN).
+    let limiter = Arc::new(ratelimit::RateLimit::from_env());
 
     let app = Router::new()
         .merge(SwaggerUi::new("/docs").url("/openapi.json", ApiDoc::openapi()))
         .merge(routes::router(state))
+        .layer(axum::middleware::from_fn_with_state(
+            limiter,
+            ratelimit::layer,
+        ))
         .layer(cors)
         .layer(TraceLayer::new_for_http());
 
