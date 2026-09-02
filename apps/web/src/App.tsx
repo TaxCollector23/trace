@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { Mark } from "./Mark";
+import { CommandPalette } from "./v4/CommandPalette";
 
 type Theme = "light" | "dark" | "system";
 const THEME_KEY = "trace-theme";
@@ -77,7 +78,8 @@ function ThemeToggle() {
 }
 
 const links: [string, string][] = [
-  ["/", "Dashboard"],
+  ["/", "Control Room"],
+  ["/run", "Run Page"],
   ["/timeline", "Session Timeline"],
   ["/patch", "Patch Review"],
   ["/risk", "Command Risk"],
@@ -86,6 +88,7 @@ const links: [string, string][] = [
   ["/rollback", "Rollback Points"],
   ["/github", "GitHub"],
   ["/ratify", "Ratify"],
+  ["/system", "System"],
 ];
 
 // Apply the saved theme as early as possible to avoid a flash of the wrong palette.
@@ -127,6 +130,7 @@ export default function App() {
       <main className="content" id="main">
         <Outlet />
       </main>
+      <CommandPalette />
     </div>
   );
 }
