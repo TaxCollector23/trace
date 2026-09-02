@@ -7,15 +7,54 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
-/// Root directory for all global Trace data: `~/.trace`.
-pub fn global_dir() -> Result<PathBuf> {
+/// Environment override for the global Trace home directory. When set (and
+/// non-empty), it replaces the default `~/.trace` everywhere the CLI, daemon,
+/// and core resolve global state. This is the seam that keeps test/CI/dev data
+/// from polluting a developer's real `~/.trace` store.
+pub const HOME_ENV: &str = "TRACE_HOME";
+
+/// Environment override for the SQLite database path specifically. Takes
+/// precedence over `TRACE_HOME` for the database file only (the run-log dir,
+/// daemon state, etc. still resolve under `home()`).
+pub const DB_ENV: &str = "TRACE_DB";
+
+/// Root directory for all global Trace data.
+///
+/// Defaults to `~/.trace`, but honors the `TRACE_HOME` env override so tests,
+/// CI, and development can point at a disposable directory instead of the
+/// user's real store. This is the single resolver every other global path is
+/// built on.
+pub fn home() -> Result<PathBuf> {
+    if let Some(dir) = env_path(HOME_ENV) {
+        return Ok(dir);
+    }
     let home = dirs::home_dir().context("could not determine home directory")?;
     Ok(home.join(".trace"))
 }
 
-/// Path to the global SQLite database: `~/.trace/trace.db`.
+/// Backwards-compatible alias for [`home`]. Retained so existing call sites keep
+/// working; both now honor `TRACE_HOME`.
+pub fn global_dir() -> Result<PathBuf> {
+    home()
+}
+
+/// Path to the global SQLite database.
+///
+/// Honors `TRACE_DB` (exact file path) if set, otherwise `<home>/trace.db`.
 pub fn database_path() -> Result<PathBuf> {
-    Ok(global_dir()?.join("trace.db"))
+    if let Some(db) = env_path(DB_ENV) {
+        return Ok(db);
+    }
+    Ok(home()?.join("trace.db"))
+}
+
+/// Read an env var as a non-empty path, trimming surrounding whitespace.
+fn env_path(var: &str) -> Option<PathBuf> {
+    std::env::var(var)
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
 }
 
 /// Path to the daemon state file: `~/.trace/daemon.json`.
@@ -82,7 +121,71 @@ pub fn is_scratch_project_path(path: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::is_scratch_project_path;
+    use super::*;
+    use std::sync::Mutex;
+
+    // Env vars are process-global; serialize the override tests so they don't
+    // race each other.
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn trace_home_override_redirects_home_and_db() {
+        let _g = ENV_LOCK.lock().unwrap();
+        let prev_home = std::env::var(HOME_ENV).ok();
+        let prev_db = std::env::var(DB_ENV).ok();
+        std::env::remove_var(DB_ENV);
+        std::env::set_var(HOME_ENV, "/tmp/trace-test-home");
+
+        assert_eq!(home().unwrap(), PathBuf::from("/tmp/trace-test-home"));
+        assert_eq!(
+            database_path().unwrap(),
+            PathBuf::from("/tmp/trace-test-home/trace.db")
+        );
+        // Other global paths follow home too.
+        assert_eq!(
+            daemon_state_path().unwrap(),
+            PathBuf::from("/tmp/trace-test-home/daemon.json")
+        );
+
+        restore(HOME_ENV, prev_home);
+        restore(DB_ENV, prev_db);
+    }
+
+    #[test]
+    fn trace_db_override_takes_precedence_for_the_db_only() {
+        let _g = ENV_LOCK.lock().unwrap();
+        let prev_home = std::env::var(HOME_ENV).ok();
+        let prev_db = std::env::var(DB_ENV).ok();
+        std::env::set_var(HOME_ENV, "/tmp/trace-test-home");
+        std::env::set_var(DB_ENV, "/tmp/elsewhere/custom.db");
+
+        assert_eq!(
+            database_path().unwrap(),
+            PathBuf::from("/tmp/elsewhere/custom.db")
+        );
+        // The home itself is unaffected by TRACE_DB.
+        assert_eq!(home().unwrap(), PathBuf::from("/tmp/trace-test-home"));
+
+        restore(HOME_ENV, prev_home);
+        restore(DB_ENV, prev_db);
+    }
+
+    #[test]
+    fn empty_env_override_is_ignored() {
+        let _g = ENV_LOCK.lock().unwrap();
+        let prev = std::env::var(HOME_ENV).ok();
+        std::env::set_var(HOME_ENV, "   ");
+        // Blank value falls through to the default (~/.trace), not an empty path.
+        assert!(home().unwrap().ends_with(".trace"));
+        restore(HOME_ENV, prev);
+    }
+
+    fn restore(var: &str, prev: Option<String>) {
+        match prev {
+            Some(v) => std::env::set_var(var, v),
+            None => std::env::remove_var(var),
+        }
+    }
 
     #[test]
     fn scratch_paths_are_temp_dirs_not_names() {

@@ -149,6 +149,15 @@ impl RulePack {
         RulePack::embedded()
     }
 
+    /// Total number of rules in this pack: command rules + policy rules +
+    /// secret patterns + injection phrases. Used by `--version`/`doctor`.
+    pub fn rule_count(&self) -> usize {
+        self.command_rules.len()
+            + self.policy_rules.len()
+            + self.secret_patterns.len()
+            + self.injection_phrases.len()
+    }
+
     /// Case-insensitive injection-phrase hits found in `text`.
     pub fn injection_hits(&self, text: &str) -> Vec<String> {
         let low = text.to_lowercase();
@@ -232,6 +241,17 @@ mod tests {
         }
         // The compiled view keeps every rule (none silently dropped).
         assert_eq!(pack.compiled_policy_rules().len(), pack.policy_rules.len());
+    }
+
+    #[test]
+    fn rule_count_sums_every_category() {
+        let pack = RulePack::embedded();
+        let expected = pack.command_rules.len()
+            + pack.policy_rules.len()
+            + pack.secret_patterns.len()
+            + pack.injection_phrases.len();
+        assert_eq!(pack.rule_count(), expected);
+        assert!(pack.rule_count() > 0);
     }
 
     #[test]

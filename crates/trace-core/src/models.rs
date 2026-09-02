@@ -6,14 +6,30 @@
 use serde::{Deserialize, Serialize};
 
 /// Lifecycle status of a monitored run.
+///
+/// This is the *persistence* status stored in `runs.status`. It is a strict,
+/// closed set: an unrecognized or truncated status is decoded to
+/// [`RunStatus::Unknown`], **never** silently coerced to `Running` (doing so
+/// was the root cause of "stuck forever" runs — see RECOVERY-AUDIT fix #1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RunStatus {
+    /// The run's wrapper process is alive and actively monitored.
     Running,
     Completed,
     Failed,
     Blocked,
     RolledBack,
+    /// The user asked to stop the run before it finished (explicit cancel).
+    Cancelled,
+    /// The run was aborted by Trace or a guard/policy before completing.
+    Aborted,
+    /// The wrapper died without a clean finish (Ctrl-C, crash, host reboot).
+    /// Assigned by zombie reconciliation on daemon startup, never guessed.
+    Interrupted,
+    /// The stored status string was empty or unrecognized. Modeled explicitly
+    /// so a decode failure is visible rather than masquerading as `running`.
+    Unknown,
 }
 
 impl RunStatus {
@@ -24,18 +40,128 @@ impl RunStatus {
             RunStatus::Failed => "failed",
             RunStatus::Blocked => "blocked",
             RunStatus::RolledBack => "rolled_back",
+            RunStatus::Cancelled => "cancelled",
+            RunStatus::Aborted => "aborted",
+            RunStatus::Interrupted => "interrupted",
+            RunStatus::Unknown => "unknown",
         }
+    }
+
+    /// True once the run has reached a terminal state (will never move again on
+    /// its own). `Running` is the only non-terminal state.
+    pub fn is_terminal(&self) -> bool {
+        !matches!(self, RunStatus::Running)
     }
 
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> RunStatus {
         match s {
+            "running" => RunStatus::Running,
             "completed" => RunStatus::Completed,
             "failed" => RunStatus::Failed,
             "blocked" => RunStatus::Blocked,
             "rolled_back" => RunStatus::RolledBack,
-            _ => RunStatus::Running,
+            "cancelled" => RunStatus::Cancelled,
+            "aborted" => RunStatus::Aborted,
+            "interrupted" => RunStatus::Interrupted,
+            // Never coerce an unknown status back to `running`: a run we cannot
+            // decode is surfaced as `Unknown`, not silently resurrected.
+            _ => RunStatus::Unknown,
         }
+    }
+}
+
+/// Richer *terminal outcome* of a run, derived from structured evidence at
+/// finish time (exit code, guard/policy decisions, checkpoint state). This is
+/// distinct from [`RunStatus`], which tracks lifecycle. The outcome answers
+/// "how did it actually go?" without inventing semantic correctness: a run that
+/// exits 0 but tripped a policy block is `Blocked`, not `Success`.
+///
+/// Per RECOVERY-AUDIT fix #1 / prompt §36. Deterministic and local — no LLM,
+/// no guessing. When evidence is genuinely absent the outcome is [`Unknown`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RunOutcome {
+    Success,
+    SuccessWithWarnings,
+    Partial,
+    Failed,
+    Blocked,
+    Cancelled,
+    RolledBack,
+    Unknown,
+}
+
+impl RunOutcome {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RunOutcome::Success => "SUCCESS",
+            RunOutcome::SuccessWithWarnings => "SUCCESS_WITH_WARNINGS",
+            RunOutcome::Partial => "PARTIAL",
+            RunOutcome::Failed => "FAILED",
+            RunOutcome::Blocked => "BLOCKED",
+            RunOutcome::Cancelled => "CANCELLED",
+            RunOutcome::RolledBack => "ROLLED_BACK",
+            RunOutcome::Unknown => "UNKNOWN",
+        }
+    }
+
+    /// Deterministically derive an outcome from the run's structured evidence.
+    ///
+    /// Inputs are facts Trace already records, never inferred semantics:
+    /// - `status`: the persisted lifecycle status.
+    /// - `exit_code`: the wrapped command's exit code (`None` if it never
+    ///   produced one — e.g. an interrupted run).
+    /// - `had_block`: a guard/policy `block` decision fired during the run.
+    /// - `had_warning`: a warn/require-approval decision or secret warning fired.
+    ///
+    /// The key invariant (prompt §36): an exit-0 run that hit a block/warning
+    /// must NOT look perfectly successful.
+    pub fn derive(
+        status: RunStatus,
+        exit_code: Option<i64>,
+        had_block: bool,
+        had_warning: bool,
+    ) -> RunOutcome {
+        match status {
+            RunStatus::Running => RunOutcome::Unknown,
+            RunStatus::RolledBack => RunOutcome::RolledBack,
+            RunStatus::Blocked => RunOutcome::Blocked,
+            RunStatus::Cancelled => RunOutcome::Cancelled,
+            // An interrupted/aborted run left work in an indeterminate state.
+            RunStatus::Interrupted | RunStatus::Aborted => RunOutcome::Partial,
+            RunStatus::Unknown => RunOutcome::Unknown,
+            RunStatus::Failed => RunOutcome::Failed,
+            RunStatus::Completed => {
+                if had_block {
+                    // Exited "completed" yet a hard block fired: not a success.
+                    RunOutcome::Blocked
+                } else if exit_code.is_some_and(|c| c != 0) {
+                    RunOutcome::Failed
+                } else if had_warning {
+                    RunOutcome::SuccessWithWarnings
+                } else {
+                    RunOutcome::Success
+                }
+            }
+        }
+    }
+}
+
+/// Row counts for the telemetry tables purged by `trc reset --local-data`.
+/// Shown to the user before deletion so the confirmation is exact, not vague.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TelemetryCounts {
+    pub runs: i64,
+    pub commands: i64,
+    pub events: i64,
+    pub checkpoints: i64,
+}
+
+impl TelemetryCounts {
+    /// True when there is nothing to delete.
+    pub fn is_empty(&self) -> bool {
+        self.runs == 0 && self.commands == 0 && self.events == 0 && self.checkpoints == 0
     }
 }
 
@@ -396,6 +522,10 @@ pub struct RunSummary {
     pub secret_warnings: i64,
     pub estimated_cost: Option<f64>,
     pub checks_status: Option<String>,
+    /// Deterministically derived terminal outcome (see [`RunOutcome`]), as its
+    /// `SCREAMING_SNAKE_CASE` string. `UNKNOWN` while the run is still running
+    /// or when evidence is genuinely absent — never a guess.
+    pub outcome: String,
 }
 
 // --- Policy findings --------------------------------------------------------
@@ -417,4 +547,90 @@ pub struct PolicyFindingRecord {
     pub confidence: f64,
     pub source: String,
     pub created_at: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run_status_never_coerces_unknown_to_running() {
+        // The regression this guards: a truncated/garbage status must decode to
+        // Unknown, NOT Running (which made crashed runs look alive forever).
+        assert_eq!(RunStatus::from_str("running"), RunStatus::Running);
+        assert_eq!(RunStatus::from_str("interrupted"), RunStatus::Interrupted);
+        assert_eq!(RunStatus::from_str("cancelled"), RunStatus::Cancelled);
+        assert_eq!(RunStatus::from_str("aborted"), RunStatus::Aborted);
+        assert_eq!(RunStatus::from_str(""), RunStatus::Unknown);
+        assert_eq!(RunStatus::from_str("garbage"), RunStatus::Unknown);
+        assert_ne!(RunStatus::from_str("garbage"), RunStatus::Running);
+    }
+
+    #[test]
+    fn run_status_str_roundtrips() {
+        for s in [
+            RunStatus::Running,
+            RunStatus::Completed,
+            RunStatus::Failed,
+            RunStatus::Blocked,
+            RunStatus::RolledBack,
+            RunStatus::Cancelled,
+            RunStatus::Aborted,
+            RunStatus::Interrupted,
+            RunStatus::Unknown,
+        ] {
+            assert_eq!(RunStatus::from_str(s.as_str()), s);
+        }
+        assert!(!RunStatus::Running.is_terminal());
+        assert!(RunStatus::Interrupted.is_terminal());
+    }
+
+    #[test]
+    fn outcome_exit_zero_with_block_is_not_success() {
+        // The core §36 invariant: exit 0 but a policy/guard block fired must not
+        // read as a clean success.
+        let o = RunOutcome::derive(RunStatus::Completed, Some(0), true, false);
+        assert_eq!(o, RunOutcome::Blocked);
+        assert_ne!(o, RunOutcome::Success);
+    }
+
+    #[test]
+    fn outcome_exit_zero_with_warning_is_success_with_warnings() {
+        let o = RunOutcome::derive(RunStatus::Completed, Some(0), false, true);
+        assert_eq!(o, RunOutcome::SuccessWithWarnings);
+    }
+
+    #[test]
+    fn outcome_clean_exit_zero_is_success() {
+        assert_eq!(
+            RunOutcome::derive(RunStatus::Completed, Some(0), false, false),
+            RunOutcome::Success
+        );
+    }
+
+    #[test]
+    fn outcome_nonzero_exit_is_failed_even_if_status_completed() {
+        assert_eq!(
+            RunOutcome::derive(RunStatus::Completed, Some(1), false, false),
+            RunOutcome::Failed
+        );
+    }
+
+    #[test]
+    fn outcome_interrupted_is_partial_not_success() {
+        let o = RunOutcome::derive(RunStatus::Interrupted, None, false, false);
+        assert_eq!(o, RunOutcome::Partial);
+    }
+
+    #[test]
+    fn outcome_running_and_unknown_are_unknown() {
+        assert_eq!(
+            RunOutcome::derive(RunStatus::Running, None, false, false),
+            RunOutcome::Unknown
+        );
+        assert_eq!(
+            RunOutcome::derive(RunStatus::Unknown, None, false, false),
+            RunOutcome::Unknown
+        );
+    }
 }

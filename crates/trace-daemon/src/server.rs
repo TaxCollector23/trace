@@ -135,6 +135,18 @@ pub async fn serve(preferred_port: u16) -> Result<()> {
     let db_path = paths::database_path()?;
     let store = Store::open(&db_path).context("opening database")?;
 
+    // Zombie reconciliation: any run still marked `running` at startup was
+    // orphaned by a wrapper that died without a clean finish. Move it to a
+    // terminal `interrupted` state so it never sits "running forever".
+    match store.reconcile_zombie_runs() {
+        Ok(0) => {}
+        Ok(n) => {
+            tracing::info!("reconciled {n} interrupted run(s) on startup");
+            println!("Reconciled {n} interrupted run(s) from a previous session.");
+        }
+        Err(e) => tracing::warn!("zombie reconciliation failed: {e}"),
+    }
+
     let (listener, port) = bind_available(preferred_port).await?;
     let started_at = trace_core::time::now_rfc3339();
 

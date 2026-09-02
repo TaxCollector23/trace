@@ -217,6 +217,10 @@ impl Store {
     pub fn create_run(&self, new: &NewRun) -> Result<Run> {
         let id = new_id();
         let now = now_rfc3339();
+        // Storage-boundary redaction: a command line can carry a secret
+        // (`export API_KEY=…`, `curl -H "Authorization: Bearer …"`). Scrub it
+        // before it is persisted so the raw secret never hits the DB.
+        let command = crate::secrets::redact_text(&new.command);
         self.conn.execute(
             "INSERT INTO runs (id, project_id, command, agent_name, user_prompt, started_at,
                 ending_commit, starting_commit, status, created_at)
@@ -224,7 +228,7 @@ impl Store {
             params![
                 id,
                 new.project_id,
-                new.command,
+                command,
                 new.agent_name,
                 new.user_prompt,
                 now,
@@ -277,6 +281,62 @@ impl Store {
         self.conn.execute(
             "UPDATE runs SET status = ?1 WHERE id = ?2",
             params![status.as_str(), run_id],
+        )?;
+        Ok(())
+    }
+
+    /// Reconcile zombie runs on daemon startup.
+    ///
+    /// The daemon is the single long-lived owner of run state. If it has just
+    /// started, any run still marked `running` was orphaned by a wrapper that
+    /// died without a clean finish (Ctrl-C, crash, reboot) — its process is
+    /// provably gone, because a live `trc run` keeps its own process, not the
+    /// daemon's. Such runs are moved to `Interrupted` (a terminal state) and
+    /// stamped with `ended_at`, so they never sit "running forever". Returns the
+    /// number of runs reconciled. This is deterministic bookkeeping, not a
+    /// guess: `Interrupted` precisely means "did not finish cleanly".
+    pub fn reconcile_zombie_runs(&self) -> Result<usize> {
+        let n = self.conn.execute(
+            "UPDATE runs SET status = ?1, ended_at = COALESCE(ended_at, ?2)
+             WHERE status = 'running'",
+            params![RunStatus::Interrupted.as_str(), now_rfc3339()],
+        )?;
+        Ok(n)
+    }
+
+    // --- Local-data reset -------------------------------------------------
+
+    /// Row counts for the telemetry tables `trc reset --local-data` purges.
+    /// Used to show the user exactly what will be deleted before confirming.
+    pub fn telemetry_counts(&self) -> Result<TelemetryCounts> {
+        let count = |sql: &str| -> Result<i64> { Ok(self.conn.query_row(sql, [], |r| r.get(0))?) };
+        Ok(TelemetryCounts {
+            runs: count("SELECT COUNT(*) FROM runs")?,
+            commands: count("SELECT COUNT(*) FROM commands")?,
+            events: count("SELECT COUNT(*) FROM events")?,
+            checkpoints: count("SELECT COUNT(*) FROM checkpoints")?,
+        })
+    }
+
+    /// Purge all run telemetry: runs, commands, events, checkpoints, and every
+    /// child table that references a run (file_changes, secrets, api_usage,
+    /// test_results, policy_findings). Projects are intentionally preserved so a
+    /// reset does not force a re-`init`. Runs in a single transaction so it is
+    /// all-or-nothing. Child tables are deleted before `runs` to satisfy the
+    /// foreign-key constraints.
+    pub fn purge_local_data(&self) -> Result<()> {
+        self.conn.execute_batch(
+            "BEGIN;
+             DELETE FROM policy_findings;
+             DELETE FROM test_results;
+             DELETE FROM api_usage;
+             DELETE FROM secrets;
+             DELETE FROM file_changes;
+             DELETE FROM checkpoints;
+             DELETE FROM commands;
+             DELETE FROM events;
+             DELETE FROM runs;
+             COMMIT;",
         )?;
         Ok(())
     }
@@ -359,10 +419,13 @@ impl Store {
     // --- Commands ---------------------------------------------------------
 
     pub fn add_command(&self, run_id: &str, new: &NewCommand) -> Result<()> {
+        // Storage-boundary redaction (see `create_run`): scrub any secret out
+        // of the command line before persisting it.
+        let command = crate::secrets::redact_text(&new.command);
         self.conn.execute(
             "INSERT INTO commands (id, run_id, command, decision, exit_code, stdout_path, stderr_path, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![new_id(), run_id, new.command, new.decision, new.exit_code, new.stdout_path, new.stderr_path, now_rfc3339()],
+            params![new_id(), run_id, command, new.decision, new.exit_code, new.stdout_path, new.stderr_path, now_rfc3339()],
         )?;
         Ok(())
     }
@@ -599,6 +662,41 @@ impl Store {
             |r| r.get(0),
         ).optional()?;
 
+        // Structured evidence for the deterministic outcome derivation. A hard
+        // guard/policy block during the run, or a warn-level signal (secret
+        // warning, warned command, or a failed check) — all facts already
+        // recorded, never inferred.
+        let had_block: bool = self.conn.query_row(
+            "SELECT EXISTS(
+                 SELECT 1 FROM events
+                 WHERE run_id = ?1 AND type = 'risky_command_blocked'
+             ) OR EXISTS(
+                 SELECT 1 FROM commands
+                 WHERE run_id = ?1 AND decision IN ('block', 'blocked')
+             )",
+            params![run.id],
+            |r| r.get(0),
+        )?;
+        let had_warned_cmd: bool = self.conn.query_row(
+            "SELECT EXISTS(
+                 SELECT 1 FROM events
+                 WHERE run_id = ?1 AND type = 'risky_command_warned'
+             )",
+            params![run.id],
+            |r| r.get(0),
+        )?;
+        let had_warning =
+            secret_warnings > 0 || had_warned_cmd || checks_status.as_deref() == Some("failed");
+
+        let outcome = RunOutcome::derive(
+            RunStatus::from_str(&run.status),
+            run.exit_code,
+            had_block,
+            had_warning,
+        )
+        .as_str()
+        .to_string();
+
         Ok(RunSummary {
             run: run.clone(),
             project_name,
@@ -607,6 +705,7 @@ impl Store {
             secret_warnings,
             estimated_cost,
             checks_status,
+            outcome,
         })
     }
 
@@ -849,6 +948,142 @@ mod tests {
             .unwrap();
         assert_eq!(summary.project_name, "My App");
         assert_eq!(summary.run.status, "completed");
+    }
+
+    /// Helper: a store with one project and one run, returning (store, run_id).
+    fn store_with_run(command: &str) -> (Store, String, String) {
+        let store = Store::open_in_memory().unwrap();
+        let project = store
+            .upsert_project(&NewProject {
+                name: "App".into(),
+                path: "/tmp/app".into(),
+                config_path: "/tmp/app/.trace/config.toml".into(),
+            })
+            .unwrap();
+        let run = store
+            .create_run(&NewRun {
+                project_id: project.id.clone(),
+                command: command.into(),
+                agent_name: None,
+                user_prompt: None,
+                starting_commit: None,
+            })
+            .unwrap();
+        (store, project.id, run.id)
+    }
+
+    #[test]
+    fn reconcile_zombie_runs_marks_running_as_interrupted() {
+        let (store, _pid, run_id) = store_with_run("claude do stuff");
+        // Fresh run is `running`.
+        assert_eq!(store.run_by_id(&run_id).unwrap().unwrap().status, "running");
+
+        let n = store.reconcile_zombie_runs().unwrap();
+        assert_eq!(n, 1);
+        let run = store.run_by_id(&run_id).unwrap().unwrap();
+        assert_eq!(run.status, "interrupted");
+        assert!(
+            run.ended_at.is_some(),
+            "interrupted run must be stamped ended"
+        );
+
+        // Idempotent: a second pass finds no more zombies.
+        assert_eq!(store.reconcile_zombie_runs().unwrap(), 0);
+    }
+
+    #[test]
+    fn reconcile_does_not_touch_terminal_runs() {
+        let (store, _pid, run_id) = store_with_run("npm test");
+        store
+            .finish_run(&run_id, RunStatus::Completed, Some(0), None)
+            .unwrap();
+        assert_eq!(store.reconcile_zombie_runs().unwrap(), 0);
+        assert_eq!(
+            store.run_by_id(&run_id).unwrap().unwrap().status,
+            "completed"
+        );
+    }
+
+    #[test]
+    fn purge_local_data_clears_telemetry_but_keeps_projects() {
+        let (store, _pid, run_id) = store_with_run("run");
+        store
+            .add_command(
+                &run_id,
+                &NewCommand {
+                    command: "ls".into(),
+                    decision: "allow".into(),
+                    exit_code: Some(0),
+                    stdout_path: None,
+                    stderr_path: None,
+                },
+            )
+            .unwrap();
+        store
+            .add_event(
+                &run_id,
+                &NewEvent {
+                    event_type: "note".into(),
+                    message: "hi".into(),
+                    metadata_json: None,
+                },
+            )
+            .unwrap();
+
+        let before = store.telemetry_counts().unwrap();
+        assert_eq!(before.runs, 1);
+        assert!(before.commands >= 1 && before.events >= 1);
+        assert!(!before.is_empty());
+
+        store.purge_local_data().unwrap();
+
+        let after = store.telemetry_counts().unwrap();
+        assert!(after.is_empty(), "everything purged: {after:?}");
+        // Projects survive so the user need not re-init.
+        assert_eq!(store.list_projects().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn command_secret_is_redacted_at_the_db_boundary() {
+        // Plant a known secret on the command line; assert the stored bytes
+        // carry only the redacted form. Split with concat! so no contiguous
+        // secret literal lives in source (GitHub push protection).
+        let raw = concat!(
+            "curl -H 'Authorization: Bearer ",
+            "abcdef0123456789ABCDEFxyzTOKEN'"
+        );
+        let secret_body = "abcdef0123456789ABCDEFxyzTOKEN";
+        let (store, _pid, run_id) = store_with_run(raw);
+
+        // The run's own command column is redacted.
+        let run = store.run_by_id(&run_id).unwrap().unwrap();
+        assert!(
+            !run.command.contains(secret_body),
+            "runs.command leaked the secret: {}",
+            run.command
+        );
+
+        // And a command row is redacted too.
+        store
+            .add_command(
+                &run_id,
+                &NewCommand {
+                    command: raw.into(),
+                    decision: "allow".into(),
+                    exit_code: None,
+                    stdout_path: None,
+                    stderr_path: None,
+                },
+            )
+            .unwrap();
+        let cmds = store.list_commands(&run_id).unwrap();
+        assert_eq!(cmds.len(), 1);
+        assert!(
+            !cmds[0].command.contains(secret_body),
+            "commands.command leaked the secret: {}",
+            cmds[0].command
+        );
+        assert!(cmds[0].command.contains("redacted"));
     }
 
     #[test]

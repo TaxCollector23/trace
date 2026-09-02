@@ -214,6 +214,11 @@ pub fn run(opts: RunOptions) -> Result<()> {
     // effect so the dashboard can show original vs. compressed size.
     if let Some(ref from) = start_state.commit {
         if let Ok(diff_text) = git::full_diff(&root, from) {
+            // Storage boundary: scrub secrets out of the unified diff before it
+            // is compressed and written to diff.patch.gz. The separate secret
+            // scan below reads the raw diff independently, so redacting the
+            // stored copy does not weaken detection.
+            let diff_text = secrets::redact_text(&diff_text);
             let (bytes, stats) = trace_core::compress_for_storage(&diff_text);
             let _ = std::fs::write(log_dir.join("diff.patch.gz"), &bytes);
             let _ = std::fs::write(
@@ -430,14 +435,21 @@ fn tee_stream<R: std::io::Read>(
     let mut file = std::fs::File::create(&log_path).ok();
     let buf = BufReader::new(reader);
     for line in buf.lines().map_while(Result::ok) {
+        // Live console output is transient and shown to the user who launched
+        // the run, so it stays verbatim. Only the *persisted* copy is scrubbed.
         if is_err {
             eprintln!("{line}");
         } else {
             println!("{line}");
         }
+        // Storage boundary: redact before the line is written to
+        // stdout.log / stderr.log so no raw secret is persisted on disk.
         if let Some(f) = file.as_mut() {
-            let _ = writeln!(f, "{line}");
+            let _ = writeln!(f, "{}", secrets::redact_text(&line));
         }
+        // The in-memory buffer keeps the raw line: it never touches disk and is
+        // needed so the secret scanner can still detect + record (redacted)
+        // findings in the derived `secrets` table.
         if let Ok(mut c) = collected.lock() {
             c.push_str(&line);
             c.push('\n');
@@ -713,4 +725,64 @@ fn print_summary(command: &str, exit_code: i32, changes: &[git::DiffEntry], stat
 
 fn print_dashboard_hint(port: u16) {
     println!("  dashboard: http://127.0.0.1:{port}  (run `trc dashboard`)");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    #[test]
+    fn tee_stream_redacts_secrets_written_to_the_log_file() {
+        // A known secret arriving on stdout must be redacted in the persisted
+        // stdout.log, never written raw to disk.
+        let secret_body = concat!("sk-ant-", "abcdefghij1234567890ABCDEFtail");
+        let line = format!("leaking ANTHROPIC_API_KEY={secret_body}\n");
+
+        let dir = std::env::temp_dir().join(format!("trace-tee-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let log_path = dir.join("stdout.log");
+
+        let collected = Arc::new(Mutex::new(String::new()));
+        tee_stream(
+            Cursor::new(line.into_bytes()),
+            log_path.clone(),
+            collected.clone(),
+            false,
+        );
+
+        let on_disk = std::fs::read_to_string(&log_path).unwrap();
+        assert!(
+            !on_disk.contains(secret_body),
+            "stdout.log leaked the raw secret: {on_disk}"
+        );
+        assert!(on_disk.contains("redacted"));
+        // The in-memory buffer keeps the raw text so the scanner can still find
+        // it (that copy never touches disk).
+        assert!(collected.lock().unwrap().contains(secret_body));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn stored_diff_pipeline_never_persists_the_raw_secret() {
+        // Mirror the diff.patch.gz storage path: redact, then compress; the
+        // compressed bytes and their decompression must both be secret-free.
+        let secret_body = concat!("AKIA", "IOSFODNN7EXAMPLE");
+        let diff = format!("+API_KEY={secret_body}\n-old line\n");
+
+        let redacted = secrets::redact_text(&diff);
+        let (bytes, _stats) = trace_core::compress_for_storage(&redacted);
+
+        // Raw secret bytes must not appear in the compressed payload…
+        let needle = secret_body.as_bytes();
+        assert!(
+            !bytes.windows(needle.len()).any(|w| w == needle),
+            "compressed diff bytes leaked the secret"
+        );
+        // …nor after decompression.
+        let back = trace_core::decompress_stored(&bytes).unwrap();
+        assert!(!back.contains(secret_body));
+        assert!(back.contains("redacted"));
+    }
 }

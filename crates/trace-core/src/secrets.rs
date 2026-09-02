@@ -109,6 +109,34 @@ pub fn scan_text(text: &str) -> Vec<SecretFinding> {
     findings
 }
 
+/// Scrub every detected secret out of `text`, replacing each match in place
+/// with its redacted form (`prefix...redacted`). Returns the sanitized string.
+///
+/// This is the **storage-boundary** filter: route any text through it *before*
+/// it is written to disk or the database (`commands.command`, `stdout.log` /
+/// `stderr.log`, `diff.patch.gz`) so the raw secret never lands in persistent
+/// storage. It is a superset of [`scan_text`] — same patterns, but it rewrites
+/// the text instead of only reporting findings. When `text` contains no secret
+/// it is returned byte-for-byte unchanged.
+pub fn redact_text(text: &str) -> String {
+    let mut out = text.to_string();
+    // Built-in patterns first, then the versioned rule-pack patterns, so the
+    // scrubber covers exactly what the scanner detects.
+    for pattern in PATTERNS.iter() {
+        out = replace_all_redacted(&out, &pattern.regex, pattern.keep);
+    }
+    for (_secret_type, keep, re) in crate::rules_pack::active().compiled_secret_patterns() {
+        out = replace_all_redacted(&out, &re, keep);
+    }
+    out
+}
+
+/// Replace every match of `re` in `text` with its redacted form.
+fn replace_all_redacted(text: &str, re: &Regex, keep: usize) -> String {
+    re.replace_all(text, |caps: &regex::Captures| redact(&caps[0], keep))
+        .into_owned()
+}
+
 /// Returns true when the file name itself indicates an environment/secret file.
 pub fn is_env_like_filename(path: &str) -> bool {
     let normalized = path.replace('\\', "/");
@@ -190,6 +218,36 @@ mod tests {
                 .iter()
                 .all(|f| f.redacted_value.ends_with("...redacted")));
         }
+    }
+
+    #[test]
+    fn redact_text_scrubs_secrets_but_keeps_surrounding_text() {
+        let raw = concat!(
+            "export ANTHROPIC_API_KEY=sk-ant-",
+            "abcdefghij1234567890ABCDEF"
+        );
+        let body = concat!("sk-ant-", "abcdefghij1234567890ABCDEF");
+        let scrubbed = redact_text(raw);
+        assert!(!scrubbed.contains(body), "leaked secret: {scrubbed}");
+        assert!(scrubbed.contains("redacted"));
+        // Non-secret context is preserved.
+        assert!(scrubbed.starts_with("export ANTHROPIC_API_KEY="));
+    }
+
+    #[test]
+    fn redact_text_is_a_noop_on_clean_text() {
+        let clean = "let total = subtotal + tax; // no secrets here";
+        assert_eq!(redact_text(clean), clean);
+    }
+
+    #[test]
+    fn redact_text_scrubs_multiple_and_mixed_secrets() {
+        let aws = concat!("AKIA", "IOSFODNN7EXAMPLE");
+        let gh = concat!("ghp", "_abcdefghijklmnopqrstuvwx0123");
+        let raw = format!("key1={aws} key2={gh}");
+        let scrubbed = redact_text(&raw);
+        assert!(!scrubbed.contains(aws));
+        assert!(!scrubbed.contains(gh));
     }
 
     #[test]

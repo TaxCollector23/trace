@@ -12,6 +12,7 @@ pub mod integrations;
 pub mod query;
 pub mod ratify;
 pub mod replay;
+pub mod reset;
 pub mod review_diff;
 pub mod rollback;
 pub mod run;

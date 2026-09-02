@@ -39,8 +39,8 @@ fn help_styles() -> Styles {
 #[command(
     name = "trc",
     bin_name = "trc",
-    // Version is handled manually (see `main`) so `--version` prints exactly
-    // "Trace 1.1".
+    // Version is handled manually (see `main`) so `--version` can print Trace
+    // version + rule-pack version + rule count together.
     disable_version_flag = true,
     about = "Trace — the trust layer for AI software engineering.",
     long_about = "Trace records what AI coding agents change, run, cost, and break, \
@@ -163,6 +163,22 @@ enum Commands {
     /// Update the trc binary to the latest GitHub release.
     #[command(hide = true)]
     Update,
+
+    /// Purge locally-stored telemetry (runs, commands, events, checkpoints, and
+    /// captured run logs) under the active TRACE_HOME. Shows exactly what will
+    /// be deleted and asks to confirm first.
+    #[command(hide = true)]
+    Reset {
+        /// Purge local run telemetry. Required target for `reset`.
+        #[arg(long)]
+        local_data: bool,
+        /// Skip the confirmation prompt (for scripting).
+        #[arg(short = 'y', long)]
+        yes: bool,
+        /// Show what would be deleted, then exit without deleting.
+        #[arg(long)]
+        dry_run: bool,
+    },
 
     /// Run Trace's own policy-engine benchmark (labeled fixtures, precision/recall).
     #[command(hide = true)]
@@ -310,10 +326,11 @@ fn main() {
         print_banner();
     }
 
-    // Handle `--version` / `-V` manually so the output is exactly "Trace 1.3".
-    // clap's built-in flag is disabled for this reason.
+    // Handle `--version` / `-V` manually so it shows Trace version + rule-pack
+    // version + rule count on one line. clap's built-in flag is disabled for
+    // this reason.
     if args.iter().any(|a| a == "--version" || a == "-V") {
-        println!("{}", trace_core::version_string());
+        println!("{}", trace_core::version_details());
         return;
     }
 
@@ -375,6 +392,15 @@ fn real_main() -> Result<()> {
         },
         Commands::Rollback { yes } => commands::rollback::run(yes),
         Commands::Update => commands::update::run(),
+        Commands::Reset {
+            local_data,
+            yes,
+            dry_run,
+        } => commands::reset::run(commands::reset::ResetOptions {
+            local_data,
+            yes,
+            dry_run,
+        }),
         Commands::SelfCheck => commands::self_check::run(),
         Commands::ReviewDiff {
             range,

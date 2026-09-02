@@ -44,6 +44,21 @@ pub fn run() -> Result<()> {
         colors::bold(&format!("Trace doctor — v{}", trace_core::VERSION))
     );
 
+    // Version + rule-pack provenance, so `doctor` and `--version` agree and a
+    // user can see exactly which rules are active.
+    heading("Version:");
+    line("trace", true, &format!("v{}", trace_core::VERSION));
+    line(
+        "rule pack",
+        true,
+        &format!(
+            "{} ({} rules)",
+            trace_core::rule_pack_version(),
+            trace_core::rule_count()
+        ),
+    );
+    println!();
+
     // Core toolchain.
     heading("Toolchain:");
     match tool_version("git", &["--version"]) {
