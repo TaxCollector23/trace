@@ -1,11 +1,13 @@
-//! Wires a `Store` + run id through mapping -> analysis -> incident
-//! derivation. This is the single entry point the daemon's read-only intel
+//! Wires a `Store` + run id through mapping -> analysis -> correlation ->
+//! causality. This is the single entry point the daemon's read-only intel
 //! routes call; nothing else in `trace-daemon` needs to know how the pieces
 //! fit together.
 
 use anyhow::Result;
 
-use crate::intel::incident::{self, Incident};
+use crate::intel::causality::{self, EventCausality};
+use crate::intel::correlation;
+use crate::intel::incident::Incident;
 use crate::intel::mapper;
 use crate::intel::registry::{self, AnalyzerContext, AnalyzerReport};
 use crate::intel::{NormalizedEvent, Signal};
@@ -15,7 +17,12 @@ use crate::Store;
 pub struct IntelBundle {
     pub events: Vec<NormalizedEvent>,
     pub signals: Vec<Signal>,
+    /// Signals correlated into incidents — see `intel::correlation` for the
+    /// grouping/escalation policy.
     pub incidents: Vec<Incident>,
+    /// Likely cause -> effect chains between events — see `intel::causality`
+    /// for the never-from-temporal-proximity-alone mandate this enforces.
+    pub causality: Vec<EventCausality>,
     /// Per-analyzer status, including any `unavailable: <reason>` — not part
     /// of the wire contract the UI reads, but available to callers/tests that
     /// want to distinguish "checked, found nothing" from "could not check".
@@ -41,12 +48,14 @@ pub fn run_intel_pipeline(store: &Store, run_id: &str) -> Result<Option<IntelBun
         store,
     };
     let (signals, reports) = registry::run_all(&ctx);
-    let incidents = incident::derive_incidents(run_id, &signals, &events);
+    let incidents = correlation::correlate_signals(run_id, &signals, &events);
+    let causal_links = causality::compute_causal_links(&events);
 
     Ok(Some(IntelBundle {
         events,
         signals,
         incidents,
+        causality: causal_links,
         reports,
     }))
 }
@@ -121,5 +130,22 @@ mod tests {
             .as_deref()
             .unwrap()
             .starts_with("unavailable:"));
+
+        // The six identical, back-to-back `npm test` commands also give the
+        // causality engine a real shared-target-plus-temporal-proximity
+        // relationship to find (never from temporal proximity alone).
+        assert!(
+            !bundle.causality.is_empty(),
+            "expected causal links between the repeated commands"
+        );
+        let has_structural_basis = bundle.causality.iter().any(|c| {
+            c.likely_causes
+                .iter()
+                .any(|l| l.basis.iter().any(|b| b != "temporal_proximity"))
+        });
+        assert!(
+            has_structural_basis,
+            "every causal link must carry a structural basis beyond temporal proximity"
+        );
     }
 }

@@ -1,12 +1,17 @@
 //! Read-only routes for the deterministic intelligence spine
-//! (`trace_core::intel`): normalized events, signals, and incidents for a
-//! run. Mounted into `api::router()` via a single `.merge(...)` line.
+//! (`trace_core::intel`): normalized events, signals, correlated incidents,
+//! and causal links for a run. Mounted into `api::router()` via a single
+//! `.merge(...)` line.
 //!
 //! Every handler here is read-only against the existing `Store` — nothing in
 //! this file executes a command, writes a file, or mutates any Trace state.
-//! Shapes match `apps/web/src/data.ts`'s `NormalizedEvent`, `Signal`, and
-//! `Incident` interfaces exactly, so the v4 dashboard lights up with no
-//! further UI changes.
+//! `events`/`signals`/`incidents` shapes match `apps/web/src/data.ts`'s
+//! `NormalizedEvent`, `Signal`, and `Incident` interfaces (the `Incident`
+//! shape has one additive `evidence` field beyond that interface — extra JSON
+//! fields are ignored by consumers that don't know about them yet), so the v4
+//! dashboard lights up with no further UI changes. `causality` is a new
+//! Wave 2 endpoint with no `apps/web` consumer yet (see `intel::causality`'s
+//! module docs for why it is its own endpoint).
 
 use axum::{
     extract::{Path, State},
@@ -27,6 +32,7 @@ pub fn router() -> Router<AppState> {
         .route("/runs/:id/events", get(normalized_events))
         .route("/runs/:id/signals", get(signals))
         .route("/runs/:id/incidents", get(incidents))
+        .route("/runs/:id/causality", get(causality))
 }
 
 // Mirrors `api::ApiError` exactly (kept local so this module has no
@@ -97,6 +103,17 @@ async fn incidents(
     let bundle = trace_core::intel::run_intel_pipeline(&store(&state), &id)?
         .ok_or_else(|| ApiError::not_found("run"))?;
     Ok(Json(bundle.incidents))
+}
+
+/// `GET /api/runs/:id/causality` -> `EventCausality[]` (one entry per event
+/// that has at least one likely cause or effect — see `intel::causality`).
+async fn causality(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<impl IntoResponse> {
+    let bundle = trace_core::intel::run_intel_pipeline(&store(&state), &id)?
+        .ok_or_else(|| ApiError::not_found("run"))?;
+    Ok(Json(bundle.causality))
 }
 
 #[cfg(test)]
@@ -205,6 +222,77 @@ mod tests {
         assert_eq!(arr[0]["algorithm_id"], "retry_loop_v1");
     }
 
+    /// The endpoint this Wave 2 task exists to fix: 4 identical trailing
+    /// commands produce a Medium-severity `retry_loop` signal, which now
+    /// correlates into a real, non-empty incident (Wave 1 only escalated
+    /// `High` severity, so this run's incidents were empty before).
+    #[tokio::test]
+    async fn incidents_route_surfaces_a_correlated_incident() {
+        let (state, run_id) = test_state_with_run();
+        let resp = router()
+            .with_state(state)
+            .oneshot(
+                Request::get(format!("/runs/{run_id}/incidents"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        let arr = json.as_array().unwrap();
+        assert_eq!(
+            arr.len(),
+            1,
+            "expected the retry_loop signal to correlate into one incident"
+        );
+        assert_eq!(arr[0]["status"], "open");
+        assert!(arr[0]["evidence"].as_array().unwrap().len() >= 4);
+        for field in [
+            "id",
+            "run_id",
+            "severity",
+            "status",
+            "title",
+            "summary",
+            "signal_ids",
+            "evidence",
+            "first_seen",
+            "last_seen",
+        ] {
+            assert!(arr[0].get(field).is_some(), "missing field {field}");
+        }
+    }
+
+    #[tokio::test]
+    async fn causality_route_returns_array_shape() {
+        let (state, run_id) = test_state_with_run();
+        let resp = router()
+            .with_state(state)
+            .oneshot(
+                Request::get(format!("/runs/{run_id}/causality"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        // The 4 identical commands share a target and were recorded close in
+        // time, so this must be a non-empty, well-shaped result.
+        let arr = json.as_array().unwrap();
+        assert!(!arr.is_empty());
+        for field in ["event_id", "likely_causes", "likely_effects"] {
+            assert!(arr[0].get(field).is_some(), "missing field {field}");
+        }
+    }
+
     #[tokio::test]
     async fn unknown_run_id_is_404_on_every_route() {
         let state = test_state();
@@ -212,6 +300,7 @@ mod tests {
             "/runs/does-not-exist/events",
             "/runs/does-not-exist/signals",
             "/runs/does-not-exist/incidents",
+            "/runs/does-not-exist/causality",
         ] {
             let resp = router()
                 .with_state(state.clone())
