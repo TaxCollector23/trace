@@ -103,6 +103,10 @@ export default function RunPage() {
   const policyRes = useResource((s) => (currentId ? runApi.policy(currentId, s) : neverResolve()), {
     deps: [currentId],
   });
+  const similarRes = useResource(
+    (s) => (currentId ? v4.similarRuns(currentId, s) : neverResolve()),
+    { deps: [currentId] }
+  );
 
   const run = runRes.resource.state === "ok" ? runRes.resource.data : active ?? null;
 
@@ -139,6 +143,7 @@ export default function RunPage() {
     commandsRes.reload();
     filesRes.reload();
     diffRes.reload();
+    similarRes.reload();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -511,6 +516,55 @@ export default function RunPage() {
         </ResourceGate>
       </section>
 
+      {/* Similar runs: deterministic same-project similarity search ------ */}
+      <section aria-label="Similar runs">
+        <h2 className="section-title">Similar runs</h2>
+        <ResourceGate
+          resource={similarRes.resource}
+          what="similar runs"
+          onRetry={similarRes.reload}
+          empty={
+            <div className="v4-empty muted">
+              Not enough comparable runs in this project yet.
+            </div>
+          }
+        >
+          {(matches) => (
+            <div className="v4-similar-list">
+              {matches.map((m) => (
+                <div key={m.run_id} className="v4-similar-row">
+                  <div className="v4-similar-pct">{Math.round(m.similarity * 100)}%</div>
+                  <div className="v4-similar-body">
+                    <div className="v4-similar-head">
+                      <span className="mono v4-cmd-cell">{m.command}</span>
+                      <span className={`pill ${m.outcome.toLowerCase()}`}>
+                        {m.outcome.replace(/_/g, " ")}
+                      </span>
+                    </div>
+                    <div className="muted v4-similar-meta">
+                      {fmtDuration(m.duration_seconds)} · {relTime(m.started_at)}
+                    </div>
+                  </div>
+                  <div className="v4-similar-actions">
+                    <button className="btn-ghost" onClick={() => navigate(`/run/${m.run_id}`)}>
+                      Open
+                    </button>
+                    {currentId && (
+                      <button
+                        className="btn-ghost"
+                        onClick={() => navigate(`/compare?a=${currentId}&b=${m.run_id}`)}
+                      >
+                        Compare
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </ResourceGate>
+      </section>
+
       {/* Controls: checkpoints, rollback, cost --------------------------- */}
       <section ref={refs.controls} id="sec-controls" aria-label="Controls">
         <h2 className="section-title">Controls</h2>
@@ -593,7 +647,14 @@ function durationOf(start: string, end: string | null): string {
   const s = new Date(start).getTime();
   const e = end ? new Date(end).getTime() : Date.now();
   if (Number.isNaN(s) || Number.isNaN(e) || e < s) return "—";
-  const sec = Math.round((e - s) / 1000);
+  return fmtDuration(Math.round((e - s) / 1000));
+}
+
+/** Format a whole-second duration honestly: `null`/negative means the
+ * duration is not known (still running, or malformed timestamps) rather
+ * than guessed at zero. Exported for reuse by the compare page. */
+export function fmtDuration(sec: number | null): string {
+  if (sec == null || sec < 0) return "duration unknown";
   if (sec < 60) return `${sec}s`;
   const min = Math.floor(sec / 60);
   if (min < 60) return `${min}m ${sec % 60}s`;

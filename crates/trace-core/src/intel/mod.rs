@@ -20,6 +20,8 @@
 //! - [`analyzers`] — the concrete analyzers (retry-loop, volume anomaly).
 //! - [`pipeline`] — wires a `Store` + run id through mapping → analysis →
 //!   incident derivation. This is what the daemon route handlers call.
+//! - [`similarity`] — same-project "find similar runs" ranking and the
+//!   cross-run execution-behavior diff (Wave 2, Agent 2).
 
 pub mod analyzers;
 pub mod event;
@@ -28,6 +30,7 @@ pub mod mapper;
 pub mod pipeline;
 pub mod registry;
 pub mod signal;
+pub mod similarity;
 
 pub use event::{EventStatus, NormalizedEvent, RiskLevel};
 pub use incident::Incident;
@@ -35,3 +38,7 @@ pub use mapper::normalize_run;
 pub use pipeline::{run_intel_pipeline, IntelBundle};
 pub use registry::{Analyzer, AnalyzerContext, AnalyzerOutcome, AnalyzerReport};
 pub use signal::{confidence, Signal, SignalExplanation, SignalKind};
+pub use similarity::{
+    compare_runs, find_similar_runs, CommandFamily, RunComparison, RunCounts, SimilarRun,
+    DEFAULT_SIMILAR_LIMIT, MIN_COMPARABLE_RUNS, MIN_SIMILARITY,
+};
