@@ -549,6 +549,58 @@ pub struct PolicyFindingRecord {
     pub created_at: String,
 }
 
+// --- Integration coverage / health --------------------------------------
+//
+// Real telemetry activity for one agent, aggregated from `runs.agent_name`
+// joined against every child table that records evidence (events, commands,
+// file_changes, test_results). Counts and timestamps only — never fabricated,
+// never guessed. Used by the daemon's `/api/integrations/coverage` route
+// (see `trace-daemon::health_routes`) and `Store::agent_activity`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct AgentActivity {
+    pub events_count: i64,
+    pub commands_count: i64,
+    pub files_count: i64,
+    pub tests_count: i64,
+    pub last_activity_at: Option<String>,
+}
+
+impl AgentActivity {
+    /// True when *any* table recorded at least one row for this agent.
+    pub fn has_activity(&self) -> bool {
+        self.events_count > 0
+            || self.commands_count > 0
+            || self.files_count > 0
+            || self.tests_count > 0
+    }
+}
+
+// --- Data-integrity scan ---------------------------------------------------
+//
+// One concrete, evidence-backed finding from scanning a single run's recorded
+// rows for corruption: missing ids, duplicate ids, timestamps that go
+// backwards, or a row whose `run_id` doesn't match the run it was fetched
+// under. See `Store::integrity_scan` for how these are produced — always a
+// real SQL scan over the run's own rows, never a heuristic guess.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrityIssue {
+    /// "high" | "medium" | "low"
+    pub severity: String,
+    /// "missing_id" | "duplicate_id" | "out_of_order_timestamp" |
+    /// "orphaned_reference" | "unknown_run_reference"
+    pub kind: String,
+    pub table: String,
+    pub detail: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntegrityReport {
+    pub run_id: String,
+    pub ok: bool,
+    pub rows_scanned: i64,
+    pub issues: Vec<IntegrityIssue>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

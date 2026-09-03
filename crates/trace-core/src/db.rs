@@ -815,6 +815,222 @@ impl Store {
         };
         Ok(counts)
     }
+
+    // --- Integration coverage / health -------------------------------------
+
+    /// Real telemetry activity recorded for one agent (`runs.agent_name`),
+    /// aggregated across every child table that records evidence. Pure SQL
+    /// counts/aggregates over the local database — no fabrication, no
+    /// estimation. Used by the daemon's `/api/integrations/coverage` route to
+    /// answer "is this agent actually sending Trace anything?" with real
+    /// numbers instead of a hardcoded green badge.
+    pub fn agent_activity(&self, agent_name: &str) -> Result<AgentActivity> {
+        let count = |sql: &str| -> Result<i64> {
+            Ok(self
+                .conn
+                .query_row(sql, params![agent_name], |r| r.get(0))?)
+        };
+        let max_ts = |sql: &str| -> Result<Option<String>> {
+            Ok(self
+                .conn
+                .query_row(sql, params![agent_name], |r| r.get(0))?)
+        };
+
+        let events_count = count(
+            "SELECT COUNT(*) FROM events e JOIN runs r ON r.id = e.run_id WHERE r.agent_name = ?1",
+        )?;
+        let commands_count = count(
+            "SELECT COUNT(*) FROM commands c JOIN runs r ON r.id = c.run_id WHERE r.agent_name = ?1",
+        )?;
+        let files_count = count(
+            "SELECT COUNT(*) FROM file_changes f JOIN runs r ON r.id = f.run_id WHERE r.agent_name = ?1",
+        )?;
+        let tests_count = count(
+            "SELECT COUNT(*) FROM test_results t JOIN runs r ON r.id = t.run_id WHERE r.agent_name = ?1",
+        )?;
+
+        let mut last_activity_at: Option<String> = None;
+        for sql in [
+            "SELECT MAX(e.created_at) FROM events e JOIN runs r ON r.id = e.run_id WHERE r.agent_name = ?1",
+            "SELECT MAX(c.created_at) FROM commands c JOIN runs r ON r.id = c.run_id WHERE r.agent_name = ?1",
+            "SELECT MAX(f.created_at) FROM file_changes f JOIN runs r ON r.id = f.run_id WHERE r.agent_name = ?1",
+            "SELECT MAX(t.created_at) FROM test_results t JOIN runs r ON r.id = t.run_id WHERE r.agent_name = ?1",
+        ] {
+            if let Some(ts) = max_ts(sql)? {
+                let newer = match &last_activity_at {
+                    None => true,
+                    Some(cur) => ts.as_str() > cur.as_str(),
+                };
+                if newer {
+                    last_activity_at = Some(ts);
+                }
+            }
+        }
+
+        Ok(AgentActivity {
+            events_count,
+            commands_count,
+            files_count,
+            tests_count,
+            last_activity_at,
+        })
+    }
+
+    /// Most recent telemetry write across the whole database (any run, any
+    /// agent) — the real "when did the daemon last actually ingest
+    /// something" signal behind the `/api/health` freshness fields. `None`
+    /// means no telemetry has ever been recorded, not an error.
+    pub fn last_ingested_at(&self) -> Result<Option<String>> {
+        let mut latest: Option<String> = None;
+        for sql in [
+            "SELECT MAX(created_at) FROM events",
+            "SELECT MAX(created_at) FROM commands",
+            "SELECT MAX(created_at) FROM file_changes",
+            "SELECT MAX(created_at) FROM test_results",
+            "SELECT MAX(created_at) FROM runs",
+        ] {
+            let v: Option<String> = self.conn.query_row(sql, [], |r| r.get(0))?;
+            if let Some(ts) = v {
+                let newer = match &latest {
+                    None => true,
+                    Some(cur) => ts.as_str() > cur.as_str(),
+                };
+                if newer {
+                    latest = Some(ts);
+                }
+            }
+        }
+        Ok(latest)
+    }
+
+    /// Scan every row recorded for one run (events, commands, file_changes,
+    /// test_results, checkpoints) for concrete corruption signals: an empty
+    /// id, a duplicate id, a timestamp that goes backwards relative to
+    /// insertion order, or a row whose `run_id` doesn't match the run it was
+    /// fetched under (defense-in-depth — should be structurally impossible
+    /// given a parameterized `WHERE run_id = ?`, but a real scan checks it
+    /// rather than assuming it). Also checks that the run's own
+    /// `project_id` still resolves to a real project. Returns `Ok(None)` if
+    /// the run itself does not exist, so callers can map that to a 404
+    /// instead of a scan result.
+    pub fn integrity_scan(&self, run_id: &str) -> Result<Option<IntegrityReport>> {
+        let project_id: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT project_id FROM runs WHERE id = ?1",
+                params![run_id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        let Some(project_id) = project_id else {
+            return Ok(None);
+        };
+
+        let mut issues = Vec::new();
+        let mut rows_scanned: i64 = 0;
+
+        let project_exists: bool = self.conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?1)",
+            params![project_id],
+            |r| r.get(0),
+        )?;
+        if !project_exists {
+            issues.push(IntegrityIssue {
+                severity: "high".to_string(),
+                kind: "unknown_run_reference".to_string(),
+                table: "runs".to_string(),
+                detail: format!(
+                    "run {run_id} references project_id {project_id}, which does not exist in projects"
+                ),
+            });
+        }
+
+        for table in [
+            "events",
+            "commands",
+            "file_changes",
+            "test_results",
+            "checkpoints",
+        ] {
+            let mut stmt = self.conn.prepare(&format!(
+                "SELECT id, run_id, created_at FROM {table} WHERE run_id = ?1 ORDER BY rowid ASC"
+            ))?;
+            let rows: Vec<(String, String, String)> = stmt
+                .query_map(params![run_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            rows_scanned += rows.len() as i64;
+            issues.extend(scan_rows_for_issues(table, run_id, &rows));
+        }
+
+        Ok(Some(IntegrityReport {
+            run_id: run_id.to_string(),
+            ok: issues.is_empty(),
+            rows_scanned,
+            issues,
+        }))
+    }
+}
+
+/// Pure per-table integrity check over already-fetched `(id, run_id,
+/// created_at)` rows, in the order they were inserted (rowid order). No I/O —
+/// this is the core scan logic `Store::integrity_scan` calls once per table,
+/// factored out so it can be unit-tested directly with synthetic fixtures
+/// (some corruption shapes, like a duplicate primary key, can never actually
+/// occur through the real DB — SQLite's own `PRIMARY KEY` constraint forbids
+/// it — so this is the only way to exercise that branch, and it also
+/// documents that the check exists as defense-in-depth for any future
+/// ingestion path that doesn't go through this schema).
+fn scan_rows_for_issues(
+    table: &'static str,
+    expected_run_id: &str,
+    rows: &[(String, String, String)],
+) -> Vec<IntegrityIssue> {
+    let mut issues = Vec::new();
+    let mut seen_ids = std::collections::HashSet::new();
+    let mut prev_ts: Option<&str> = None;
+
+    for (id, row_run_id, created_at) in rows {
+        if id.trim().is_empty() {
+            issues.push(IntegrityIssue {
+                severity: "high".to_string(),
+                kind: "missing_id".to_string(),
+                table: table.to_string(),
+                detail: "row has an empty id".to_string(),
+            });
+        } else if !seen_ids.insert(id.as_str()) {
+            issues.push(IntegrityIssue {
+                severity: "high".to_string(),
+                kind: "duplicate_id".to_string(),
+                table: table.to_string(),
+                detail: format!("id {id} appears more than once"),
+            });
+        }
+
+        if row_run_id != expected_run_id {
+            issues.push(IntegrityIssue {
+                severity: "high".to_string(),
+                kind: "orphaned_reference".to_string(),
+                table: table.to_string(),
+                detail: format!("row {id} carries run_id {row_run_id}, expected {expected_run_id}"),
+            });
+        }
+
+        if let Some(prev) = prev_ts {
+            if created_at.as_str() < prev {
+                issues.push(IntegrityIssue {
+                    severity: "medium".to_string(),
+                    kind: "out_of_order_timestamp".to_string(),
+                    table: table.to_string(),
+                    detail: format!(
+                        "row {id} created_at {created_at} precedes an earlier row's {prev}"
+                    ),
+                });
+            }
+        }
+        prev_ts = Some(created_at.as_str());
+    }
+
+    issues
 }
 
 // --- Row mappers ----------------------------------------------------------
@@ -1542,5 +1758,257 @@ mod tests {
             .comparable_run_command_counts(&project.id, None, &target.id, 50)
             .unwrap();
         assert_eq!(by_project_only.len(), 3);
+    }
+
+    // --- Integration coverage / health --------------------------------
+
+    #[test]
+    fn agent_activity_counts_only_that_agents_runs() {
+        let store = Store::open_in_memory().unwrap();
+        let project = seed_project(&store, "/p");
+        let claude_run = seed_run(&store, &project, Some("claude"));
+        let codex_run = seed_run(&store, &project, Some("codex"));
+
+        store
+            .add_command(
+                &claude_run,
+                &NewCommand {
+                    command: "ls".into(),
+                    decision: "allow".into(),
+                    exit_code: Some(0),
+                    stdout_path: None,
+                    stderr_path: None,
+                },
+            )
+            .unwrap();
+        store
+            .add_event(
+                &claude_run,
+                &NewEvent {
+                    event_type: "note".into(),
+                    message: "hi".into(),
+                    metadata_json: None,
+                },
+            )
+            .unwrap();
+        store
+            .add_command(
+                &codex_run,
+                &NewCommand {
+                    command: "pwd".into(),
+                    decision: "allow".into(),
+                    exit_code: Some(0),
+                    stdout_path: None,
+                    stderr_path: None,
+                },
+            )
+            .unwrap();
+
+        let claude = store.agent_activity("claude").unwrap();
+        assert_eq!(claude.commands_count, 1);
+        assert_eq!(claude.events_count, 1);
+        assert_eq!(claude.files_count, 0);
+        assert!(claude.has_activity());
+        assert!(claude.last_activity_at.is_some());
+
+        let codex = store.agent_activity("codex").unwrap();
+        assert_eq!(codex.commands_count, 1);
+        assert_eq!(codex.events_count, 0);
+
+        // An agent with a connected integration but zero recorded telemetry
+        // must report zero counts and no fabricated activity, not an error.
+        let windsurf = store.agent_activity("windsurf").unwrap();
+        assert!(!windsurf.has_activity());
+        assert!(windsurf.last_activity_at.is_none());
+    }
+
+    #[test]
+    fn last_ingested_at_tracks_the_most_recent_write_across_tables() {
+        let store = Store::open_in_memory().unwrap();
+        assert!(
+            store.last_ingested_at().unwrap().is_none(),
+            "a fresh store has no telemetry yet"
+        );
+
+        let project = seed_project(&store, "/p");
+        let run_id = seed_run(&store, &project, Some("claude"));
+        // Creating the run itself is a write `last_ingested_at` must see.
+        assert!(store.last_ingested_at().unwrap().is_some());
+
+        store
+            .add_event(
+                &run_id,
+                &NewEvent {
+                    event_type: "note".into(),
+                    message: "hi".into(),
+                    metadata_json: None,
+                },
+            )
+            .unwrap();
+        assert!(store.last_ingested_at().unwrap().is_some());
+    }
+
+    #[test]
+    fn integrity_scan_reports_clean_for_well_formed_run() {
+        let store = Store::open_in_memory().unwrap();
+        let project = seed_project(&store, "/p");
+        let run_id = seed_run(&store, &project, Some("claude"));
+        store
+            .add_event(
+                &run_id,
+                &NewEvent {
+                    event_type: "note".into(),
+                    message: "one".into(),
+                    metadata_json: None,
+                },
+            )
+            .unwrap();
+        store
+            .add_event(
+                &run_id,
+                &NewEvent {
+                    event_type: "note".into(),
+                    message: "two".into(),
+                    metadata_json: None,
+                },
+            )
+            .unwrap();
+
+        let report = store.integrity_scan(&run_id).unwrap().unwrap();
+        assert!(report.ok, "expected no issues, got {:?}", report.issues);
+        assert_eq!(report.rows_scanned, 2);
+    }
+
+    #[test]
+    fn integrity_scan_returns_none_for_unknown_run() {
+        let store = Store::open_in_memory().unwrap();
+        assert!(store.integrity_scan("does-not-exist").unwrap().is_none());
+    }
+
+    #[test]
+    fn integrity_scan_flags_missing_ids_and_reordered_timestamps() {
+        let store = Store::open_in_memory().unwrap();
+        let project = seed_project(&store, "/p");
+        let run_id = seed_run(&store, &project, Some("claude"));
+
+        // Insert rows directly (bypassing add_event's id generation) to plant
+        // the exact corruption shapes the scan must catch. A duplicate id
+        // can't be planted this way — `events.id` is a `PRIMARY KEY`, so
+        // SQLite itself refuses a second row with the same id. That branch is
+        // covered separately, directly against `scan_rows_for_issues`, in
+        // `scan_rows_for_issues_flags_duplicate_missing_orphan_and_reorder`
+        // below.
+        store
+            .conn
+            .execute(
+                "INSERT INTO events (id, run_id, type, message, metadata_json, created_at)
+                 VALUES ('e1', ?1, 'note', 'a', NULL, '2026-01-01T00:00:02Z')",
+                params![run_id],
+            )
+            .unwrap();
+        store
+            .conn
+            .execute(
+                "INSERT INTO events (id, run_id, type, message, metadata_json, created_at)
+                 VALUES ('', ?1, 'note', 'b', NULL, '2026-01-01T00:00:01Z')",
+                params![run_id],
+            )
+            .unwrap();
+
+        let report = store.integrity_scan(&run_id).unwrap().unwrap();
+        assert!(!report.ok);
+        assert_eq!(report.rows_scanned, 2);
+        assert!(report.issues.iter().any(|i| i.kind == "missing_id"));
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.kind == "out_of_order_timestamp"));
+    }
+
+    #[test]
+    fn scan_rows_for_issues_flags_duplicate_missing_orphan_and_reorder() {
+        // Pure-function fixture: synthetic rows that could never come out of
+        // the real schema (duplicate primary key) alongside ones that could
+        // (empty id, wrong run_id, timestamps going backwards).
+        let rows = vec![
+            (
+                "a".to_string(),
+                "run-1".to_string(),
+                "2026-01-01T00:00:01Z".to_string(),
+            ),
+            (
+                "a".to_string(),
+                "run-1".to_string(),
+                "2026-01-01T00:00:02Z".to_string(),
+            ),
+            (
+                "".to_string(),
+                "run-1".to_string(),
+                "2026-01-01T00:00:03Z".to_string(),
+            ),
+            (
+                "b".to_string(),
+                "run-1".to_string(),
+                "2026-01-01T00:00:00Z".to_string(),
+            ),
+            (
+                "c".to_string(),
+                "some-other-run".to_string(),
+                "2026-01-01T00:00:05Z".to_string(),
+            ),
+        ];
+
+        let issues = scan_rows_for_issues("events", "run-1", &rows);
+
+        assert!(issues.iter().any(|i| i.kind == "duplicate_id"));
+        assert!(issues.iter().any(|i| i.kind == "missing_id"));
+        assert!(issues.iter().any(|i| i.kind == "out_of_order_timestamp"));
+        assert!(issues.iter().any(|i| i.kind == "orphaned_reference"));
+        assert!(issues.iter().all(|i| i.table == "events"));
+    }
+
+    #[test]
+    fn scan_rows_for_issues_is_clean_for_well_formed_rows() {
+        let rows = vec![
+            (
+                "a".to_string(),
+                "run-1".to_string(),
+                "2026-01-01T00:00:01Z".to_string(),
+            ),
+            (
+                "b".to_string(),
+                "run-1".to_string(),
+                "2026-01-01T00:00:02Z".to_string(),
+            ),
+        ];
+        assert!(scan_rows_for_issues("events", "run-1", &rows).is_empty());
+    }
+
+    #[test]
+    fn integrity_scan_flags_unknown_run_reference_when_project_is_gone() {
+        let store = Store::open_in_memory().unwrap();
+        let project = seed_project(&store, "/p");
+        let run_id = seed_run(&store, &project, Some("claude"));
+
+        // Simulate a project row that has since disappeared. Foreign keys
+        // normally forbid this (runs.project_id REFERENCES projects(id)), so
+        // this can only happen via external corruption or a future migration
+        // bug — exactly what this check exists to catch — hence disabling
+        // enforcement here to construct the fixture.
+        store
+            .conn
+            .execute_batch("PRAGMA foreign_keys = OFF;")
+            .unwrap();
+        store
+            .conn
+            .execute("DELETE FROM projects WHERE id = ?1", params![project])
+            .unwrap();
+
+        let report = store.integrity_scan(&run_id).unwrap().unwrap();
+        assert!(!report.ok);
+        assert!(report
+            .issues
+            .iter()
+            .any(|i| i.kind == "unknown_run_reference"));
     }
 }

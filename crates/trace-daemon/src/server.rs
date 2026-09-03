@@ -122,7 +122,7 @@ fn build_router(state: AppState) -> Router {
         ]))
         .allow_headers(tower_http::cors::AllowHeaders::any());
     Router::new()
-        .nest("/api", api::router())
+        .nest("/api", api::router().merge(crate::health_routes::router()))
         .fallback(assets::static_handler)
         .layer(cors)
         .layer(middleware::from_fn(security_headers))
