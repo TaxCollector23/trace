@@ -129,13 +129,37 @@ pub fn run(path: &str) -> Result<()> {
         paint(worst, worst.as_str()),
     );
 
-    // Exit non-zero when anything needs approval or a hard block, so CI can gate.
-    if rank(worst) >= rank(Decision::RequireApproval) {
-        anyhow::bail!(
-            "check failed: found {} finding(s) at {} or higher",
+    // Exit non-zero when anything needs approval or a hard block, so CI can
+    // gate on it. This is an intentional, expected outcome of the scan — not
+    // a crash — so it prints its own summary and exits directly rather than
+    // going through the generic error path (which would append a
+    // "Re-run with TRACE_DEBUG=1" footer meant for real internal failures).
+    if should_fail(worst) {
+        println!(
+            "\n{} found {} finding(s) at {} or higher.",
+            colors::red("check failed:"),
             flagged + secrets.len(),
             Decision::RequireApproval.as_str()
         );
+        std::process::exit(1);
     }
     Ok(())
+}
+
+/// The CI gate: fail when the worst finding is at least `require_approval`.
+fn should_fail(worst: Decision) -> bool {
+    rank(worst) >= rank(Decision::RequireApproval)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gate_fails_at_require_approval_and_block_only() {
+        assert!(!should_fail(Decision::Allow));
+        assert!(!should_fail(Decision::Warn));
+        assert!(should_fail(Decision::RequireApproval));
+        assert!(should_fail(Decision::Block));
+    }
 }

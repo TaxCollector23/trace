@@ -68,7 +68,6 @@ enum Commands {
     },
 
     /// Run a command under Trace monitoring (e.g. `trc run "claude fix the bug"`).
-    #[command(hide = true)]
     Run {
         /// The command to wrap. Quote multi-word commands.
         #[arg(required = true, trailing_var_arg = true, num_args = 1..)]
@@ -82,33 +81,29 @@ enum Commands {
     },
 
     /// Open the local dashboard in your browser (starts the daemon if needed).
-    #[command(hide = true)]
     Dashboard,
 
     /// Run system checks (toolchain, clipboard, daemon, agents, paths).
-    #[command(hide = true)]
     Doctor,
 
     /// Scan the current project and print its detected stack.
     #[command(hide = true)]
     Scan,
 
-    /// Run a file's contents through Trace's detection engines (command guard +
-    /// secret scanner) without executing anything. Exits non-zero on a
-    /// require_approval/block finding — usable as a CI gate. Use `-` to read
-    /// from stdin.
-    #[command(hide = true)]
+    /// Scan a file for risky commands and secrets without executing it.
+    ///
+    /// Runs the same command guard and secret scanner used at runtime, and
+    /// exits non-zero on a require_approval/block finding — usable as a CI
+    /// gate. Use `-` to read from stdin.
     Check {
         /// Path to the file to scan, or `-` for stdin.
         file: String,
     },
 
     /// List recent runs.
-    #[command(hide = true)]
     Runs,
 
     /// Show a run's summary and timeline.
-    #[command(hide = true)]
     Show { run_id: String },
 
     /// Replay a run's events, commands, and file changes in the order they
@@ -153,7 +148,6 @@ enum Commands {
     },
 
     /// Roll back to the most recent checkpoint (Git-based, with confirmation).
-    #[command(hide = true)]
     Rollback {
         /// Skip the confirmation prompt.
         #[arg(short = 'y', long)]

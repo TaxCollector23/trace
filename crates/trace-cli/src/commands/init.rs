@@ -34,8 +34,12 @@ pub fn run() -> Result<()> {
         return Ok(());
     }
 
-    // 2-4. Inspect the repository.
+    // 2-4. Inspect the repository. Capture the dirty check BEFORE writing
+    // anything under .trace/ — writing config.toml/.gitignore first would
+    // make init's own untracked directory register as "uncommitted changes"
+    // in the very check meant to report the repo's pre-existing state.
     let is_git = git::is_git_repo(&root);
+    let was_dirty = is_git && git::capture_state(&root).dirty;
     let github_repo = git::remote_url(&root)
         .as_deref()
         .and_then(github::parse_remote)
@@ -54,9 +58,12 @@ pub fn run() -> Result<()> {
     config.default_branch = branch.clone();
     config.save(&config_path)?;
 
-    // Keep captured run logs out of the user's git history.
+    // Keep the whole .trace/ directory (including this .gitignore) out of the
+    // user's git history — `*` here is relative to .trace/ itself, so it
+    // covers config.toml, runs/, and any future files without needing the
+    // parent repo's own .gitignore touched.
     let gitignore = paths::project_dir(&root).join(".gitignore");
-    std::fs::write(&gitignore, "runs/\n").ok();
+    std::fs::write(&gitignore, "*\n").ok();
 
     // Register in the global database via the daemon (starting it if needed).
     let port = daemon_ctl::ensure_running()?;
@@ -112,7 +119,7 @@ pub fn run() -> Result<()> {
         );
     }
 
-    if is_git && git::capture_state(&root).dirty {
+    if was_dirty {
         println!(
             "\n  {}",
             colors::dim("Working tree has uncommitted changes — runs will note the starting state was dirty.")
@@ -120,8 +127,10 @@ pub fn run() -> Result<()> {
     }
 
     println!(
-        "\nNext: {} to connect your agents.",
-        colors::bold("trc install agents")
+        "\nNext:\n  1. {}  connect your agent\n  2. {}  run it under Trace\n  3. {}  watch it live",
+        colors::bold("trc install agents"),
+        colors::bold("trc run \"<your agent command>\""),
+        colors::bold("trc dashboard"),
     );
     Ok(())
 }
