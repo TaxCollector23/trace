@@ -64,20 +64,52 @@ pub fn run() -> Result<()> {
         rt.secret_patterns
     );
 
+    // A failed fixture is an intentional, expected gate outcome (a policy
+    // rule regressed) — not a crash — so print a clear summary and exit
+    // directly rather than going through the generic error path (which
+    // would append a "Re-run with TRACE_DEBUG=1" footer meant for real
+    // internal failures).
     let policy_failed = report.passed < report.total;
-    if policy_failed {
-        anyhow::bail!(
-            "{} of {} policy fixtures failed — a policy rule regressed",
-            report.total - report.passed,
-            report.total
-        );
-    }
-    if !rt.passed {
-        anyhow::bail!("a red-team detection engine regressed — see rows above");
+    let redteam_failed = !rt.passed;
+    if should_fail(policy_failed, redteam_failed) {
+        if policy_failed {
+            println!(
+                "\n{} {} of {} policy fixtures failed — a policy rule regressed.",
+                colors::red("self-check failed:"),
+                report.total - report.passed,
+                report.total
+            );
+        }
+        if redteam_failed {
+            println!(
+                "\n{} a red-team detection engine regressed — see rows above.",
+                colors::red("self-check failed:")
+            );
+        }
+        std::process::exit(1);
     }
     println!(
         "\n{}",
         colors::green("All fixtures and red-team threats passed.")
     );
     Ok(())
+}
+
+/// The CI gate: fail when either the policy fixtures or the red-team
+/// benchmark regressed.
+fn should_fail(policy_failed: bool, redteam_failed: bool) -> bool {
+    policy_failed || redteam_failed
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn gate_fails_when_either_benchmark_regresses() {
+        assert!(!should_fail(false, false));
+        assert!(should_fail(true, false));
+        assert!(should_fail(false, true));
+        assert!(should_fail(true, true));
+    }
 }
