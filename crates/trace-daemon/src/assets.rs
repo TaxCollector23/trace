@@ -29,6 +29,15 @@ fn serve_embedded(path: &str) -> Option<Response> {
     )
 }
 
+/// Real check (no I/O beyond an in-memory lookup): is the embedded dashboard
+/// bundle actually present in this binary? A placeholder `index.html` is
+/// checked in so the daemon always builds even before the Vite build runs,
+/// so this specifically confirms *something* is embedded to serve — used by
+/// the `/api/health` "dashboard_api" check.
+pub fn dashboard_asset_present() -> bool {
+    Dashboard::get("index.html").is_some()
+}
+
 /// Axum fallback handler: serve the static asset for the path, or `index.html`.
 pub async fn static_handler(uri: Uri) -> Response {
     let path = uri.path().trim_start_matches('/');

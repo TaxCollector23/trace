@@ -2,69 +2,21 @@
 //! surfaces and report what is live right now.
 
 use anyhow::Result;
-use std::fs;
-use std::path::PathBuf;
 use trace_core::github;
 
 use crate::colors;
 use crate::daemon_ctl;
 
-/// Detect which agents are actually wired up right now by looking for Trace's
-/// entry in each agent's own config file (the same files the installer patches
-/// in `hook_install.rs`). Returns (agent, connected?, how).
+/// Which agents are actually wired up right now. Detection itself lives in
+/// `trace_core::integrations` (reads the same config files the installer
+/// patches in `hook_install.rs`) so the CLI and the daemon's
+/// `/api/integrations/coverage` route can never disagree about what
+/// "connected" means. Returns (display_name, connected?, how).
 fn agent_connections() -> Vec<(&'static str, bool, &'static str)> {
-    let home = dirs::home_dir();
-    let contains = |rel: &[&str], needle: &str| -> bool {
-        let Some(h) = home.as_ref() else { return false };
-        let mut p: PathBuf = h.clone();
-        for seg in rel {
-            p.push(seg);
-        }
-        fs::read_to_string(&p)
-            .map(|s| s.contains(needle))
-            .unwrap_or(false)
-    };
-    let exists = |rel: &[&str]| -> bool {
-        let Some(h) = home.as_ref() else { return false };
-        let mut p: PathBuf = h.clone();
-        for seg in rel {
-            p.push(seg);
-        }
-        p.exists()
-    };
-    vec![
-        (
-            "Claude Code",
-            contains(&[".claude", "settings.json"], "trace-hook"),
-            "PreToolUse + PostToolUse hooks",
-        ),
-        (
-            "Cursor",
-            contains(&[".cursor", "mcp.json"], ".trace/integrations/cursor"),
-            "MCP tools + enforcing guard hook",
-        ),
-        (
-            "Windsurf",
-            contains(
-                &[".codeium", "windsurf", "mcp_config.json"],
-                ".trace/integrations/windsurf",
-            ),
-            "MCP server",
-        ),
-        (
-            "Codex CLI",
-            exists(&[".trace", "integrations", "codex", "codex-adapter.sh"]),
-            "wrapper script (add the shell alias to finish)",
-        ),
-        (
-            "OpenCode",
-            contains(
-                &[".config", "opencode", "opencode.json"],
-                ".trace/integrations/opencode",
-            ),
-            "MCP tools + enforcing guard plugin",
-        ),
-    ]
+    trace_core::integrations::detect_connections()
+        .into_iter()
+        .map(|c| (c.display_name, c.connected, c.how))
+        .collect()
 }
 
 const INTEGRATIONS: &[(&str, &str, &str)] = &[

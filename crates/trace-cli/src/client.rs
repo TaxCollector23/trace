@@ -50,10 +50,16 @@ impl Client {
         Ok(())
     }
 
-    /// Health check; returns Ok(()) only when the daemon answers.
+    /// Readiness check; returns Ok(()) once the daemon's HTTP API answers at
+    /// all. `/api/health` now reports real per-subsystem status
+    /// (healthy/degraded/failed — see `trace-daemon::health_routes`), so this
+    /// deliberately does NOT require overall `status == "healthy"`: a
+    /// daemon that's up but missing `git`, say, is still a daemon this CLI
+    /// can talk to and should not be reported as "failed to start". It only
+    /// confirms the response actually came from `trace-daemon`.
     pub fn health(&self) -> Result<()> {
         let v: Value = self.get_json("/api/health")?;
-        if v.get("status").and_then(|s| s.as_str()) == Some("ok") {
+        if v.get("service").and_then(|s| s.as_str()) == Some("trace-daemon") {
             Ok(())
         } else {
             Err(anyhow!("unexpected health response"))

@@ -16,8 +16,16 @@ use crate::state::AppState;
 
 /// Build the `/api` router.
 pub fn router() -> Router<AppState> {
+    // NOTE: `/health` is intentionally NOT registered here. The real,
+    // evidence-backed health center lives in `health_routes::router()`
+    // (merged in by `server.rs::build_router`) — a trivial `{"status":"ok"}`
+    // stub used to live at this path but was removed because axum panics on
+    // two routers registering the same path+method, and this repo would
+    // rather have one real /api/health than two competing ones. See
+    // `health_routes.rs` for the honest checks (daemon, database, event
+    // ingestion, integration hooks, filesystem access, git availability,
+    // dashboard API).
     Router::new()
-        .route("/health", get(health))
         .route("/state", get(state_info))
         .route("/dashboard", get(dashboard))
         .route("/projects", get(list_projects).post(create_project))
@@ -110,15 +118,7 @@ fn store(state: &AppState) -> MutexGuard<'_, Store> {
     state.store.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-// --- Health / state -------------------------------------------------------
-
-async fn health() -> impl IntoResponse {
-    Json(json!({
-        "status": "ok",
-        "service": "trace-daemon",
-        "version": trace_core::VERSION,
-    }))
-}
+// --- State ------------------------------------------------------------
 
 async fn state_info(State(state): State<AppState>) -> ApiResult<impl IntoResponse> {
     let s = store(&state);
@@ -1209,15 +1209,11 @@ mod tests {
                 .unwrap()
         }
 
-        #[tokio::test]
-        async fn health_route_ok() {
-            let resp = app()
-                .oneshot(Request::get("/health").body(Body::empty()).unwrap())
-                .await
-                .unwrap();
-            assert_eq!(resp.status(), StatusCode::OK);
-            assert_eq!(body_json(resp).await["service"], "trace-daemon");
-        }
+        // NOTE: `/health` is no longer part of `api::router()` — it moved to
+        // `health_routes::router()` (see the note at the top of `router()`
+        // above). Its route/handler tests now live in `health_routes.rs`,
+        // alongside a test that specifically guards the merge of the two
+        // routers not panicking on an overlapping registration.
 
         #[tokio::test]
         async fn check_command_route_blocks_and_allows() {
