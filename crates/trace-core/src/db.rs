@@ -318,27 +318,39 @@ impl Store {
         })
     }
 
-    /// Purge all run telemetry: runs, commands, events, checkpoints, and every
-    /// child table that references a run (file_changes, secrets, api_usage,
-    /// test_results, policy_findings). Projects are intentionally preserved so a
-    /// reset does not force a re-`init`. Runs in a single transaction so it is
-    /// all-or-nothing. Child tables are deleted before `runs` to satisfy the
-    /// foreign-key constraints.
+    /// Purge all run telemetry. Projects are intentionally preserved so a
+    /// reset does not force a re-`init`; every other table is cleared.
+    ///
+    /// Tables are discovered from `sqlite_master` rather than hardcoded, and
+    /// foreign-key enforcement is disabled for the purge instead of hand-
+    /// ordering DELETEs. Both exist because a real on-disk database can carry
+    /// tables from an earlier schema that `init_schema()` no longer creates
+    /// (e.g. a defunct feature's tables) but that are still FK-linked to
+    /// `runs` — a hardcoded child list silently misses those and the purge
+    /// fails with a foreign-key error. Discovering + disabling makes the
+    /// purge correct regardless of what child tables exist, known or not.
     pub fn purge_local_data(&self) -> Result<()> {
-        self.conn.execute_batch(
-            "BEGIN;
-             DELETE FROM policy_findings;
-             DELETE FROM test_results;
-             DELETE FROM api_usage;
-             DELETE FROM secrets;
-             DELETE FROM file_changes;
-             DELETE FROM checkpoints;
-             DELETE FROM commands;
-             DELETE FROM events;
-             DELETE FROM runs;
-             COMMIT;",
+        let mut stmt = self.conn.prepare(
+            "SELECT name FROM sqlite_master
+             WHERE type = 'table' AND name != 'projects' AND name NOT LIKE 'sqlite_%'",
         )?;
-        Ok(())
+        let tables: Vec<String> = stmt
+            .query_map([], |r| r.get(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        drop(stmt);
+
+        // `PRAGMA foreign_keys` can only be toggled outside a transaction.
+        self.conn.execute_batch("PRAGMA foreign_keys = OFF;")?;
+        let result = (|| -> Result<()> {
+            self.conn.execute_batch("BEGIN;")?;
+            for table in &tables {
+                self.conn.execute(&format!("DELETE FROM \"{table}\""), [])?;
+            }
+            self.conn.execute_batch("COMMIT;")?;
+            Ok(())
+        })();
+        self.conn.execute_batch("PRAGMA foreign_keys = ON;")?;
+        result
     }
 
     // --- Events -----------------------------------------------------------
@@ -1300,6 +1312,44 @@ mod tests {
         let after = store.telemetry_counts().unwrap();
         assert!(after.is_empty(), "everything purged: {after:?}");
         // Projects survive so the user need not re-init.
+        assert_eq!(store.list_projects().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn purge_local_data_clears_legacy_fk_linked_tables_not_in_current_schema() {
+        // Regression test: a real on-disk database can carry tables from an
+        // earlier schema (e.g. a defunct feature) that init_schema() no
+        // longer creates but that are still FK-linked to `runs`. A purge
+        // that hardcodes its child-table list misses them and fails with a
+        // foreign-key error at DELETE FROM runs. Simulate exactly that shape
+        // and prove the discovery-based purge clears it without error.
+        let (store, _pid, run_id) = store_with_run("run");
+        store
+            .conn
+            .execute_batch(
+                "CREATE TABLE legacy_feature_votes (
+                     id TEXT PRIMARY KEY,
+                     run_id TEXT NOT NULL REFERENCES runs(id)
+                 );",
+            )
+            .unwrap();
+        store
+            .conn
+            .execute(
+                "INSERT INTO legacy_feature_votes (id, run_id) VALUES ('v1', ?1)",
+                params![run_id],
+            )
+            .unwrap();
+
+        store.purge_local_data().unwrap();
+
+        let remaining: i64 = store
+            .conn
+            .query_row("SELECT COUNT(*) FROM legacy_feature_votes", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert_eq!(remaining, 0, "legacy FK-linked table must be purged too");
         assert_eq!(store.list_projects().unwrap().len(), 1);
     }
 
