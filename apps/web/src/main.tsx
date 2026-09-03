@@ -13,6 +13,7 @@ import RollbackCenter from "./pages/RollbackCenter";
 import GitHub from "./pages/GitHub";
 import Ratify from "./pages/Ratify";
 import Benchmarks from "./pages/Benchmarks";
+import ComparePage from "./pages/ComparePage";
 import NotFound from "./pages/NotFound";
 import "./styles.css";
 
@@ -36,6 +37,7 @@ const router = createHashRouter([
       { path: "risk", element: <RiskCenter /> },
       { path: "risk/:runId", element: <RiskCenter /> },
       { path: "benchmarks", element: <Benchmarks /> },
+      { path: "compare", element: <ComparePage /> },
       { path: "rollback", element: <RollbackCenter /> },
       { path: "github", element: <GitHub /> },
       { path: "ratify", element: <Ratify /> },

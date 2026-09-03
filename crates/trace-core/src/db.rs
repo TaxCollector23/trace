@@ -271,6 +271,20 @@ impl Store {
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
 
+    /// Runs scoped to a single project, most-recent first. Used by
+    /// `intel::similarity` so "find similar runs" and its floor/threshold
+    /// checks never compare across projects — a similarity search always
+    /// draws its candidate pool from here, never from [`list_runs`].
+    pub fn list_runs_for_project(&self, project_id: &str, limit: i64) -> Result<Vec<Run>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, project_id, command, agent_name, user_prompt, started_at, ended_at,
+                starting_commit, ending_commit, status, exit_code, created_at
+             FROM runs WHERE project_id = ?1 ORDER BY started_at DESC LIMIT ?2",
+        )?;
+        let rows = stmt.query_map(params![project_id, limit], map_run)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
     /// Finalize a run with status, exit code, and ending commit.
     pub fn finish_run(
         &self,

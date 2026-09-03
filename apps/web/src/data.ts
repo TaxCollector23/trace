@@ -89,6 +89,43 @@ export interface Incident {
   last_seen: string;
 }
 
+/** One ranked result from GET /api/runs/:id/similar. */
+export interface SimilarRun {
+  run_id: string;
+  /** 0.0-1.0. Every entry that reaches the client is already above the
+   * backend's similarity floor — there is no "weak match" tier to render. */
+  similarity: number;
+  command: string;
+  outcome: string;
+  duration_seconds: number | null;
+  started_at: string;
+}
+
+/** Execution-behavior counts for one run in a GET /api/runs/compare response.
+ * Not a git diff — command/file/test/approval/block counts. */
+export interface RunCounts {
+  run_id: string;
+  command: string;
+  commands: number;
+  files: number;
+  test_cycles: number;
+  approvals: number;
+  blocks: number;
+  duration_seconds: number | null;
+  outcome: string;
+  started_at: string;
+}
+
+/** GET /api/runs/compare?a=<id>&b=<id> */
+export interface RunComparison {
+  run_a: RunCounts;
+  run_b: RunCounts;
+  /** A template-generated one-liner over the real deltas above, or null when
+   * the comparison would be misleading (e.g. either run has zero commands).
+   * Never fabricated, never an LLM call — see `trace_core::intel::similarity`. */
+  narrative: string | null;
+}
+
 /** GET /api/health */
 export interface Health {
   status: string;
@@ -248,6 +285,9 @@ export const validators = {
   incidents: (v: unknown): v is Incident[] => isArrayOfObjects(v),
   coverage: (v: unknown): v is IntegrationCoverage[] => isArrayOfObjects(v),
   health: (v: unknown): v is Health => isObject(v) && typeof v.status === "string",
+  similarRuns: (v: unknown): v is SimilarRun[] => isArrayOfObjects(v),
+  runComparison: (v: unknown): v is RunComparison =>
+    isObject(v) && isObject(v.run_a) && isObject(v.run_b),
 };
 
 // --- v4 endpoint accessors -------------------------------------------------
@@ -284,4 +324,22 @@ export const v4 = {
       validate: validators.coverage,
       signal,
     }),
+
+  similarRuns: (runId: string, signal?: AbortSignal) =>
+    fetchResource<SimilarRun[]>(`/runs/${runId}/similar`, {
+      validate: validators.similarRuns,
+      absent: "not_found",
+      signal,
+    }),
+
+  compareRuns: (runAId: string, runBId: string, signal?: AbortSignal) =>
+    fetchResource<RunComparison>(
+      `/runs/compare?a=${encodeURIComponent(runAId)}&b=${encodeURIComponent(runBId)}`,
+      {
+        validate: validators.runComparison,
+        emptyIsEmpty: false,
+        absent: "not_found",
+        signal,
+      }
+    ),
 };

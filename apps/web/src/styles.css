@@ -789,6 +789,40 @@ td.mono, .mono { font-family: var(--mono); }
 .v4-finding.sev-medium { border-left-color: var(--yellow); }
 .v4-finding.sev-low { border-left-color: var(--text-dim); }
 
+/* ----- Similar runs ----- */
+.v4-similar-list { display: flex; flex-direction: column; gap: 10px; }
+.v4-similar-row {
+  display: flex; align-items: center; gap: 14px;
+  border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; background: var(--bg);
+}
+.v4-similar-pct {
+  flex-shrink: 0; width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 14px; color: var(--brand-dim); background: var(--brand-soft);
+}
+.v4-similar-body { flex: 1; min-width: 0; }
+.v4-similar-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.v4-similar-meta { font-size: 12px; margin-top: 3px; }
+.v4-similar-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ----- Compare page ----- */
+.v4-compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.v4-compare-col { border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; background: var(--bg); box-shadow: var(--shadow); }
+.v4-compare-col h3 { margin: 0 0 4px; font-family: var(--serif); font-weight: 500; font-size: 17px; }
+.v4-compare-rows { margin-top: 12px; display: flex; flex-direction: column; gap: 0; }
+.v4-compare-row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--border-soft); font-size: 13.5px; }
+.v4-compare-row:first-child { border-top: none; }
+.v4-compare-row dt { color: var(--text-dim); margin: 0; }
+.v4-compare-row dd { margin: 0; font-weight: 600; }
+.v4-compare-narrative {
+  border: 1px solid var(--brand); border-left: 4px solid var(--brand);
+  background: var(--brand-soft); color: var(--brand-dim);
+  border-radius: 10px; padding: 12px 16px; font-size: 14px; font-weight: 500;
+  margin-bottom: 16px;
+}
+.v4-compare-picker { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+@media (max-width: 720px) { .v4-compare-grid { grid-template-columns: 1fr; } }
+
 /* ----- Controls ----- */
 .v4-controls { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
 .v4-checkpoints, .v4-cost { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; background: var(--bg); box-shadow: var(--shadow); }

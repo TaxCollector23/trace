@@ -14,12 +14,13 @@
 //! module docs for why it is its own endpoint).
 
 use axum::{
-    extract::{Path, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::get,
     Json, Router,
 };
+use serde::Deserialize;
 use serde_json::json;
 use std::sync::MutexGuard;
 use trace_core::Store;
@@ -33,6 +34,10 @@ pub fn router() -> Router<AppState> {
         .route("/runs/:id/signals", get(signals))
         .route("/runs/:id/incidents", get(incidents))
         .route("/runs/:id/causality", get(causality))
+        // Deterministic same-project similarity + cross-run behavior diff
+        // (Wave 2, Agent 2; see `trace_core::intel::similarity`).
+        .route("/runs/:id/similar", get(similar_runs))
+        .route("/runs/compare", get(compare_runs))
 }
 
 // Mirrors `api::ApiError` exactly (kept local so this module has no
@@ -114,6 +119,41 @@ async fn causality(
     let bundle = trace_core::intel::run_intel_pipeline(&store(&state), &id)?
         .ok_or_else(|| ApiError::not_found("run"))?;
     Ok(Json(bundle.causality))
+}
+
+/// `GET /api/runs/:id/similar` -> `SimilarRun[]`, ranked, same project only.
+/// See `trace_core::intel::similarity::find_similar_runs` for the scoring
+/// contract. An honest empty array (never a fabricated one) when there is
+/// not enough comparable history in the project.
+async fn similar_runs(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<impl IntoResponse> {
+    let results = trace_core::intel::find_similar_runs(
+        &store(&state),
+        &id,
+        trace_core::intel::DEFAULT_SIMILAR_LIMIT,
+    )?
+    .ok_or_else(|| ApiError::not_found("run"))?;
+    Ok(Json(results))
+}
+
+#[derive(Debug, Deserialize)]
+struct CompareQuery {
+    a: String,
+    b: String,
+}
+
+/// `GET /api/runs/compare?a=<id>&b=<id>` -> `RunComparison`. `narrative` is
+/// `null` when either run has zero recorded commands — see
+/// `trace_core::intel::similarity::compare_runs`.
+async fn compare_runs(
+    State(state): State<AppState>,
+    Query(q): Query<CompareQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let comparison = trace_core::intel::compare_runs(&store(&state), &q.a, &q.b)?
+        .ok_or_else(|| ApiError::not_found("run"))?;
+    Ok(Json(comparison))
 }
 
 #[cfg(test)]
@@ -301,6 +341,7 @@ mod tests {
             "/runs/does-not-exist/signals",
             "/runs/does-not-exist/incidents",
             "/runs/does-not-exist/causality",
+            "/runs/does-not-exist/similar",
         ] {
             let resp = router()
                 .with_state(state.clone())
@@ -348,5 +389,97 @@ mod tests {
             .unwrap();
         let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
         assert_eq!(json.as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn similar_route_is_empty_array_when_too_few_comparable_runs() {
+        // Exactly the seeded run + no siblings in its project -> below
+        // MIN_COMPARABLE_RUNS, so the route answers an honest `[]`, not 404.
+        let (state, run_id) = test_state_with_run();
+        let resp = router()
+            .with_state(state)
+            .oneshot(
+                Request::get(format!("/runs/{run_id}/similar"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(json.as_array().unwrap().len(), 0);
+    }
+
+    #[tokio::test]
+    async fn compare_route_returns_counts_and_narrative_for_two_real_runs() {
+        let (state, run_a_id) = test_state_with_run();
+        let run_b_id = {
+            let s = store(&state);
+            let project = s
+                .upsert_project(&NewProject {
+                    name: "T2".into(),
+                    path: "/tmp/intel-routes-test-3".into(),
+                    config_path: "/tmp/intel-routes-test-3/.trace/config.toml".into(),
+                })
+                .unwrap();
+            let run = s
+                .create_run(&NewRun {
+                    project_id: project.id,
+                    command: "run".into(),
+                    agent_name: Some("claude-code".into()),
+                    user_prompt: None,
+                    starting_commit: None,
+                })
+                .unwrap();
+            s.add_command(
+                &run.id,
+                &NewCommand {
+                    command: "git status".into(),
+                    decision: "allow".into(),
+                    exit_code: Some(0),
+                    stdout_path: None,
+                    stderr_path: None,
+                },
+            )
+            .unwrap();
+            run.id
+        };
+
+        let resp = router()
+            .with_state(state)
+            .oneshot(
+                Request::get(format!("/runs/compare?a={run_a_id}&b={run_b_id}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        // test_state_with_run() seeds 4 `npm test` commands for run A.
+        assert_eq!(json["run_a"]["commands"], 4);
+        assert_eq!(json["run_b"]["commands"], 1);
+        assert!(json["narrative"].as_str().unwrap().contains("Run A"));
+    }
+
+    #[tokio::test]
+    async fn compare_route_is_404_when_either_run_is_missing() {
+        let (state, run_id) = test_state_with_run();
+        let resp = router()
+            .with_state(state)
+            .oneshot(
+                Request::get(format!("/runs/compare?a={run_id}&b=does-not-exist"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     }
 }
