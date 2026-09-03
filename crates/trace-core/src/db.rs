@@ -215,8 +215,17 @@ impl Store {
     // --- Runs -------------------------------------------------------------
 
     pub fn create_run(&self, new: &NewRun) -> Result<Run> {
+        self.create_run_at(new, &now_rfc3339())
+    }
+
+    /// Same as [`create_run`](Self::create_run), but with an explicit
+    /// `started_at`/`created_at` timestamp instead of "now". The insert logic
+    /// (id generation, storage-boundary redaction) is identical — this exists
+    /// so callers that need deterministic, staggered timestamps (namely `trc
+    /// demo`) can go through the same code path a real run would rather than
+    /// hand-writing SQL.
+    pub fn create_run_at(&self, new: &NewRun, at: &str) -> Result<Run> {
         let id = new_id();
-        let now = now_rfc3339();
         // Storage-boundary redaction: a command line can carry a secret
         // (`export API_KEY=…`, `curl -H "Authorization: Bearer …"`). Scrub it
         // before it is persisted so the raw secret never hits the DB.
@@ -231,7 +240,7 @@ impl Store {
                 command,
                 new.agent_name,
                 new.user_prompt,
-                now,
+                at,
                 new.starting_commit,
                 RunStatus::Running.as_str(),
             ],
@@ -270,9 +279,23 @@ impl Store {
         exit_code: Option<i64>,
         ending_commit: Option<&str>,
     ) -> Result<()> {
+        self.finish_run_at(run_id, status, exit_code, ending_commit, &now_rfc3339())
+    }
+
+    /// Same as [`finish_run`](Self::finish_run), but with an explicit
+    /// `ended_at` instead of "now" (see [`create_run_at`](Self::create_run_at)
+    /// for why this exists).
+    pub fn finish_run_at(
+        &self,
+        run_id: &str,
+        status: RunStatus,
+        exit_code: Option<i64>,
+        ending_commit: Option<&str>,
+        ended_at: &str,
+    ) -> Result<()> {
         self.conn.execute(
             "UPDATE runs SET status = ?1, exit_code = ?2, ending_commit = ?3, ended_at = ?4 WHERE id = ?5",
-            params![status.as_str(), exit_code, ending_commit, now_rfc3339(), run_id],
+            params![status.as_str(), exit_code, ending_commit, ended_at, run_id],
         )?;
         Ok(())
     }
@@ -356,8 +379,14 @@ impl Store {
     // --- Events -----------------------------------------------------------
 
     pub fn add_event(&self, run_id: &str, new: &NewEvent) -> Result<Event> {
+        self.add_event_at(run_id, new, &now_rfc3339())
+    }
+
+    /// Same as [`add_event`](Self::add_event), but with an explicit
+    /// `created_at` instead of "now" (see
+    /// [`create_run_at`](Self::create_run_at) for why this exists).
+    pub fn add_event_at(&self, run_id: &str, new: &NewEvent, at: &str) -> Result<Event> {
         let id = new_id();
-        let now = now_rfc3339();
         self.conn.execute(
             "INSERT INTO events (id, run_id, type, message, metadata_json, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -367,7 +396,7 @@ impl Store {
                 new.event_type,
                 new.message,
                 new.metadata_json,
-                now
+                at
             ],
         )?;
         Ok(Event {
@@ -376,7 +405,7 @@ impl Store {
             event_type: new.event_type.clone(),
             message: new.message.clone(),
             metadata_json: new.metadata_json.clone(),
-            created_at: now,
+            created_at: at.to_string(),
         })
     }
 
@@ -392,6 +421,13 @@ impl Store {
     // --- File changes -----------------------------------------------------
 
     pub fn add_file_change(&self, run_id: &str, new: &NewFileChange) -> Result<()> {
+        self.add_file_change_at(run_id, new, &now_rfc3339())
+    }
+
+    /// Same as [`add_file_change`](Self::add_file_change), but with an
+    /// explicit `created_at` instead of "now" (see
+    /// [`create_run_at`](Self::create_run_at) for why this exists).
+    pub fn add_file_change_at(&self, run_id: &str, new: &NewFileChange, at: &str) -> Result<()> {
         self.conn.execute(
             "INSERT INTO file_changes (id, run_id, path, change_type, diff_summary, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -401,7 +437,7 @@ impl Store {
                 new.path,
                 new.change_type,
                 new.diff_summary,
-                now_rfc3339()
+                at
             ],
         )?;
         Ok(())
@@ -431,13 +467,20 @@ impl Store {
     // --- Commands ---------------------------------------------------------
 
     pub fn add_command(&self, run_id: &str, new: &NewCommand) -> Result<()> {
+        self.add_command_at(run_id, new, &now_rfc3339())
+    }
+
+    /// Same as [`add_command`](Self::add_command), but with an explicit
+    /// `created_at` instead of "now" (see
+    /// [`create_run_at`](Self::create_run_at) for why this exists).
+    pub fn add_command_at(&self, run_id: &str, new: &NewCommand, at: &str) -> Result<()> {
         // Storage-boundary redaction (see `create_run`): scrub any secret out
         // of the command line before persisting it.
         let command = crate::secrets::redact_text(&new.command);
         self.conn.execute(
             "INSERT INTO commands (id, run_id, command, decision, exit_code, stdout_path, stderr_path, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![new_id(), run_id, command, new.decision, new.exit_code, new.stdout_path, new.stderr_path, now_rfc3339()],
+            params![new_id(), run_id, command, new.decision, new.exit_code, new.stdout_path, new.stderr_path, at],
         )?;
         Ok(())
     }
@@ -611,6 +654,13 @@ impl Store {
     // --- Test results -----------------------------------------------------
 
     pub fn add_test_result(&self, run_id: &str, new: &NewTestResult) -> Result<()> {
+        self.add_test_result_at(run_id, new, &now_rfc3339())
+    }
+
+    /// Same as [`add_test_result`](Self::add_test_result), but with an
+    /// explicit `created_at` instead of "now" (see
+    /// [`create_run_at`](Self::create_run_at) for why this exists).
+    pub fn add_test_result_at(&self, run_id: &str, new: &NewTestResult, at: &str) -> Result<()> {
         self.conn.execute(
             "INSERT INTO test_results (id, run_id, command, status, output_summary, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -620,7 +670,7 @@ impl Store {
                 new.command,
                 new.status,
                 new.output_summary,
-                now_rfc3339()
+                at
             ],
         )?;
         Ok(())

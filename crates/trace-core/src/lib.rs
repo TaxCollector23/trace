@@ -44,6 +44,7 @@ pub mod compress;
 pub mod config;
 pub mod cost;
 pub mod db;
+pub mod demo;
 pub mod diagnose;
 pub mod eval;
 pub mod git;
