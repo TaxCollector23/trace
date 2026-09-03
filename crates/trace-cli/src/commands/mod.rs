@@ -3,6 +3,7 @@
 pub mod check;
 pub mod config_cmd;
 pub mod dashboard;
+pub mod demo;
 pub mod doctor;
 pub mod github;
 pub mod hook_install;

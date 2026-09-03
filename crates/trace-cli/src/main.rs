@@ -89,6 +89,19 @@ enum Commands {
     #[command(hide = true)]
     Doctor,
 
+    /// Generate a realistic, deterministic demo run in the local database, so
+    /// `trc dashboard` has something to show without a real coding agent
+    /// running. Use `trc demo list` to see available scenarios. Rows are
+    /// tagged synthetic and removable with `trc reset --local-data`.
+    Demo {
+        /// Scenario name (see `trc demo list`), or "list" to print them.
+        scenario: String,
+        /// Seed for deterministic timestamp jitter (event sequence is fixed
+        /// regardless of seed).
+        #[arg(long, default_value_t = 42)]
+        seed: u64,
+    },
+
     /// Scan the current project and print its detected stack.
     #[command(hide = true)]
     Scan,
@@ -372,6 +385,7 @@ fn real_main() -> Result<()> {
         }),
         Commands::Dashboard => commands::dashboard::run(),
         Commands::Doctor => commands::doctor::run(),
+        Commands::Demo { scenario, seed } => commands::demo::run(&scenario, seed),
         Commands::Scan => commands::scan_cmd::run(),
         Commands::Check { file } => commands::check::run(&file),
         Commands::Runs => commands::query::runs(),
