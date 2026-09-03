@@ -25,7 +25,10 @@ pub fn router() -> Router<AppState> {
         .route("/runs", get(list_runs).post(create_run))
         .route("/runs/:id", get(get_run))
         .route("/runs/:id/finish", post(finish_run))
-        .route("/runs/:id/events", get(timeline).post(add_event))
+        // GET on this path is owned by intel_routes::router() (normalized
+        // events, see RECOVERY-AUDIT-driven v4 intel spine) — merged below.
+        // The raw/legacy shape stays reachable at GET /runs/:id/timeline.
+        .route("/runs/:id/events", post(add_event))
         .route("/runs/:id/timeline", get(timeline))
         .route(
             "/runs/:id/file-changes",
@@ -61,6 +64,8 @@ pub fn router() -> Router<AppState> {
         .route("/github/file", get(gh_file))
         // Ratify: deterministic policy review of a connected repo's PR
         .route("/github/ratify", get(gh_ratify))
+        // Deterministic intel spine (normalized events, signals, incidents).
+        .merge(crate::intel_routes::router())
 }
 
 // --- Error handling -------------------------------------------------------

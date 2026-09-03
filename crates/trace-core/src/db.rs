@@ -771,6 +771,50 @@ impl Store {
         let rows = stmt.query_map(params![run_id], map_policy_finding)?;
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
     }
+
+    // --- Cross-run baselines (read-only; used by intel::analyzers) --------
+
+    /// Command-row counts for prior runs comparable to `exclude_run_id`: same
+    /// `project_id`, optionally the same `agent_name`, most-recent first,
+    /// excluding the run itself. This is the raw sample the volume-anomaly
+    /// analyzer builds a robust (median + MAD) baseline from. Purely a read
+    /// aggregate — nothing here mutates any Trace state.
+    pub fn comparable_run_command_counts(
+        &self,
+        project_id: &str,
+        agent_name: Option<&str>,
+        exclude_run_id: &str,
+        limit: i64,
+    ) -> Result<Vec<i64>> {
+        let counts = match agent_name {
+            Some(agent) => {
+                let mut stmt = self.conn.prepare(
+                    "SELECT (SELECT COUNT(*) FROM commands WHERE commands.run_id = runs.id)
+                     FROM runs
+                     WHERE project_id = ?1 AND id != ?2 AND agent_name = ?3
+                     ORDER BY started_at DESC LIMIT ?4",
+                )?;
+                let rows = stmt
+                    .query_map(params![project_id, exclude_run_id, agent, limit], |r| {
+                        r.get::<_, i64>(0)
+                    })?;
+                rows.collect::<rusqlite::Result<Vec<_>>>()?
+            }
+            None => {
+                let mut stmt = self.conn.prepare(
+                    "SELECT (SELECT COUNT(*) FROM commands WHERE commands.run_id = runs.id)
+                     FROM runs
+                     WHERE project_id = ?1 AND id != ?2
+                     ORDER BY started_at DESC LIMIT ?3",
+                )?;
+                let rows = stmt.query_map(params![project_id, exclude_run_id, limit], |r| {
+                    r.get::<_, i64>(0)
+                })?;
+                rows.collect::<rusqlite::Result<Vec<_>>>()?
+            }
+        };
+        Ok(counts)
+    }
 }
 
 // --- Row mappers ----------------------------------------------------------
@@ -1435,5 +1479,68 @@ mod tests {
         assert_eq!(a.id, b.id);
         assert_eq!(b.name, "B");
         assert_eq!(store.list_projects().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn comparable_run_command_counts_filters_project_agent_and_self() {
+        let store = Store::open_in_memory().unwrap();
+        let project = store
+            .upsert_project(&NewProject {
+                name: "P".into(),
+                path: "/p".into(),
+                config_path: "/p/c".into(),
+            })
+            .unwrap();
+        let other_project = store
+            .upsert_project(&NewProject {
+                name: "Q".into(),
+                path: "/q".into(),
+                config_path: "/q/c".into(),
+            })
+            .unwrap();
+
+        let mk_run = |project_id: &str, agent: Option<&str>, n_commands: usize| {
+            let run = store
+                .create_run(&NewRun {
+                    project_id: project_id.to_string(),
+                    command: "run".into(),
+                    agent_name: agent.map(|a| a.to_string()),
+                    user_prompt: None,
+                    starting_commit: None,
+                })
+                .unwrap();
+            for i in 0..n_commands {
+                store
+                    .add_command(
+                        &run.id,
+                        &NewCommand {
+                            command: format!("cmd {i}"),
+                            decision: "allow".into(),
+                            exit_code: Some(0),
+                            stdout_path: None,
+                            stderr_path: None,
+                        },
+                    )
+                    .unwrap();
+            }
+            run
+        };
+
+        let target = mk_run(&project.id, Some("claude"), 0);
+        mk_run(&project.id, Some("claude"), 5);
+        mk_run(&project.id, Some("claude"), 7);
+        mk_run(&project.id, Some("codex"), 99); // different agent, excluded when filtering by agent
+        mk_run(&other_project.id, Some("claude"), 42); // different project, always excluded
+
+        let by_agent = store
+            .comparable_run_command_counts(&project.id, Some("claude"), &target.id, 50)
+            .unwrap();
+        assert_eq!(by_agent.len(), 2);
+        assert!(by_agent.contains(&5) && by_agent.contains(&7));
+
+        let by_project_only = store
+            .comparable_run_command_counts(&project.id, None, &target.id, 50)
+            .unwrap();
+        assert_eq!(by_project_only.len(), 3);
     }
 }
