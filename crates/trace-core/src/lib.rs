@@ -50,6 +50,7 @@ pub mod git;
 pub mod github;
 pub mod guard;
 pub mod ids;
+pub mod intel;
 pub mod models;
 pub mod paths;
 pub mod policy;

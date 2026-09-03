@@ -7,6 +7,7 @@
 pub mod api;
 pub mod assets;
 pub mod cloud_sync;
+pub mod intel_routes;
 pub mod server;
 pub mod state;
 
