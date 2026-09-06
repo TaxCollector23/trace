@@ -32,7 +32,7 @@ class Trace < Formula
   end
 
   def install
-    # The downloaded artifact is the bare binary; install it as `trace`.
+    # The downloaded artifact is the bare binary; install it as `trc`.
     binary = Dir["*"].first
     bin.install binary => "trc"
   end

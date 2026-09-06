@@ -7,7 +7,7 @@
 # ~/.trace/bin/trc, makes it executable, and prints PATH instructions.
 set -eu
 
-REPO="TaxCollector23/trc"
+REPO="TaxCollector23/trace"
 INSTALL_DIR="${HOME}/.trace/bin"
 BIN="${INSTALL_DIR}/trc"
 

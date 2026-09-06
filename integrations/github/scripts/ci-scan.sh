@@ -47,7 +47,7 @@ if command -v trc >/dev/null 2>&1; then
 
   if [ -f trace-review.json ]; then
     POLICY_FINDINGS=$(grep -o '"rule_key"' trace-review.json | wc -l | tr -d ' ')
-    HIGH_SEVERITY=$(grep -o '"severity":"high"' trace-review.json | wc -l | tr -d ' ')
+    HIGH_SEVERITY=$(grep -o '"severity"[[:space:]]*:[[:space:]]*"high"' trace-review.json | wc -l | tr -d ' ')
   fi
   [ "$REVIEW_EXIT" != "0" ] && REVIEW_FAILED="true"
 else

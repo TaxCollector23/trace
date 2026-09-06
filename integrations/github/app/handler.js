@@ -40,8 +40,8 @@ async function createTraceCheck(payload, octokit) {
       title: "Trace summary",
       summary: [
         `Files changed: ${summary.files_changed}`,
-        `Risky file warnings: ${summary.risky_file_warnings}`,
-        `Secret-like findings: ${summary.secret_like_findings}`,
+        `Policy findings: ${summary.policy_findings}`,
+        `High-severity findings: ${summary.high_severity_findings}`,
         `Checks: ${summary.checks_status}`,
       ].join("\n"),
     },
@@ -52,8 +52,8 @@ async function createTraceCheck(payload, octokit) {
 async function loadSanitizedSummary() {
   return {
     files_changed: 0,
-    risky_file_warnings: 0,
-    secret_like_findings: 0,
+    policy_findings: 0,
+    high_severity_findings: 0,
     checks_status: "skipped",
   };
 }

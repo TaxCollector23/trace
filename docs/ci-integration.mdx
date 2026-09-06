@@ -44,7 +44,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0        # needed so the base ref is available
-      - run: npm install -g trace-dev
+      - run: npm install -g trc-cli
       - run: trc review-diff --fail-on-risky
 ```
 

@@ -3,6 +3,21 @@ title: Release Notes
 description: Trace changelog.
 ---
 
+## v1.3.5 - npm package rename, integration bugfixes
+
+- **npm package renamed** from `trace-dev` to **`trc-cli`** (`trc` and `trace`
+  are both already taken on npm). The installed command is unchanged: `trc`.
+  `npm install -g trc-cli` replaces `npm install -g trace-dev`.
+- **Fixed `scripts/install.sh`** downloading from the wrong GitHub repo
+  (`TaxCollector23/trc` instead of `TaxCollector23/trace`), which broke the
+  `curl | sh` install path entirely.
+- **Fixed the CI action's high-severity count** always reporting 0
+  (`ci-scan.sh` grepped for `"severity":"high"` but `trc review-diff --json`
+  pretty-prints with a space after the colon).
+- **Fixed the GitHub App skeleton** (`integrations/github/app/handler.js`)
+  reading summary field names that no longer match `trace-summary.json`'s
+  schema.
+
 ## v1.3 - One-command agent onboarding
 
 - **`trc integrations install`** wires up your coding agents in one step.
@@ -18,7 +33,7 @@ description: Trace changelog.
 - **`trc replay <run_id>`** replays a run's timeline at its original recorded
   pace (or `--fast` to print immediately), reading the same data as `show`,
   `patch`, and `risks`.
-- **npm-only install** on every platform: `npm install -g trace-dev` installs the
+- **npm-only install** on every platform: `npm install -g trc-cli` installs the
   `trc` command.
 
 ## v1.2 - Fully deterministic: no API key, add Ratify
