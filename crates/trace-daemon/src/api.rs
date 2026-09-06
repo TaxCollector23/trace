@@ -710,12 +710,12 @@ struct HookCheckResponse {
 
 /// The live guardrail entry point: called from the coding agent's own
 /// PostToolUse hook (see `integrations/claude/trace-hook.sh`) right after a
-/// file edit. Always runs the fast deterministic policy engine. Only spends
-/// the latency of a 3-LLM judge call when Model Prompting Mode is on —
-/// that's the whole trade the toggle represents: instant edits with
-/// dashboard-only flagging, or a brief pause per edit in exchange for the
-/// panel being able to tell the agent to stop and fix something before it
-/// keeps building on a mistake.
+/// file edit. Always runs the fast deterministic policy engine, entirely
+/// local and instant. Any high-severity finding (a hardcoded secret, a
+/// dangerous pattern) sets `block: true`, which the hook shell turns into an
+/// `exit 2` — Claude Code shows the finding to the agent as feedback on that
+/// tool call and it must address it before continuing. Medium/low findings
+/// are advisory only: logged and echoed, but the agent keeps moving.
 async fn hook_check(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -754,10 +754,21 @@ async fn hook_check(
         consensus: None,
     };
 
-    // Deterministic policy findings are echoed to the agent as advisory. This
-    // is the whole live-review surface now: fast, local, and needs no API key.
+    // Deterministic policy findings are echoed to the agent as advisory. A
+    // high-severity finding (e.g. a hardcoded secret) actually blocks the
+    // edit — the agent sees the feedback on this tool call via exit 2 and
+    // must address it before continuing, instead of the finding only
+    // surfacing later on the dashboard.
     if !policy_findings.is_empty() {
-        response.agent_feedback = Some(format_policy_advisory(&policy_findings));
+        let advisory = format_policy_advisory(&policy_findings);
+        let has_high = policy_findings
+            .iter()
+            .any(|f| f.severity == trace_core::Severity::High);
+        if has_high {
+            response.block = true;
+            response.message = Some(advisory.clone());
+        }
+        response.agent_feedback = Some(advisory);
     }
 
     Ok(Json(response))
@@ -1018,7 +1029,7 @@ mod tests {
             file_path: Some("src/config.rs".into()),
             diff_summary: Some(planted_secret_patch()),
         };
-        hook_check(State(state.clone()), Path(run_id.clone()), Json(body))
+        let resp = hook_check(State(state.clone()), Path(run_id.clone()), Json(body))
             .await
             .map_err(|e| e.message)
             .expect("hook_check should succeed offline");
@@ -1028,6 +1039,12 @@ mod tests {
             findings.iter().any(|f| f.rule_key == "secret-in-diff"),
             "expected a secret-in-diff finding to be persisted, got: {findings:?}"
         );
+
+        // A high-severity finding (a planted secret) must actually block the
+        // edit, not just get logged for later — the whole point of a live
+        // hook is stopping the agent before it ships the mistake.
+        let body = body_json(resp.into_response()).await;
+        assert_eq!(body["block"], true, "expected block: true, got {body}");
     }
 
     /// Drive a handler's response into a JSON value so tests can assert on the

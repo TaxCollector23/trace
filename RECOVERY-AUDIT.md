@@ -161,7 +161,7 @@ the tree to exactly match the snapshot after backing up current state.
 |---|---|---|---|
 | OpenCode | ✓ plugin `tool.execute.before` throws on `block` (pre-exec, proven) | via `trc run`/MCP | **PASS** |
 | Cursor | ✓ `beforeShellExecution` deny + `agent_message` (proven) | no file hook | **PASS** (command guard) |
-| Claude Code | ✓ PreToolUse Bash → exit 2 (proven) | edit review **advisory-only, never blocks** (`hook_check` hardcodes `block:false`), only with `TRACE_RUN_ID` | **PARTIAL** |
+| Claude Code | ✓ PreToolUse Bash → exit 2 (proven) | ✓ PostToolUse edit review blocks on high-severity findings → exit 2 (fixed v1.3.6; medium/low stay advisory), only with `TRACE_RUN_ID` | **PASS** |
 | Codex | only top-level `codex …` classified via `trc run`; sub-commands invisible | FS/git observe via wrapper | **observe-only** |
 | Windsurf | ✗ no hook | MCP read-only | **observe-only** |
 | VS Code | ✗ no shell hook | time-window save observer, UI-only warnings | **observe-only / not installable via `trc integrations`** |

@@ -14,11 +14,17 @@ trc integrations install claude
 
 This writes the hook script to `~/.trace/integrations/claude/trace-hook.sh` and
 idempotently patches `~/.claude/settings.json`, backing it up first. The entry it
-adds registers Trace on two tool-use events:
+adds registers Trace on two tool-use events, and **both can actually block**:
 
-- **PreToolUse** on `Bash`: the guard sees a command before Claude Code runs it.
-- **PostToolUse** on `Edit`, `Write`, `MultiEdit`, and `NotebookEdit`: file edits
-  are recorded as observation events.
+- **PreToolUse** on `Bash`: the command guard classifies the command before
+  Claude Code runs it. A `block` decision exits 2, so the command never
+  executes and Claude Code sees why.
+- **PostToolUse** on `Edit`, `Write`, `MultiEdit`, and `NotebookEdit`: the
+  deterministic policy engine scans the edit. A high-severity finding (a
+  hardcoded secret, a dangerous pattern) exits 2 too — the edit already
+  landed on disk, but Claude Code gets the finding as feedback on that tool
+  call and has to address it before moving on. Medium/low findings are
+  advisory: logged to the run and echoed to the agent, but don't stop it.
 
 Start the daemon so the hooks have somewhere to report:
 
@@ -58,3 +64,25 @@ not configured, Trace falls back to wrapper-based monitoring automatically.
 They are complementary. Installing the hooks and also launching through `trc run`
 gives you both the per-tool detail and the whole-session record. See
 [Agent Runs](/agent-runs).
+
+## What shows up on the dashboard
+
+With hooks installed and `trc run claude` (or a session started while the
+daemon is running), a Claude Code session appears as one run with:
+
+- Every `Bash` command it ran, each with the guard's allow/warn/block
+  decision, on **Command Risk**.
+- Every file it touched via `Edit`/`Write`/`MultiEdit`, plus the full diff
+  captured from the final git state, on **Patch Review**.
+- Any policy finding — secret, risky pattern — raised at edit time, on
+  **Risk Center**, tagged with severity.
+- A chronological event log (checkpoint, each command, each edit, completion)
+  on **Session Timeline**.
+- A checkpoint you can roll back to on **Rollback Center**.
+
+If you only install the hooks without ever running through `trc run` (or
+without `TRACE_RUN_ID` set some other way), the `PostToolUse` edit-review
+hook has no run to attach findings to and is a no-op — the `PreToolUse`
+command guard still works standalone, since it doesn't need a run ID. For the
+edit review and full patch/timeline to show up, launch the session with
+`trc run claude ...` or via a wrapper that sets `TRACE_RUN_ID`.

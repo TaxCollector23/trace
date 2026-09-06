@@ -228,9 +228,9 @@ function FeatureCard({ title, body }: { title: string; body: string }) {
   );
 }
 
-/* ,,,,,, Realistic, clickable dashboard mockup: OpenCode, reviewing three real
+/* Realistic, clickable dashboard mockup: OpenCode, reviewing three real
    runs. A different agent from the hero (Claude Code) and the download
-   section (Cursor). Sidebar nav actually switches the highlighted page. ,,,,,, */
+   section (Cursor). Sidebar nav actually switches the highlighted page. */
 
 const SIDEBAR = [
   "Dashboard",

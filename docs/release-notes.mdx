@@ -3,6 +3,23 @@ title: Release Notes
 description: Trace changelog.
 ---
 
+## v1.3.6 - Claude Code hook now blocks on high-severity findings
+
+- **The `PostToolUse` edit-review hook can block.** Previously any policy
+  finding on an `Edit`/`Write`/`MultiEdit`/`NotebookEdit` was advisory only —
+  logged to the run and echoed to the agent, but the edit always stood. A
+  high-severity finding (a hardcoded secret, a dangerous pattern) now sets
+  `block: true`, which `trace-hook.sh` turns into `exit 2` so Claude Code
+  surfaces it to the agent as feedback it has to address. Medium/low findings
+  are still advisory-only. See [Claude Code](/integrations/claude).
+- **`trc doctor`** now includes an "Agent integrations" section (the same
+  detection `trc integrations status` uses), so one command reports your
+  whole setup: toolchain, daemon, policy engine, and which agents are wired
+  up.
+- Clarified the [Claude Code](/integrations/claude) and
+  [Codex](/integrations/codex) docs on exactly what each integration blocks
+  vs. only observes, and what appears on the dashboard for each.
+
 ## v1.3.5 - npm package rename, integration bugfixes
 
 - **npm package renamed** from `trace-dev` to **`@rangan23/trace-cli`** (`trc` and `trace`

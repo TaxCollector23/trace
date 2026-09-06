@@ -138,6 +138,29 @@ pub fn run() -> Result<()> {
         },
     );
 
+    // Connected agent integrations (same detection `trc integrations status`
+    // uses), so `doctor` is a single one-stop health check.
+    heading("\nAgent integrations:");
+    let connections = trace_core::integrations::detect_connections();
+    let any_connected = connections.iter().any(|c| c.connected);
+    for c in &connections {
+        line(
+            c.display_name,
+            c.connected,
+            if c.connected {
+                c.how
+            } else {
+                "not connected"
+            },
+        );
+    }
+    if !any_connected {
+        println!(
+            "  {}",
+            colors::dim("wire one up with `trc integrations install <agent>` (or `all`)")
+        );
+    }
+
     // Installed AI tools.
     heading("\nAI tools detected:");
     let all = agents::detect_all();

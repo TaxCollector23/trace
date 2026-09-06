@@ -45,3 +45,31 @@ trc integrations status
 Codex CLI shows as connected once the adapter script is written. Because the alias
 is a manual step, Trace reports the wrapper script is installed and reminds you to
 add the alias to finish.
+
+## What shows up on the dashboard
+
+Codex has no per-tool hook — the whole `codex ...` invocation is one wrapped
+process, so Trace observes it at the process boundary instead of the
+individual-edit boundary Claude Code's hooks give you. A Codex run appears
+with:
+
+- The command guard's decision on the **top-level `codex ...` invocation
+  only**, on **Command Risk**. A `block` decision stops it before Codex even
+  starts. Any shell commands Codex runs *internally* as part of its own agent
+  loop are not individually guarded or listed here — Trace can't see inside
+  Codex's own process.
+- A checkpoint taken before Codex starts, and the full git diff of everything
+  that changed by the time it exits, on **Patch Review**.
+- Captured stdout/stderr and a coarse timeline (start, file-change events,
+  completion) on **Session Timeline**.
+- Any secret or risky-pattern finding from scanning the final diff, on
+  **Risk Center**.
+
+The practical difference from Claude Code: Trace guards and records Claude
+Code at the granularity of each tool call it makes; for Codex it only guards
+the launch and then reconstructs what happened from the filesystem and git
+afterward. That's still enough to catch a bad diff or a leaked secret before
+you commit, but a risky command Codex ran and then reverted internally, or an
+edit it made and undid before exiting, won't show up. Skipping the alias, or
+calling the real `codex` binary directly, makes a session invisible to Trace
+entirely.
