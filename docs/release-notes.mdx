@@ -5,9 +5,9 @@ description: Trace changelog.
 
 ## v1.3.5 - npm package rename, integration bugfixes
 
-- **npm package renamed** from `trace-dev` to **`trc-cli`** (`trc` and `trace`
+- **npm package renamed** from `trace-dev` to **`@rangan23/trace-cli`** (`trc` and `trace`
   are both already taken on npm). The installed command is unchanged: `trc`.
-  `npm install -g trc-cli` replaces `npm install -g trace-dev`.
+  `npm install -g @rangan23/trace-cli` replaces `npm install -g trace-dev`.
 - **Fixed `scripts/install.sh`** downloading from the wrong GitHub repo
   (`TaxCollector23/trc` instead of `TaxCollector23/trace`), which broke the
   `curl | sh` install path entirely.
@@ -33,7 +33,7 @@ description: Trace changelog.
 - **`trc replay <run_id>`** replays a run's timeline at its original recorded
   pace (or `--fast` to print immediately), reading the same data as `show`,
   `patch`, and `risks`.
-- **npm-only install** on every platform: `npm install -g trc-cli` installs the
+- **npm-only install** on every platform: `npm install -g @rangan23/trace-cli` installs the
   `trc` command.
 
 ## v1.2 - Fully deterministic: no API key, add Ratify

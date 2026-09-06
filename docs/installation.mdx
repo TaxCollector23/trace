@@ -7,12 +7,14 @@ Trace ships a single binary, `trc`. Install it with npm on macOS, Linux, and
 Windows:
 
 ```bash
-npm install -g trc-cli
+npm install -g @rangan23/trace-cli
 ```
 
 That is the only supported install path on every platform. The npm package is
-named `trc-cli` because the bare `trc` and `trace` names are already taken on
-npm. The command it installs is `trc`.
+published as the scoped name `@rangan23/trace-cli`: `trc`, `trace`, `trc-cli`,
+and `trace-cli` are all either already registered or blocked by npm's
+anti-typosquat policy for being too similar to an existing package. The
+command it installs is `trc`.
 
 ## Requirements
 
@@ -31,7 +33,7 @@ CLI is self-healing.
 To install a specific release, set `TRACE_VERSION` for the install:
 
 ```bash
-TRACE_VERSION=v1.3.0 npm install -g trc-cli
+TRACE_VERSION=v1.3.0 npm install -g @rangan23/trace-cli
 ```
 
 ## Verify the install
@@ -58,7 +60,7 @@ something.
 If you installed with npm, update the same way:
 
 ```bash
-npm install -g trc-cli@latest
+npm install -g @rangan23/trace-cli@latest
 ```
 
 The `trc update` command also updates the binary in place to the latest GitHub

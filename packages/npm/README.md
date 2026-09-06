@@ -1,10 +1,10 @@
-# trc-cli (npm wrapper)
+# @rangan23/trace-cli (npm wrapper)
 
 Optional npm install path for the Trace CLI. Installs the platform `trc`
 binary from GitHub Releases and exposes it on your PATH as `trc`.
 
 ```bash
-npm install -g trc-cli
+npm install -g @rangan23/trace-cli
 trc --help
 ```
 
@@ -12,4 +12,4 @@ This is a **fallback** install method. The primary methods are Homebrew (macOS),
 the PowerShell script (Windows), and the curl shell script (Linux/macOS). See
 the [main README](../../README.md).
 
-Pin a version with `TRACE_VERSION=v1.3.0 npm install -g trc-cli`.
+Pin a version with `TRACE_VERSION=v1.3.0 npm install -g @rangan23/trace-cli`.

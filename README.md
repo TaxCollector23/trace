@@ -44,12 +44,13 @@ machine.
 ## Install
 
 ```bash
-npm install -g trace-dev
+npm install -g @rangan23/trace-cli
 ```
 
 This installs the `trc` command on macOS, Linux, and Windows. (The npm package
-is named `trace-dev` because the bare `trc`/`trace` names are already taken on
-npm; the command it installs is `trc`.)
+is published under the scoped name `@rangan23/trace-cli` — `trc`, `trace`,
+`trc-cli`, and `trace-cli` are all either taken or blocked by npm's
+anti-typosquat policy; the command it installs is `trc`.)
 
 ## Quickstart
 
@@ -111,8 +112,8 @@ fake data in production.
 - File-change tracking with a debounced watcher
 - **Rule-based command guarding** (allow / warn / require approval / block),
   understands evasions the naive blocklist misses: pipe-to-shell
-  (`curl ,,� | sudo bash`), download-then-exec, base64-decoded payloads,
-  `find ,,� -delete`, raw block-device writes, DB drops
+  (`curl ... | sudo bash`), download-then-exec, base64-decoded payloads,
+  `find ... -delete`, raw block-device writes, DB drops
 - **Deterministic policy engine**: secret detection, missing tests on
   sensitive paths, swallowed errors, hardcoded localhost, dependency/lockfile
   changes, and more, with a real labeled-fixture benchmark (`trc self-check`
@@ -143,11 +144,18 @@ fake data in production.
 
 Each lives under `integrations/` and connects to the local daemon.
 
-- **Claude Code**: hooks adapter with wrapper fallback (`integrations/claude`)
-- **Codex**: CLI wrapper adapter (`integrations/codex`)
-- **Cursor**: MCP server exposing Trace tools (`integrations/cursor`)
+- **Claude Code**: PreToolUse/PostToolUse hooks, enforcing (`integrations/claude`)
+- **Cursor**: MCP server + a `beforeShellExecution` guard hook, enforcing (`integrations/cursor`)
+- **OpenCode**: a `tool.execute.before` plugin, enforcing (`integrations/opencode`)
+- **Codex**: CLI wrapper adapter, observe-only for sub-invocations (`integrations/codex`)
+- **Windsurf**: MCP server, read-only (`integrations/windsurf`)
+- **Aider**: wrapper adapter, manual setup (`integrations/aider`)
+- **VS Code**: extension, not yet published to the marketplace (`integrations/vscode`)
 - **GitHub**: App + Action running the deterministic policy engine
   (`trc review-diff`) and posting sanitized summaries (`integrations/github`)
+
+Run `trc integrations install all` to wire up Claude Code, Codex, Cursor,
+Windsurf, and OpenCode in one step.
 
 GUI tools are observed via file changes and Git diffs; full command guarding
 requires supported hooks or running through `trc run`.
@@ -171,29 +179,32 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full, module-by-module reference.
 
 ```
 trace
-,,�,,, README.md
-,,�,,, docs/                  # Markdown docs (single source)
-,,�,,, crates/
-,,�  ,,�,,, trace-cli/          # Rust CLI (binary: trace; hosts the daemon)
-,,�  ,,�,,, trace-daemon/       # Rust local API + localhost GUI server
-,,�  ,,,,,, trace-core/         # shared logic
-,,�,,, apps/
-,,�  ,,�,,, web/                # React + Vite local dashboard
-,,�  ,,�,,, desktop/            # native desktop shell (Tauri) wrapping the dashboard
-,,�  ,,�,,, landing/            # public landing site (Vercel)
-,,�  ,,,,,, docs/               # docs site ,�� GitHub Pages (renders /docs)
-,,�,,, integrations/
-,,�  ,,�,,, github/             # GitHub App / Actions
-,,�  ,,�,,, vscode/             # VS Code extension
-,,�  ,,�,,, cursor/             # Cursor MCP server
-,,�  ,,�,,, claude/             # Claude Code hooks adapter
-,,�  ,,,,,, codex/              # Codex CLI adapter
-,,�,,, packages/
-,,�  ,,,,,, npm/                # optional npm wrapper package
-,,�,,, homebrew-trace/        # Homebrew formula (mirrors the tap repo)
-,,�,,, firebase/              # optional static mirror / reserved identity
-,,�,,, scripts/               # install.sh, install.ps1
-,,,,,, .github/workflows/     # release.yml, landing-deploy.yml, ci.yml
+├── README.md
+├── docs/                  # Markdown docs (single source)
+├── crates/
+│   ├── trace-cli/         # Rust CLI (binary: trc; hosts the daemon)
+│   ├── trace-daemon/      # Rust local API + localhost GUI server
+│   └── trace-core/        # shared logic
+├── apps/
+│   ├── web/               # React + Vite local dashboard
+│   ├── desktop/           # native desktop shell (Tauri) wrapping the dashboard
+│   ├── landing/           # public landing site (Vercel)
+│   └── docs/              # docs site → GitHub Pages (renders /docs)
+├── integrations/
+│   ├── github/            # GitHub App / Actions
+│   ├── vscode/            # VS Code extension
+│   ├── cursor/            # Cursor MCP server + hook
+│   ├── windsurf/          # Windsurf MCP server
+│   ├── opencode/          # OpenCode plugin
+│   ├── claude/            # Claude Code hooks adapter
+│   ├── codex/             # Codex CLI adapter
+│   └── aider/             # Aider wrapper adapter
+├── packages/
+│   └── npm/               # npm wrapper package
+├── homebrew-trace/        # Homebrew formula (mirrors the tap repo)
+├── firebase/              # optional static mirror / reserved identity
+├── scripts/               # install.sh, install.ps1
+└── .github/workflows/     # release.yml, landing-deploy.yml, ci.yml
 ```
 
 ## Development setup
