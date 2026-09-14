@@ -82,6 +82,9 @@ export default function Home() {
           command="npm i -g trace-agent-cli"
           copyText="npm i -g trace-agent-cli"
         />
+        <p className="mt-4 text-center text-sm text-text-dim">
+          Then run <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs text-text">trc integrations install all</code> to connect your agents.
+        </p>
       </section>
 
       {/* ---------- Works everywhere ---------- */}

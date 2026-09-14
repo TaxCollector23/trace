@@ -311,6 +311,17 @@ fn print_banner() {
     println!("{}\n", colors::brand(BANNER));
 }
 
+/// Keep a bare first invocation useful without dumping the full command list.
+/// Users can still ask for the complete help with `trc --help`.
+fn print_quickstart() {
+    println!("Trace is ready.");
+    println!();
+    println!("Next: trc integrations install all");
+    println!("Then: trc dashboard");
+    println!();
+    println!("Run `trc --help` to see every command.");
+}
+
 /// The banner belongs to onboarding, not to every command. Show it only on the
 /// first-run/help surface and the two onboarding commands — never on routine
 /// calls like `daemon status`, `doctor`, or `run`, which should stay compact.
@@ -328,6 +339,11 @@ fn wants_banner(args: &[String]) -> bool {
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
+
+    if args.is_empty() {
+        print_quickstart();
+        return;
+    }
 
     if wants_banner(&args) {
         print_banner();

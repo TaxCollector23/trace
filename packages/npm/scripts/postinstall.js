@@ -47,16 +47,16 @@ function startDaemon(binary) {
 try {
   const binary = await ensureBinary();
   const dashboard = startDaemon(binary);
-  if (!fs.existsSync(bannerMarker)) {
+  const firstInstall = !fs.existsSync(bannerMarker);
+  if (firstInstall) {
     fs.mkdirSync(traceHome, { recursive: true });
     fs.writeFileSync(bannerMarker, new Date().toISOString());
     process.stdout.write(
-      "\n  TRACE — see what your AI changes\n" +
-        "  ───────────────────────────────\n"
+      "Trace is ready.\n" +
+        "Next: trc integrations install all\n"
     );
+    if (dashboard) process.stdout.write(`Dashboard: ${dashboard}\n`);
   }
-  process.stdout.write("to install all integrations, run trc integrations install all\n");
-  if (dashboard) process.stdout.write(`dashboard: ${dashboard}\n`);
 } catch (error) {
   recordFailure(`binary install failed: ${error.message}`);
   // Do not fail npm itself. The launcher retries the download on first use.
