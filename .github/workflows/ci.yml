@@ -22,6 +22,42 @@ jobs:
       - name: test
         run: cargo test --workspace --exclude trace-desktop
 
+  cli-e2e:
+    name: CLI end-to-end smoke
+    runs-on: ubuntu-latest
+    needs: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: build CLI
+        run: cargo build -p trace-cli
+      - name: exercise a fresh project, enforcement, and benchmarks
+        shell: bash
+        run: |
+          set -euo pipefail
+          project="$(mktemp -d)"
+          trace_home="$(mktemp -d)"
+          git -C "$project" init -q
+          git -C "$project" config user.email trace-ci@example.invalid
+          git -C "$project" config user.name trace-ci
+          touch "$project/README.md"
+          git -C "$project" add README.md
+          git -C "$project" commit -qm initial
+          export TRACE_HOME="$trace_home"
+          export TRACE_DB="$trace_home/trace.db"
+          trc="$GITHUB_WORKSPACE/target/debug/trc"
+          trap '"$trc" daemon stop >/dev/null 2>&1 || true' EXIT
+          cd "$project"
+          "$trc" init
+          "$trc" run "printf ci-smoke"
+          "$trc" runs | grep -q completed
+          if "$trc" run "rm -rf /"; then
+            echo "Trace allowed a blocked command"
+            exit 1
+          fi
+          "$trc" self-check | grep -q "All fixtures and red-team threats passed."
+
   desktop:
     name: Desktop shell (${{ matrix.name }})
     runs-on: ${{ matrix.os }}

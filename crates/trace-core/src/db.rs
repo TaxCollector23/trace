@@ -491,6 +491,35 @@ impl Store {
         // Storage-boundary redaction (see `create_run`): scrub any secret out
         // of the command line before persisting it.
         let command = crate::secrets::redact_text(&new.command);
+
+        // `trc run` records the guard decision before starting a process so
+        // the dashboard can show it while the command is live, then posts the
+        // exit code and log paths after the process ends. Complete that
+        // pending row instead of creating a second, misleading "executed"
+        // command row. If a caller has no pending row, retain the old insert
+        // behavior as a safe compatibility fallback.
+        if new.decision == "executed" && new.exit_code.is_some() {
+            let updated = self.conn.execute(
+                "UPDATE commands
+                 SET exit_code = ?1, stdout_path = ?2, stderr_path = ?3
+                 WHERE id = (
+                   SELECT id FROM commands
+                   WHERE run_id = ?4 AND command = ?5
+                     AND decision != 'executed' AND exit_code IS NULL
+                   ORDER BY rowid DESC LIMIT 1
+                 )",
+                params![
+                    new.exit_code,
+                    new.stdout_path,
+                    new.stderr_path,
+                    run_id,
+                    command
+                ],
+            )?;
+            if updated > 0 {
+                return Ok(());
+            }
+        }
         self.conn.execute(
             "INSERT INTO commands (id, run_id, command, decision, exit_code, stdout_path, stderr_path, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
@@ -1458,6 +1487,41 @@ mod tests {
             cmds[0].command
         );
         assert!(cmds[0].command.contains("redacted"));
+    }
+
+    #[test]
+    fn completing_a_command_updates_the_live_decision_row() {
+        let (store, _pid, run_id) = store_with_run("npm test");
+        store
+            .add_command(
+                &run_id,
+                &NewCommand {
+                    command: "npm test".into(),
+                    decision: "allow".into(),
+                    exit_code: None,
+                    stdout_path: None,
+                    stderr_path: None,
+                },
+            )
+            .unwrap();
+        store
+            .add_command(
+                &run_id,
+                &NewCommand {
+                    command: "npm test".into(),
+                    decision: "executed".into(),
+                    exit_code: Some(0),
+                    stdout_path: Some("stdout.log".into()),
+                    stderr_path: Some("stderr.log".into()),
+                },
+            )
+            .unwrap();
+
+        let commands = store.list_commands(&run_id).unwrap();
+        assert_eq!(commands.len(), 1);
+        assert_eq!(commands[0].decision, "allow");
+        assert_eq!(commands[0].exit_code, Some(0));
+        assert_eq!(commands[0].stdout_path.as_deref(), Some("stdout.log"));
     }
 
     #[test]

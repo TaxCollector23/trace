@@ -9,7 +9,7 @@ and what looked risky, plus a one-click way to roll it back.
 It is **local-first**: the daemon and dashboard bind only to `127.0.0.1`, there
 is no account, and your project data stays on your machine by default.
 
-- **Landing:** https://landing-one-hazel-88.vercel.app
+- **Landing:** https://trace-landing-blue.vercel.app
 - **Docs:** https://taxcollector23.github.io/trace/
 - **Repo:** https://github.com/TaxCollector23/trace
 
@@ -73,8 +73,8 @@ only). Roll back a run's changes with `trc rollback`.
 | `trc rollback` | Restore a checkpoint (Git-based, confirmed; `-y`). |
 | `trc scan` | Detect the project's stack (package manager, framework, tests, git). |
 | `trc doctor` | System checks: toolchain, clipboard, daemon, agents, paths. |
-| `trc runs` | List recent runs. |
-| `trc show <run_id>` | Show a run's summary and timeline. |
+| `trc runs` | List recent runs with copyable short IDs. |
+| `trc show <run_id>` | Show a run's summary and timeline; a short ID prefix is enough. |
 | `trc replay <run_id>` | Replay a run's events, commands, and file changes in order, paced by their real timestamps (`-y`/`--fast` to skip pacing). |
 | `trc patch <run_id>` | Show the changed files for a run. |
 | `trc risks <run_id>` | Show guarded commands and secret warnings for a run. |
@@ -215,10 +215,10 @@ cargo build
 cargo test
 
 # Dashboard (embedded by the daemon in release builds)
-cd apps/web && npm install && npm run dev   # or: npm run build
+cd apps/web && npm ci && npm run dev   # or: npm run build
 
 # Landing site
-cd apps/landing && npm install && npm run dev
+cd apps/landing && npm ci && npm run dev
 
 # Run the daemon / CLI directly
 cargo run -p trace-daemon
@@ -232,7 +232,7 @@ daemon.
 
 - **Vercel (landing):** deployed from `apps/landing` (Root Directory
   `apps/landing`, build command `npm run build`, output `dist`) to the
-  `landing` project at https://landing-one-hazel-88.vercel.app. Set
+  `landing` project at https://trace-landing-blue.vercel.app. Set
   `VITE_MINTLIFY_DOCS_URL` to the deployed docs URL. Alias a `trace`-branded
   custom domain to this project when one is available.
 - **Firebase (optional mirror):** `firebase/` hosts a static reserved page only.

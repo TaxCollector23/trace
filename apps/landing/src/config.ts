@@ -31,4 +31,4 @@ export const DOWNLOADS = {
 // Override with VITE_LANDING_URL if this ever moves off the current
 // Vercel project (e.g. a real trace.dev domain).
 export const LANDING_URL: string =
-  import.meta.env.VITE_LANDING_URL || "https://landing-one-hazel-88.vercel.app";
+  import.meta.env.VITE_LANDING_URL || "https://trace-landing-blue.vercel.app";

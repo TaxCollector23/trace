@@ -32,7 +32,7 @@ jobs:
       - name: Build docs
         working-directory: apps/docs
         run: |
-          npm install
+          npm ci
           npm run build
       - name: Configure Pages
         uses: actions/configure-pages@v5

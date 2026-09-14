@@ -578,6 +578,12 @@ pub struct FixtureResult {
 pub struct PolicyEvalReport {
     pub total: usize,
     pub passed: usize,
+    /// Positive fixtures where the expected rule fired.
+    pub true_positives: usize,
+    /// Unexpected findings, including findings on clean fixtures.
+    pub false_positives: usize,
+    /// Positive fixtures where the expected rule did not fire.
+    pub false_negatives: usize,
     /// True positives / (true positives + false positives) — of everything
     /// the engine flagged, how much was actually expected to fire.
     pub precision: f64,
@@ -606,10 +612,16 @@ pub fn run_policy_eval() -> PolicyEvalReport {
                 } else {
                     fn_ += 1;
                 }
-                // Extra findings beyond the one under test are allowed (a
-                // fixture can legitimately trip more than one rule) — this
-                // fixture only asserts the rule it's targeting fired.
-                hit
+                // Keep collateral findings explicit. New accidental findings
+                // must lower precision instead of being hidden by a
+                // permissive benchmark.
+                let allowed = allowed_companion_rules(&fixture);
+                let extras = fired_rules
+                    .iter()
+                    .filter(|r| *r != expected && !allowed.iter().any(|a| a == *r))
+                    .count();
+                fp += extras;
+                hit && extras == 0
             }
             None => {
                 let clean = fired_rules.is_empty();
@@ -643,8 +655,22 @@ pub fn run_policy_eval() -> PolicyEvalReport {
     PolicyEvalReport {
         total: results.len(),
         passed,
+        true_positives: tp,
+        false_positives: fp,
+        false_negatives: fn_,
         precision,
         recall,
         results,
+    }
+}
+
+/// Findings that are expected collateral for a particular labeled fixture.
+/// This is deliberately narrow so the precision score remains meaningful as
+/// the policy pack grows.
+fn allowed_companion_rules(fixture: &Fixture) -> &'static [&'static str] {
+    if fixture.name.starts_with("Stripe secret key") {
+        &["missing-tests-for-payments-paths"]
+    } else {
+        &[]
     }
 }

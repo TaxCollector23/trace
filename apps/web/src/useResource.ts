@@ -27,6 +27,14 @@ export function useResource<T>(
     let alive = true;
     const controller = new AbortController();
 
+    // A dependency change starts a new subscription. Do not briefly render
+    // the previous run's payload or carry its freshness timestamp into this
+    // one while the new request is in flight.
+    setResource(LOADING);
+    setStalled(false);
+    lastOkRef.current = null;
+    setLastOkAt(null);
+
     const run = () => {
       producerRef.current(controller.signal)
         .then((r) => {

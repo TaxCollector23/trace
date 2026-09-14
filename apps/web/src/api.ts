@@ -6,7 +6,11 @@ export type RunStatus =
   | "completed"
   | "failed"
   | "blocked"
-  | "rolled_back";
+  | "rolled_back"
+  | "cancelled"
+  | "aborted"
+  | "interrupted"
+  | "unknown";
 
 export interface Project {
   id: string;
@@ -244,6 +248,9 @@ export interface FixtureResult {
 export interface PolicyEvalReport {
   total: number;
   passed: number;
+  true_positives: number;
+  false_positives: number;
+  false_negatives: number;
   precision: number;
   recall: number;
   results: FixtureResult[];

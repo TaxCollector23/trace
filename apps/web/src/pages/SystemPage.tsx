@@ -21,13 +21,20 @@ export default function SystemPage() {
       <ResourceGate resource={health.resource} what="daemon health" onRetry={health.reload}>
         {(h) => (
           <div className="v4-table-wrap">
+            {(() => {
+              const tone = ["ok", "healthy", "ready"].includes(h.status.toLowerCase())
+                ? "success"
+                : ["degraded", "warning"].includes(h.status.toLowerCase())
+                  ? "attention"
+                  : "danger";
+              return (
             <table>
               <tbody>
                 <tr>
                   <th>Status</th>
                   <td>
-                    <span className="v4-cov tone-success">
-                      <ToneIcon tone="success" size={12} /> {h.status}
+                    <span className={`v4-cov tone-${tone}`}>
+                      <ToneIcon tone={tone} size={12} /> {h.status}
                     </span>
                   </td>
                 </tr>
@@ -41,6 +48,8 @@ export default function SystemPage() {
                 </tr>
               </tbody>
             </table>
+              );
+            })()}
           </div>
         )}
       </ResourceGate>

@@ -201,7 +201,39 @@ fn parse_numstat(numstat: &str) -> std::collections::HashMap<String, String> {
 
 /// Full unified diff text between a ref and the working tree, for the patch view.
 pub fn full_diff(path: &Path, from_ref: &str) -> Result<String> {
-    git_stdout(path, &["diff", from_ref])
+    let tracked = run_git(path, &["diff", from_ref])?;
+    if !tracked.status.success() {
+        return Err(anyhow!(
+            "git diff {} failed: {}",
+            from_ref,
+            String::from_utf8_lossy(&tracked.stderr).trim()
+        ));
+    }
+
+    let mut diff = String::from_utf8_lossy(&tracked.stdout).into_owned();
+    // `git diff <ref>` intentionally excludes untracked files. Trace already
+    // reports those files in `diff_against`; include their real contents here
+    // too so the dashboard patch, policy review, and secret scan all agree on
+    // the same complete working-tree change set.
+    let untracked =
+        git_stdout(path, &["ls-files", "--others", "--exclude-standard"]).unwrap_or_default();
+    for file in untracked
+        .lines()
+        .filter(|p| !p.is_empty() && !is_internal(p))
+    {
+        let out = run_git(path, &["diff", "--no-index", "--", "/dev/null", file])?;
+        // `git diff --no-index` returns 1 when the files differ, which is the
+        // expected result for an untracked file. Only other failures matter.
+        if !out.status.success() && out.status.code() != Some(1) {
+            return Err(anyhow!(
+                "git diff --no-index failed for {}: {}",
+                file,
+                String::from_utf8_lossy(&out.stderr).trim()
+            ));
+        }
+        diff.push_str(&String::from_utf8_lossy(&out.stdout));
+    }
+    Ok(diff)
 }
 
 /// Splits a full unified diff (as produced by `full_diff`/`diff_range`) into

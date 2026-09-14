@@ -76,7 +76,7 @@ git clone https://github.com/TaxCollector23/trace
 cd trace
 
 # Build the dashboard (embedded into the daemon in release builds)
-cd apps/web && npm install && npm run build && cd ../..
+cd apps/web && npm ci && npm run build && cd ../..
 
 # Build the CLI (the binary is named trc)
 cargo build --release -p trace-cli

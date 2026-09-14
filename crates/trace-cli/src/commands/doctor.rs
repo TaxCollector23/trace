@@ -111,9 +111,11 @@ pub fn run() -> Result<()> {
         "self-check",
         report.passed == report.total,
         &format!(
-            "{}/{} fixtures passed ({:.0}% precision, {:.0}% recall) — full report: `trc self-check`",
+            "{}/{} fixtures passed ({} false positives, {} missed; {:.0}% precision, {:.0}% recall) — full report: `trc self-check`",
             report.passed,
             report.total,
+            report.false_positives,
+            report.false_negatives,
             report.precision * 100.0,
             report.recall * 100.0
         ),
@@ -147,11 +149,7 @@ pub fn run() -> Result<()> {
         line(
             c.display_name,
             c.connected,
-            if c.connected {
-                c.how
-            } else {
-                "not connected"
-            },
+            if c.connected { c.how } else { "not connected" },
         );
     }
     if !any_connected {

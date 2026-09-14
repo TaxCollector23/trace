@@ -37,11 +37,15 @@ export default function Benchmarks() {
               <div className="k-val">{Math.round(report.recall * 100)}%</div>
               <div className="k-label">Recall</div>
             </div>
+            <div className="kpi">
+              <div className="k-val">{report.false_positives}</div>
+              <div className="k-label">False positives</div>
+            </div>
           </div>
           <p className="note" style={{ marginTop: 14 }}>
             <b>Precision</b>: of everything the engine flagged, how much was
-            actually supposed to fire — low precision means false positives
-            interrupting real work. <b>Recall</b>: of everything that should
+            actually supposed to fire — false positives are unexpected flags
+            that interrupt real work. <b>Recall</b>: of everything that should
             have fired, how much actually did — low recall means real issues
             slipping through. Every rule is tested with both a case that
             should fire and a deliberate near-miss that shouldn't.

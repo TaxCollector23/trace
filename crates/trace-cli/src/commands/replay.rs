@@ -40,6 +40,7 @@ impl Item {
 /// `-y`/`--fast` skips pacing entirely — useful in scripts or CI.
 pub fn run(run_id: &str, fast: bool) -> Result<()> {
     let c = client()?;
+    let run_id = crate::commands::query::resolve_run_id(&c, run_id)?;
     let summary: RunSummary = c.get_json(&format!("/api/runs/{run_id}"))?;
     let events: Vec<Event> = c.get_json(&format!("/api/runs/{run_id}/timeline"))?;
     let commands: Vec<CommandRecord> = c.get_json(&format!("/api/runs/{run_id}/commands"))?;

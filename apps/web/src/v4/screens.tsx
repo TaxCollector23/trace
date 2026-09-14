@@ -77,7 +77,7 @@ export function OnboardingScreen() {
           <div>
             <b>Connect an agent</b>
             <p className="muted">Install the shims so Trace can observe your coding agent.</p>
-            <CodeBox command="trc integrations install" />
+            <CodeBox command="trc integrations install all" />
           </div>
         </li>
         <li>

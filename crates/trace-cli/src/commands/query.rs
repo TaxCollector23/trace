@@ -21,6 +21,34 @@ fn short(s: &str, n: usize) -> String {
     }
 }
 
+/// A run ID shown in a command position must itself be valid input. Do not
+/// append an ellipsis here: users routinely paste this value into `trc show`.
+fn run_prefix(s: &str, n: usize) -> String {
+    s.chars().take(n).collect()
+}
+
+/// Resolve the short id shown by `trc runs` (or an exact id) to the canonical
+/// run id used by the daemon API. This keeps copy/paste from the list reliable
+/// without exposing long opaque ids in every table.
+pub fn resolve_run_id(c: &Client, input: &str) -> Result<String> {
+    let runs: Vec<RunSummary> = c.get_json("/api/runs?limit=200")?;
+    if runs.iter().any(|r| r.run.id == input) {
+        return Ok(input.to_string());
+    }
+    let matches: Vec<&str> = runs
+        .iter()
+        .filter(|r| r.run.id.starts_with(input))
+        .map(|r| r.run.id.as_str())
+        .collect();
+    match matches.as_slice() {
+        [only] => Ok((*only).to_string()),
+        [] => anyhow::bail!("run {input} not found — run `trc runs` to list recent runs"),
+        _ => anyhow::bail!(
+            "run id prefix {input} is ambiguous — use more characters from `trc runs`"
+        ),
+    }
+}
+
 /// `trc runs` — list recent runs.
 pub fn runs() -> Result<()> {
     let c = client()?;
@@ -31,18 +59,18 @@ pub fn runs() -> Result<()> {
     }
     println!(
         "{}",
-        colors::bold("STATUS      PROJECT     FILES  SECRETS  COMMAND")
+        colors::bold("RUN ID    STATUS      PROJECT     FILES  SECRETS  COMMAND")
     );
     for r in runs {
         let status = colors::status_padded(&r.run.status, 10);
         println!(
-            "{}  {:<10}  {:>5}  {:>7}  {}  ({})",
+            "{:<8}  {}  {:<10}  {:>5}  {:>7}  {}",
+            run_prefix(&r.run.id, 8),
             status,
             short(&r.project_name, 10),
             r.files_changed,
             r.secret_warnings,
             short(&r.run.command, 48),
-            short(&r.run.id, 8),
         );
     }
     Ok(())
@@ -51,6 +79,7 @@ pub fn runs() -> Result<()> {
 /// `trc show <run_id>` — run summary + timeline.
 pub fn show(run_id: &str) -> Result<()> {
     let c = client()?;
+    let run_id = resolve_run_id(&c, run_id)?;
     let r: RunSummary = c.get_json(&format!("/api/runs/{run_id}"))?;
     println!("{}", colors::bold(&format!("Run {}", r.run.id)));
     println!("  command:  {}", r.run.command);
@@ -88,6 +117,7 @@ pub fn show(run_id: &str) -> Result<()> {
 /// `trc patch <run_id>` — changed files.
 pub fn patch(run_id: &str) -> Result<()> {
     let c = client()?;
+    let run_id = resolve_run_id(&c, run_id)?;
     let changes: Vec<FileChange> = c.get_json(&format!("/api/runs/{run_id}/file-changes"))?;
     if changes.is_empty() {
         println!("No file changes recorded for this run.");
@@ -112,6 +142,7 @@ pub fn patch(run_id: &str) -> Result<()> {
 /// `trc risks <run_id>` — guarded commands + secret warnings (redacted).
 pub fn risks(run_id: &str) -> Result<()> {
     let c = client()?;
+    let run_id = resolve_run_id(&c, run_id)?;
     let cmds: Vec<CommandRecord> = c.get_json(&format!("/api/runs/{run_id}/commands"))?;
     let guarded: Vec<_> = cmds
         .into_iter()
@@ -146,6 +177,7 @@ pub fn risks(run_id: &str) -> Result<()> {
 /// `trc costs <run_id>` — API usage + estimated cost.
 pub fn costs(run_id: &str) -> Result<()> {
     let c = client()?;
+    let run_id = resolve_run_id(&c, run_id)?;
     let resp: Value = c.get_json(&format!("/api/runs/{run_id}/cost"))?;
     let usage = resp
         .get("usage")

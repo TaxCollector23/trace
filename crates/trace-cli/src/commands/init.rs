@@ -29,8 +29,23 @@ pub fn run() -> Result<()> {
 
     let config_path = paths::project_config_path(&root);
     if config_path.exists() {
+        // Initialization is also the recovery path for a fresh or relocated
+        // database. The project config belongs to the checkout, while the
+        // registry lives in the daemon DB; an existing config must not make us
+        // skip re-registering the project in that DB.
+        let port = daemon_ctl::ensure_running()?;
+        let client = Client::new(port);
+        let _: serde_json::Value = client.post_json(
+            "/api/projects",
+            &NewProject {
+                name: project_name.clone(),
+                path: root.display().to_string(),
+                config_path: config_path.display().to_string(),
+            },
+        )?;
         println!("Trace is already initialized here ({project_name}).");
         println!("  {}", colors::dim(&config_path.display().to_string()));
+        println!("  Project registry refreshed for the active Trace database.");
         return Ok(());
     }
 

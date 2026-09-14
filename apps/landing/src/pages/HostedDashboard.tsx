@@ -121,7 +121,7 @@ function NoDaemon() {
           <li>
             <div className="font-medium">1. Install the CLI (if you haven&apos;t)</div>
             <pre className="mt-1 overflow-x-auto rounded-lg bg-[#0d0d10] p-3 font-mono text-xs text-white">
-              <span className="text-white/40">$ </span>curl -fsSL https://landing-one-hazel-88.vercel.app/install.sh | sh
+              <span className="text-white/40">$ </span>curl -fsSL https://trace-landing-blue.vercel.app/install.sh | sh
             </pre>
           </li>
           <li>

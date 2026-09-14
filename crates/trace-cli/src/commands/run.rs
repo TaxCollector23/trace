@@ -138,7 +138,10 @@ pub fn run(opts: RunOptions) -> Result<()> {
         );
         println!("Command blocked. Recorded as a blocked run.");
         print_dashboard_hint(port);
-        return Ok(());
+        // A blocked command must fail at the shell boundary too. Returning
+        // success here lets an agent continue as if its destructive request
+        // ran, which defeats enforcement in scripts and tool adapters.
+        std::process::exit(2);
     }
 
     // 5. Create a checkpoint.

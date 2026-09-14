@@ -13,9 +13,11 @@ pub fn run() -> Result<()> {
 
     println!("{}", colors::bold("Trace policy engine self-check"));
     println!(
-        "  {} / {} fixtures passed  ·  precision {:.0}%  ·  recall {:.0}%\n",
+        "  {} / {} fixtures passed  ·  {} false positive(s)  ·  {} missed  ·  precision {:.0}%  ·  recall {:.0}%\n",
         report.passed,
         report.total,
+        report.false_positives,
+        report.false_negatives,
         report.precision * 100.0,
         report.recall * 100.0
     );

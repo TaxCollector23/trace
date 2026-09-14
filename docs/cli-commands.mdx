@@ -122,7 +122,7 @@ trc daemon status   # running?, port, url, pid, database path, active projects
 ### `trc runs`
 
 List recent runs across your projects (status, files changed, secret warnings,
-command, run id).
+command, and a short ID you can copy into the other run commands).
 
 ```bash
 trc runs
@@ -135,7 +135,7 @@ start/end time, files, commands, and secrets counts, estimated cost when known,
 and the full event timeline.
 
 ```bash
-trc show <run_id>
+trc show <run_id>       # the full ID or an unambiguous prefix both work
 ```
 
 ### `trc replay <run_id>`

