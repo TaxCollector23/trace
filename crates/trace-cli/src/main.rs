@@ -322,6 +322,26 @@ fn print_quickstart() {
     println!("Run `trc --help` to see every command.");
 }
 
+/// The startup art is a one-time welcome, not a banner on every invocation.
+fn first_bare_invocation() -> bool {
+    use std::io::IsTerminal;
+    if !std::io::stdout().is_terminal() {
+        return false;
+    }
+    let home = std::env::var_os("TRACE_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".trace")));
+    let Some(home) = home else { return true };
+    let marker = home.join("cli-startup-art-shown");
+    if marker.exists() {
+        return false;
+    }
+    if std::fs::create_dir_all(&home).is_ok() {
+        let _ = std::fs::write(marker, "shown\n");
+    }
+    true
+}
+
 /// The banner belongs to onboarding, not to every command. Show it only on the
 /// first-run/help surface and the two onboarding commands — never on routine
 /// calls like `daemon status`, `doctor`, or `run`, which should stay compact.
@@ -341,6 +361,9 @@ fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
     if args.is_empty() {
+        if first_bare_invocation() {
+            print_banner();
+        }
         print_quickstart();
         return;
     }
