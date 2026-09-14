@@ -79,8 +79,8 @@ export default function Home() {
       <section id="install" className="scroll-mt-24 py-6">
         <Terminal
           label="trace - install"
-          command="npm i -g @rangan23/trace-cli"
-          copyText="npm i -g @rangan23/trace-cli"
+          command="npm i -g trace-cli"
+          copyText="npm i -g trace-cli"
         />
       </section>
 

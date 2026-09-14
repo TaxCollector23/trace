@@ -44,7 +44,7 @@ machine.
 ## Install
 
 ```bash
-npm install -g @rangan23/trace-cli
+npm install -g trace-cli
 ```
 
 This installs the `trc` command on macOS, Linux, and Windows. (The npm package
