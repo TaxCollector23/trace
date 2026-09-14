@@ -40,6 +40,8 @@ export interface RunSummary extends Run {
   project_name: string;
   files_changed: number;
   command_count: number;
+  passed_commands: number;
+  dangerous_commands: number;
   secret_warnings: number;
   estimated_cost: number | null;
   checks_status: string | null;

@@ -5,16 +5,20 @@
 // blocked, e.g. `npm install --ignore-scripts`), download it now on first run
 // so the user never sees "binary not found".
 import { spawnSync } from "node:child_process";
-import { ensureBinary } from "../scripts/platform.js";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { binPath, ensureBinary } from "../scripts/platform.js";
 
 let bin;
 try {
-  bin = await ensureBinary({ log: process.stderr });
+  bin = await ensureBinary();
 } catch (e) {
-  process.stderr.write(
-    `trc: could not obtain the binary (${e.message}).\n` +
-      "Install manually from https://github.com/TaxCollector23/trace/releases\n"
-  );
+  const home = process.env.TRACE_HOME || path.join(os.homedir(), ".trace");
+  try {
+    fs.mkdirSync(home, { recursive: true });
+    fs.appendFileSync(path.join(home, "install-errors.log"), `${new Date().toISOString()} binary unavailable: ${e.message}\n`);
+  } catch { /* keep the command quiet if diagnostics cannot be written */ }
   process.exit(1);
 }
 

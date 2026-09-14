@@ -1,4 +1,3 @@
-import { CodeBox } from "../components";
 import { ToneIcon } from "./ui";
 
 // ---------------------------------------------------------------------------
@@ -18,8 +17,8 @@ export function DisconnectedScreen({ onRetry }: { onRetry: () => void }) {
         The dashboard could not reach the local daemon on 127.0.0.1. Nothing below is live. This is
         an honest blank — Trace will not show stale or invented data while disconnected.
       </p>
-      <CodeBox label="Start the daemon" command="trc daemon start" />
-      <CodeBox label="Check its status" command="trc doctor" />
+      <p className="muted">Start Trace with <b>trc daemon start</b>, then refresh this page.</p>
+      <p className="muted">If it still does not connect, run <b>trc doctor</b>.</p>
       <button className="btn" style={{ marginTop: 8 }} onClick={onRetry}>
         Retry connection
       </button>
@@ -37,7 +36,7 @@ export function DbUnavailableScreen({ reason, onRetry }: { reason: string; onRet
       <p className="muted">
         The daemon is running but returned a server error while reading its store. {reason}
       </p>
-      <CodeBox label="Inspect the daemon" command="trc doctor" />
+      <p className="muted">Run <b>trc doctor</b> in a terminal, then refresh this page.</p>
       <button className="btn" style={{ marginTop: 8 }} onClick={onRetry}>
         Retry
       </button>
@@ -77,7 +76,7 @@ export function OnboardingScreen() {
           <div>
             <b>Connect an agent</b>
             <p className="muted">Install the shims so Trace can observe your coding agent.</p>
-            <CodeBox command="trc integrations install all" />
+            <p className="muted">Run <b>trc integrations install all</b> once.</p>
           </div>
         </li>
         <li>
@@ -85,7 +84,7 @@ export function OnboardingScreen() {
           <div>
             <b>Run a task through Trace</b>
             <p className="muted">Wrap an agent session so every command and edit is recorded.</p>
-            <CodeBox command={'trc run "claude"'} />
+            <p className="muted">Start a task with <b>trc run "claude"</b>.</p>
           </div>
         </li>
         <li>

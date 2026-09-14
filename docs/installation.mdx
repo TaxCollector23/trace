@@ -26,7 +26,9 @@ command it installs is `trc`.
 The package downloads the matching prebuilt binary from GitHub Releases during
 install. If that step is ever skipped (for example with `npm install
 --ignore-scripts`), the first `trc` run fetches the binary automatically, so the
-CLI is self-healing.
+CLI is self-healing. A normal install also starts the local dashboard and prints
+its link. The startup mark appears only once per Trace home. Then connect every
+agent with `trc integrations install all`.
 
 ## Pin a version
 

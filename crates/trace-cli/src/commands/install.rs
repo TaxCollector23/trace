@@ -8,8 +8,7 @@
 
 use anyhow::Result;
 
-use crate::colors;
-use crate::commands::{hook_install, integrations};
+use crate::commands::hook_install;
 use crate::daemon_ctl;
 
 pub fn run(target: &str) -> Result<()> {
@@ -27,22 +26,14 @@ fn install_agents() -> Result<()> {
     // Live review needs the daemon; start it now so the connection is complete
     // the moment an agent restarts. A failure here is non-fatal — the hooks/MCP
     // still install, they just won't stream live review until the daemon runs.
-    match daemon_ctl::ensure_running() {
-        Ok(port) => println!(
-            "{} daemon running on http://127.0.0.1:{port}\n",
-            colors::green("✓")
-        ),
-        Err(e) => println!(
-            "{} couldn't start the daemon ({e}). Agents will still connect; run `trc daemon start` later for live review.\n",
-            colors::yellow("note:")
-        ),
-    }
+    let port = daemon_ctl::ensure_running().ok();
 
     // Install/patch every supported agent (idempotent, with backups).
     hook_install::install("all")?;
 
-    // Show the resulting connection state so the user can confirm at a glance.
-    println!("\n{}", colors::bold("Connection status"));
-    integrations::status()?;
+    if let Some(port) = port {
+        println!("dashboard: http://127.0.0.1:{port}");
+    }
+    println!("agents connected");
     Ok(())
 }

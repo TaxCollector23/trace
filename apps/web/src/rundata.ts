@@ -4,6 +4,7 @@
 
 import { fetchResource, type Resource } from "./data";
 import type {
+  Project,
   RunSummary,
   FileChange,
   CommandRecord,
@@ -18,6 +19,8 @@ import type {
 const runScoped = "not_found" as const;
 
 export const runApi = {
+  projects: (signal?: AbortSignal) =>
+    fetchResource<Project[]>("/projects", { signal, emptyIsEmpty: true }),
   runs: (signal?: AbortSignal) =>
     fetchResource<RunSummary[]>("/runs", { signal, emptyIsEmpty: true }),
   run: (id: string, signal?: AbortSignal) =>

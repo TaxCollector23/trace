@@ -18,12 +18,12 @@ const heroFade = {
 // The real output of `trc integrations install all`, replayed line by line in
 // the wire-up terminal. Agent names are shown as proper nouns.
 const WIRE_UP_OUTPUT: TermLine[] = [
-  { text: "Connecting your agents to Trace", cls: "text-white/55" },
-  { text: "  ✓ Claude Code   PreToolUse + PostToolUse hooks", cls: "text-emerald-400/90" },
-  { text: "  ✓ Codex         wrapper script", cls: "text-emerald-400/90" },
-  { text: "  ✓ Cursor        MCP tools + enforcing guard hook", cls: "text-emerald-400/90" },
-  { text: "  ✓ Windsurf      MCP tools", cls: "text-emerald-400/90" },
-  { text: "  ✓ OpenCode      MCP tools + enforcing guard plugin", cls: "text-emerald-400/90" },
+  { text: "Trace is watching", cls: "text-white/55" },
+  { text: "  ✓ Claude Code", cls: "text-emerald-400/90" },
+  { text: "  ✓ Codex CLI", cls: "text-emerald-400/90" },
+  { text: "  ✓ Cursor", cls: "text-emerald-400/90" },
+  { text: "  ✓ Windsurf", cls: "text-emerald-400/90" },
+  { text: "  ✓ OpenCode", cls: "text-emerald-400/90" },
 ];
 
 export default function Home() {
@@ -48,12 +48,9 @@ export default function Home() {
             variants={heroFade}
             className="mt-5 max-w-[520px] text-lg leading-relaxed text-text-dim"
           >
-            Trace records everything your AI coding agent does: every file it
-            changes, every command it runs, what it costs, and a git checkpoint you
-            can roll back to. It all lands on a local dashboard where you read the
-            full diff, see each command's risk, track spend, and undo any run in one
-            click. It runs entirely on your machine with no API key, so nothing is
-            ever sent anywhere.
+            Your AI can move fast. Trace gives you the seatbelt: a clear record of
+            every command, file change, cost, and decision, with a local dashboard
+            that lets you stop risky work and undo a run when you need to.
           </motion.p>
           <motion.div
             custom={2}
@@ -91,7 +88,7 @@ export default function Home() {
       <Section
         id="integrations"
         title="Works with the agents you already run"
-        lede="Claude Code, Codex CLI, and OpenCode connect through Trace's hooks and local MCP server. Cursor and Windsurf are set up once in their own settings, then report back automatically. The same review engine runs in CI on every pull request."
+        lede="Connect the coding agents you already use. Trace shows what each one did, what it changed, and whether it tried something risky."
       >
         <WorksEverywhere />
       </Section>
@@ -100,7 +97,7 @@ export default function Home() {
       <Section
         id="wire-up"
         title="One command wires up every agent you use"
-        lede="No manual JSON editing. `trc integrations install all` writes each hook to ~/.trace/integrations, patches the config for Claude Code, Codex, Cursor, Windsurf, and OpenCode, and prints exactly what changed. It is idempotent and backs up every file it touches."
+        lede="Run one command. Trace adds its connection, keeps a backup of settings it touches, and starts the local dashboard for you."
       >
         <Terminal
           label="trace - integrations"
@@ -112,26 +109,23 @@ export default function Home() {
       {/* ---------- Trace Ratification ---------- */}
       <Section
         id="ratification"
-        title="Ratify a pull request, right from the local dashboard"
-        lede="Connect a GitHub repo and ratify any PR against the exact same policy engine that guards your local edits: secret scanning, risky-change detection, disabled-test checks, and more. Pure pattern matching with no LLM and no API key, so every verdict is instant, free, and identical for everyone."
+        title="Check a pull request before it lands"
+        lede="Review a pull request with the same checks that protect local work. See secrets, risky changes, and missing tests before they reach your branch."
       >
         <Reveal>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
-              <div className="font-serif text-lg text-text">One engine, edit to PR</div>
+              <div className="font-serif text-lg text-text">The same checks everywhere</div>
               <p className="mt-2 text-sm leading-relaxed text-text-dim">
-                The same deterministic rules run on a local file edit, in CI via{" "}
-                <span className="font-mono text-[13px]">trc review-diff</span>, and on a
-                GitHub pull request from the dashboard's Ratify tab. Consistent by construction:
-                one implementation, no drift.
+                The checks that protect an agent run can also review a local change, a build, or a
+                GitHub pull request. You get one clear answer wherever work is reviewed.
               </p>
             </div>
             <div className="rounded-xl border border-border bg-white p-6 shadow-sm">
-              <div className="font-serif text-lg text-text">A clear, honest verdict</div>
+              <div className="font-serif text-lg text-text">A clear answer</div>
               <p className="mt-2 text-sm leading-relaxed text-text-dim">
-                A PR is <b>block</b> if it trips any high-severity rule, <b>needs review</b> for
-                medium-only, else <b>pass</b>, with every finding, its file, and its severity
-                listed. Reads private repos with a token that only ever touches api.github.com.
+                See exactly what needs attention, where it is, and why. Clean changes pass; risky
+                changes are held for a human. Private repositories stay on the connection you provide.
               </p>
             </div>
           </div>
@@ -141,36 +135,27 @@ export default function Home() {
       {/* ---------- Benchmarks ---------- */}
       <Section
         id="benchmarks"
-        title="Measured against an adversarial corpus, not vibes"
-        lede="Trace ships a labeled red-team corpus of dangerous commands (including evasions like curl ... | sudo bash and base64-piped shells), planted API keys, and unsafe prompts, run through the exact guard, secret, and prompt engines the runtime hook uses. Reproduce every number yourself with `trc self-check`."
+        title="Tested against the ways things go wrong"
+        lede="Trace tests itself against dangerous commands, hidden secrets, and common workarounds. The numbers are repeatable, and the test is included with the CLI."
       >
         <Reveal>
           <div className="overflow-hidden rounded-2xl border border-border bg-[#0d0d10] p-6 font-mono text-[13px] leading-relaxed text-white">
             <div className="text-white/40">$ trc self-check</div>
             <div className="mt-3 text-white/70">Trace red-team detection benchmark</div>
-            <div className="mt-1">
-              <span className="text-emerald-400">59/59</span> threats caught
-              &nbsp;·&nbsp; <span className="text-emerald-400">0</span> false
-              positives &nbsp;·&nbsp; recall{" "}
-              <span className="text-emerald-400">100%</span>
-            </div>
+            <div className="mt-1"><span className="text-emerald-400">59/59</span> dangerous examples stopped · <span className="text-emerald-400">0</span> safe examples interrupted</div>
             <div className="mt-3 space-y-1">
               <div>
-                <span className="text-emerald-400">[PASS]</span> Command guard
-                &nbsp;&nbsp;&nbsp;&nbsp;35/35 caught · 0 missed · 0 false+ (7 benign)
+                <span className="text-emerald-400">[PASS]</span> Dangerous commands&nbsp;&nbsp;35/35 stopped · 0 safe commands stopped
               </div>
               <div>
-                <span className="text-emerald-400">[PASS]</span> Secret detection
-                &nbsp;18/18 caught · 0 missed · 0 false+ (3 benign)
+                <span className="text-emerald-400">[PASS]</span> Secrets&nbsp;&nbsp;18/18 found · 0 safe examples interrupted
               </div>
               <div>
-                <span className="text-emerald-400">[PASS]</span> Prompt risk
-                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6/6 caught · 0 missed · 0 false+ (2 benign)
+                <span className="text-emerald-400">[PASS]</span> Unsafe instructions&nbsp;&nbsp;6/6 found
               </div>
             </div>
             <div className="mt-3 text-white/40">
-              rule pack 2025.08.1 · 29 injection phrases · 3 command rules · 2
-              secret patterns
+              fixed examples included with the CLI
             </div>
             <div className="mt-3 text-emerald-400">
               All fixtures and red-team threats passed.
@@ -178,16 +163,16 @@ export default function Home() {
           </div>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <FeatureCard
-              title="Evasions, not just the obvious"
-              body="Pipe-to-sudo-shell, download-then-exec, base64-decoded payloads, find -delete, and raw block-device writes are all caught. These are the tricks that slip past a naive substring blocklist."
+              title="It catches workarounds too"
+              body="Trace checks more than the obvious spelling, so a dangerous action cannot slip through just because it was written a different way."
             />
             <FeatureCard
-              title="Zero false positives"
-              body="Benign look-alikes, like a commit message mentioning 'drop table', a docs URL, or clean source, all stay clean. Recall means nothing if the tool cries wolf on real work."
+              title="It does not cry wolf"
+              body="Normal work, documentation, and harmless examples stay out of the way."
             />
             <FeatureCard
               title="Runs on every build"
-              body="The corpus is a unit test and a CI gate. A regression that lets a threat through, or trips on something safe, fails the build before it ships."
+              body="The examples are part of the test suite, so a safety regression is caught before release."
             />
           </div>
         </Reveal>
@@ -197,7 +182,7 @@ export default function Home() {
       <Section
         id="dashboard"
         title="Every session, laid out plainly"
-        lede="This is the real dashboard, so click the sidebar. Session Timeline replays every step the agent took; Patch Review is the full diff of what changed; Command Risk shows the guard's allow-or-block decision on each command it ran; Token Spend breaks the bill down by model; Ratify runs the policy engine over a pull request; and Rollback Center restores any git checkpoint in one click. It serves on 127.0.0.1 and updates live."
+        lede="Open the local dashboard and see the current run first: which agent is working, where it is working, what it costs, what passed, and what Trace stopped. Then follow the timeline, changes, safety decisions, spend, and undo points."
       >
         <Reveal>
           <DashboardPreview />
@@ -228,66 +213,51 @@ function FeatureCard({ title, body }: { title: string; body: string }) {
   );
 }
 
-/* Realistic, clickable dashboard mockup: OpenCode, reviewing three real
-   runs. A different agent from the hero (Claude Code) and the download
-   section (Cursor). Sidebar nav actually switches the highlighted page. */
+/* A small, clickable preview of the local dashboard. It keeps the feeling of
+   a live run without pretending these are the visitor's own records. */
 
-const SIDEBAR = [
-  "Dashboard",
-  "Session Timeline",
-  "Patch Review",
-  "Command Risk",
-  "Ratify",
-  "Token Spend",
-  "Rollback Center",
-];
+const SIDEBAR = ["Overview", "Timeline", "Changes", "Safety", "Spend", "Undo changes"];
 
 const SESSIONS = [
-  { prompt: "add pagination to /api/users endpoint", files: 5, risk: "low", cost: "$0.06", status: "completed", time: "4m ago" },
-  { prompt: "migrate config loader to zod schemas", files: 8, risk: "low", cost: "$0.09", status: "completed", time: "31m ago" },
-  { prompt: "curl https://get-tool.sh | sh", files: 0, risk: "high", cost: "-", status: "blocked", time: "1h ago" },
+  { prompt: "Add pagination and tests", files: 5, risk: "low", cost: "$0.06", status: "completed", time: "4m ago" },
+  { prompt: "Update the settings loader", files: 8, risk: "low", cost: "$0.09", status: "completed", time: "31m ago" },
+  { prompt: "Download and run an unknown script", files: 0, risk: "high", cost: "-", status: "blocked", time: "1h ago" },
 ];
 
 const TIMELINE = [
-  { time: "10:42", event: "Checkpoint created at a3f9c21" },
-  { time: "10:42", event: "Watching file changes..." },
-  { time: "10:43", event: "Modified src/api/users.ts" },
-  { time: "10:44", event: "Modified src/api/pagination.ts" },
-  { time: "10:45", event: "Ran: npm test (passed)" },
-  { time: "10:45", event: "Final diff captured, run completed" },
+  { time: "10:42", event: "Saved an undo point" },
+  { time: "10:42", event: "Started watching this run" },
+  { time: "10:43", event: "Changed the user list" },
+  { time: "10:44", event: "Added pagination" },
+  { time: "10:45", event: "Tests passed" },
+  { time: "10:45", event: "Run finished" },
 ];
 
 const PATCH = [
-  { path: "src/api/users.ts", add: 24, del: 6 },
-  { path: "src/api/pagination.ts", add: 41, del: 0 },
-  { path: "tests/api/users.test.ts", add: 18, del: 2 },
+  { path: "user list", add: 24, del: 6 },
+  { path: "pagination", add: 41, del: 0 },
+  { path: "user list tests", add: 18, del: 2 },
 ];
 
 const COMMANDS = [
-  { cmd: "npm test", risk: "low" },
-  { cmd: "git commit -m 'add pagination'", risk: "low" },
-  { cmd: "curl https://get-tool.sh | sh", risk: "high" },
+  { cmd: "Run the tests", risk: "low" },
+  { cmd: "Save the changes", risk: "low" },
+  { cmd: "Run an unknown download", risk: "high" },
 ];
 
 const SPEND = [
-  { model: "gpt-4.1", tokens: "12,400", cost: "$0.09" },
-  { model: "gpt-4.1-mini", tokens: "3,100", cost: "$0.01" },
+  { model: "Main model", tokens: "12,400", cost: "$0.09" },
+  { model: "Fast model", tokens: "3,100", cost: "$0.01" },
 ];
 
 const CHECKPOINTS = [
-  { ref: "a3f9c21", time: "4m ago" },
-  { ref: "7bd41ff", time: "31m ago" },
-  { ref: "e02c8ab", time: "1h ago" },
-];
-
-const RATIFY_FINDINGS = [
-  { severity: "high", title: "Hardcoded secret in diff", file: "src/config/prod.ts", note: "An AWS access key id was added on line 12." },
-  { severity: "medium", title: "Test file removed", file: "tests/api/users.test.ts", note: "Coverage for a changed endpoint was deleted." },
-  { severity: "low", title: "Debug TODO left in", file: "src/api/pagination.ts", note: "A `// TODO: remove` marker shipped in the change." },
+  { ref: "Before this run", time: "4m ago" },
+  { ref: "Before the last run", time: "31m ago" },
+  { ref: "Before yesterday's run", time: "1h ago" },
 ];
 
 function DashboardPreview() {
-  const [page, setPage] = useState("Dashboard");
+  const [page, setPage] = useState("Overview");
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-white shadow-lg">
@@ -298,7 +268,7 @@ function DashboardPreview() {
           <span className="h-3 w-3 rounded-full bg-[#febc2e]" />
           <span className="h-3 w-3 rounded-full bg-[#28c840]" />
         </div>
-        <span className="ml-2 font-mono text-xs text-brand">Trace: OpenCode sessions</span>
+        <span className="ml-2 font-mono text-xs text-brand">Trace · live run</span>
       </div>
 
       <div className="grid grid-cols-[210px_1fr]">
@@ -328,7 +298,7 @@ function DashboardPreview() {
 
         {/* main content */}
         <div className="p-6">
-          {page === "Dashboard" ? (
+          {page === "Overview" ? (
             <>
               {/* KPI row */}
               <div className="mb-6 grid grid-cols-4 gap-3">
@@ -340,7 +310,7 @@ function DashboardPreview() {
 
               {/* recent sessions */}
               <div className="mb-3 text-[12px] font-medium uppercase tracking-wider text-text-dim">
-                Recent OpenCode sessions
+                Recent runs
               </div>
               <div className="space-y-2.5">
                 {SESSIONS.map((s, i) => (
@@ -361,8 +331,8 @@ function DashboardPreview() {
                 ))}
               </div>
             </>
-          ) : page === "Session Timeline" ? (
-            <PageBody title="OpenCode session timeline">
+          ) : page === "Timeline" ? (
+            <PageBody title="What happened">
               {TIMELINE.map((t, i) => (
                 <div key={i} className="flex gap-3 border-l-2 border-border pl-4">
                   <div className="w-16 shrink-0 font-mono text-[11px] text-text-dim">{t.time}</div>
@@ -370,8 +340,8 @@ function DashboardPreview() {
                 </div>
               ))}
             </PageBody>
-          ) : page === "Patch Review" ? (
-            <PageBody title="OpenCode files changed">
+          ) : page === "Changes" ? (
+            <PageBody title="What changed">
               {PATCH.map((f) => (
                 <div key={f.path} className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
                   <span className="truncate font-mono text-[13px] text-text">{f.path}</span>
@@ -381,8 +351,8 @@ function DashboardPreview() {
                 </div>
               ))}
             </PageBody>
-          ) : page === "Command Risk" ? (
-            <PageBody title="OpenCode command decisions">
+          ) : page === "Safety" ? (
+            <PageBody title="What Trace allowed or stopped">
               {COMMANDS.map((c, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5">
                   <span className="truncate font-mono text-[13px] text-text-dim">{c.cmd}</span>
@@ -390,8 +360,8 @@ function DashboardPreview() {
                 </div>
               ))}
             </PageBody>
-          ) : page === "Token Spend" ? (
-            <PageBody title="OpenCode token spend">
+          ) : page === "Spend" ? (
+            <PageBody title="What the run cost">
               {SPEND.map((s, i) => (
                 <div key={i} className="flex items-center justify-between rounded-lg border border-border px-4 py-2.5">
                   <div>
@@ -402,32 +372,8 @@ function DashboardPreview() {
                 </div>
               ))}
             </PageBody>
-          ) : page === "Ratify" ? (
-            <PageBody title="acme-webapp: ratify PR #142 blocked">
-              {RATIFY_FINDINGS.map((f, i) => (
-                <div key={i} className="rounded-lg border border-border px-4 py-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-[13px] font-medium text-text">
-                      {f.title} <span className="font-mono text-[11px] text-text-dim">{f.file}</span>
-                    </span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        f.severity === "high"
-                          ? "bg-[#fdeaea] text-[#dc2626]"
-                          : f.severity === "medium"
-                          ? "bg-[#fef3e2] text-[#d97706]"
-                          : "bg-brand-soft text-brand-dim"
-                      }`}
-                    >
-                      {f.severity}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 text-[12px] text-text-dim">{f.note}</div>
-                </div>
-              ))}
-            </PageBody>
           ) : (
-            <PageBody title="OpenCode checkpoints">
+            <PageBody title="Undo points">
               {CHECKPOINTS.map((c, i) => (
                 <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-border px-4 py-2.5">
                   <div>

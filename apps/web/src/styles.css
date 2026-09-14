@@ -731,6 +731,10 @@ td.mono, .mono { font-family: var(--mono); }
 .v4-active-run:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); text-decoration: none; }
 .v4-active-run-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
 .v4-active-run-title { font-weight: 600; font-size: 15px; }
+.v4-current-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
+.v4-metric-value { font-family: var(--serif); font-size: 24px; font-weight: 500; }
+.v4-metric-label { color: var(--text-dim); font-size: 11px; margin-top: 2px; }
+@media (max-width: 640px) { .v4-current-grid { grid-template-columns: repeat(2, 1fr); } }
 
 .v4-run-row { cursor: pointer; }
 .v4-run-row:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }

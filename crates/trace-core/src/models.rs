@@ -519,6 +519,8 @@ pub struct RunSummary {
     pub project_name: String,
     pub files_changed: i64,
     pub command_count: i64,
+    pub passed_commands: i64,
+    pub dangerous_commands: i64,
     pub secret_warnings: i64,
     pub estimated_cost: Option<f64>,
     pub checks_status: Option<String>,

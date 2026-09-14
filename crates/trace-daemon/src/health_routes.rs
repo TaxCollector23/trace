@@ -274,6 +274,11 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
 
     let overall = worst_status(&checks);
     let ingestion_delay_seconds = last_event_at.as_deref().and_then(seconds_since);
+    let setup_issue = trace_core::paths::global_dir()
+        .ok()
+        .map(|p| p.join("install-errors.log"))
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .and_then(|s| s.lines().last().map(str::to_string));
 
     Json(json!({
         "status": overall,
@@ -282,6 +287,7 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
         "checks": checks,
         "last_event_at": last_event_at,
         "ingestion_delay_seconds": ingestion_delay_seconds,
+        "setup_issue": setup_issue,
     }))
 }
 

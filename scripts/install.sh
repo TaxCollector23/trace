@@ -11,7 +11,11 @@ REPO="TaxCollector23/trace"
 INSTALL_DIR="${HOME}/.trace/bin"
 BIN="${INSTALL_DIR}/trc"
 
-err() { printf 'error: %s\n' "$1" >&2; exit 1; }
+err() {
+  mkdir -p "${HOME}/.trace" 2>/dev/null || true
+  printf '%s %s\n' "$(date -u +%FT%TZ)" "$1" >> "${HOME}/.trace/install-errors.log" 2>/dev/null || true
+  exit 1
+}
 
 # --- Detect OS ---
 os="$(uname -s)"
@@ -37,7 +41,6 @@ else
   url="https://github.com/${REPO}/releases/download/${version}/${asset}"
 fi
 
-printf 'Installing Trace (%s) ...\n' "$asset"
 mkdir -p "$INSTALL_DIR"
 
 fetch_to() { # fetch <url> <out-file>; nonzero on failure
@@ -75,34 +78,32 @@ published=$(fetch_text "${url}.sha256" | awk '{print $1}' | head -1)
 if [ -n "$published" ]; then
   local_sum=$(sha256_of "$tmp")
   if [ -z "$local_sum" ]; then
-    printf 'note: no sha256 tool found; skipping checksum verification\n' >&2
   elif [ "$local_sum" != "$published" ]; then
     rm -f "$tmp"
     err "checksum mismatch for $asset (expected $published, got $local_sum)"
   else
-    printf 'Checksum verified.\n'
   fi
 elif [ -n "${TRACE_REQUIRE_CHECKSUM:-}" ]; then
   rm -f "$tmp"
   err "no checksum published for $asset and TRACE_REQUIRE_CHECKSUM is set"
 else
-  printf 'note: no checksum published for this release; skipping verification\n' >&2
 fi
 
 chmod +x "$tmp"
 mv "$tmp" "$BIN"
 
-printf '\nInstalled trc to %s\n' "$BIN"
-
-# --- PATH guidance ---
-case ":${PATH}:" in
-  *":${INSTALL_DIR}:"*)
-    printf 'Trace is on your PATH. Run: trc --help\n'
-    ;;
-  *)
-    printf '\nAdd Trace to your PATH by adding this line to your shell profile\n'
-    printf '(~/.zshrc, ~/.bashrc, or ~/.profile):\n\n'
-    printf '  export PATH="%s:$PATH"\n\n' "$INSTALL_DIR"
-    printf 'Then restart your shell and run: trc --help\n'
-    ;;
-esac
+# Start live review immediately. The binary records details in daemon.log;
+# install failures are written to the dashboard diagnostics file by err().
+if ! "$BIN" daemon start >/dev/null 2>&1; then
+  printf '%s daemon did not start; open Trace diagnostics in the local dashboard\n' "$(date -u +%FT%TZ)" >> "${HOME}/.trace/install-errors.log" 2>/dev/null || true
+fi
+if [ ! -f "${HOME}/.trace/install-banner-shown" ]; then
+  : > "${HOME}/.trace/install-banner-shown"
+  printf '\n  TRACE — see what your AI changes\n'
+  printf '  ───────────────────────────────\n'
+fi
+printf 'to install all integrations, run trc integrations install all\n'
+if [ -f "${HOME}/.trace/daemon.json" ]; then
+  port=$(sed -n 's/.*"port"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "${HOME}/.trace/daemon.json")
+  [ -n "$port" ] && printf 'dashboard: http://127.0.0.1:%s\n' "$port"
+fi

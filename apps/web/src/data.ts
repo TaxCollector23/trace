@@ -131,6 +131,7 @@ export interface Health {
   status: string;
   service?: string;
   version?: string;
+  setup_issue?: string | null;
 }
 
 /** GET /api/integrations/coverage */

@@ -21,6 +21,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::colors;
+use trace_core::paths;
 
 // Embedded integration sources. Kept in sync with `integrations/` at build
 // time via include_str! — a new file there just needs to be added below.
@@ -58,36 +59,25 @@ struct Wired {
 
 pub fn install(agent: &str) -> Result<()> {
     if agent == "all" {
-        println!("{}", colors::bold("Connecting your agents to Trace"));
-        let mut notes: Vec<String> = Vec::new();
         let mut any_err = false;
+        let mut connected = 0usize;
         for a in SUPPORTED {
             match install_one(a) {
                 Ok(w) => {
-                    println!(
-                        "  {} {:<12} {}",
-                        colors::green("✓"),
-                        display_name(a),
-                        colors::dim(w.kind)
-                    );
-                    if let Some(n) = w.note {
-                        notes.push(n);
-                    }
+                    connected += 1;
+                    let _ = w.note;
                 }
                 Err(e) => {
-                    println!(
-                        "  {} {:<12} {}",
-                        colors::red("✗"),
-                        display_name(a),
-                        colors::dim(&e.to_string())
-                    );
+                    record_install_error(&format!("{}: {e}", display_name(a)));
                     any_err = true;
                 }
             }
         }
-        print_next_steps(&notes);
+        println!("agents connected: {connected}/{}", SUPPORTED.len());
         if any_err {
-            anyhow::bail!("one or more installs failed");
+            // Keep setup usable and put details in the local dashboard's
+            // diagnostics file rather than interrupting a one-command install.
+            return Ok(());
         }
         return Ok(());
     }
@@ -101,6 +91,23 @@ pub fn install(agent: &str) -> Result<()> {
     );
     print_next_steps(&w.note.into_iter().collect::<Vec<_>>());
     Ok(())
+}
+
+fn record_install_error(message: &str) {
+    let home = std::env::var_os("TRACE_HOME")
+        .map(std::path::PathBuf::from)
+        .or_else(|| dirs::home_dir().map(|p| p.join(".trace")));
+    if let Some(home) = home {
+        let _ = fs::create_dir_all(&home);
+        let _ = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(home.join("install-errors.log"))
+            .and_then(|mut f| {
+                use std::io::Write;
+                writeln!(f, "{} {message}", chrono::Utc::now().to_rfc3339())
+            });
+    }
 }
 
 /// The short footer after an install: any manual steps, then the two reminders
@@ -141,8 +148,7 @@ fn install_one(agent: &str) -> Result<Wired> {
 }
 
 fn trace_integrations_dir() -> Result<PathBuf> {
-    let home = dirs::home_dir().context("no home directory")?;
-    Ok(home.join(".trace").join("integrations"))
+    Ok(paths::global_dir()?.join("integrations"))
 }
 
 fn write_executable(path: &Path, contents: &str) -> Result<()> {

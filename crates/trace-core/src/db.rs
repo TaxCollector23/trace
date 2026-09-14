@@ -747,6 +747,16 @@ impl Store {
             params![run.id],
             |r| r.get(0),
         )?;
+        let passed_commands: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM commands WHERE run_id = ?1 AND decision = 'allow'",
+            params![run.id],
+            |r| r.get(0),
+        )?;
+        let dangerous_commands: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM commands WHERE run_id = ?1 AND decision != 'allow'",
+            params![run.id],
+            |r| r.get(0),
+        )?;
         let secret_warnings: i64 = self.conn.query_row(
             "SELECT COUNT(*) FROM secrets WHERE run_id = ?1",
             params![run.id],
@@ -807,6 +817,8 @@ impl Store {
             project_name,
             files_changed,
             command_count,
+            passed_commands,
+            dangerous_commands,
             secret_warnings,
             estimated_cost,
             checks_status,

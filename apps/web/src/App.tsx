@@ -78,17 +78,17 @@ function ThemeToggle() {
 }
 
 const links: [string, string][] = [
-  ["/", "Control Room"],
-  ["/run", "Run Page"],
-  ["/timeline", "Session Timeline"],
-  ["/patch", "Patch Review"],
-  ["/risk", "Command Risk"],
-  ["/usage", "Token Usage"],
+  ["/", "Overview"],
+  ["/run", "Current run"],
+  ["/timeline", "Timeline"],
+  ["/patch", "Changes"],
+  ["/risk", "Safety"],
+  ["/usage", "Spend"],
   ["/benchmarks", "Benchmarks"],
-  ["/rollback", "Rollback Points"],
+  ["/rollback", "Undo changes"],
   ["/github", "GitHub"],
-  ["/ratify", "Ratify"],
-  ["/system", "System"],
+  ["/ratify", "Review a PR"],
+  ["/system", "Connection"],
 ];
 
 // Apply the saved theme as early as possible to avoid a flash of the wrong palette.

@@ -8,7 +8,7 @@ import {
   type Action,
   type StateInputs,
 } from "../state";
-import { StatusBadge, relTime, runTitle, whatChanged, fmtCost } from "../components";
+import { StatusBadge, relTime, runTitle, whatChanged, fmtCost, agentLabel } from "../components";
 import { ResourceGate, ToneIcon } from "../v4/ui";
 import { StatusStrip } from "../v4/StatusStrip";
 import { DisconnectedScreen, DbUnavailableScreen, OnboardingScreen } from "../v4/screens";
@@ -29,9 +29,15 @@ export default function ControlRoom() {
   const healthRes = useResource((s) => v4.health(s), { pollMs: 10000 });
   const runsRes = useResource((s) => runApi.runs(s), { pollMs: 8000 });
   const coverageRes = useResource((s) => v4.coverage(s));
+  const projectsRes = useResource((s) => runApi.projects(s));
 
   const runs = runsRes.resource.state === "ok" ? runsRes.resource.data : [];
   const activeRun = runs.find((r) => !isTerminal(r.status)) ?? null;
+  const currentRun = activeRun ?? runs[0] ?? null;
+  const projects = projectsRes.resource.state === "ok" ? projectsRes.resource.data : [];
+  const currentProject = currentRun
+    ? projects.find((p) => p.id === currentRun.project_id)
+    : null;
 
   const inputs: StateInputs = {
     health: healthRes.resource,
@@ -99,19 +105,24 @@ export default function ControlRoom() {
 
       <StatusStrip descriptor={descriptor} onAction={onAction} />
 
-      {activeRun && (
-        <Link to={`/run/${activeRun.id}`} className="v4-active-run">
+      {currentRun && (
+        <Link to={`/run/${currentRun.id}`} className="v4-active-run">
           <div className="v4-active-run-head">
-            <span className="v4-live on">
-              <span className="v4-live-dot" /> Live now
+            <span className={`v4-live ${activeRun ? "on" : ""}`}>
+              {activeRun && <span className="v4-live-dot" />} {activeRun ? "Live now" : "Latest run"}
             </span>
             <span className="v4-active-run-title">
-              {runTitle(activeRun)} <span className="muted">— {activeRun.project_name}</span>
+              {runTitle(currentRun)} <span className="muted">— {currentRun.project_name}</span>
             </span>
           </div>
-          <div className="run-cmd-line mono">{activeRun.command}</div>
-          <div className="muted" style={{ marginTop: 6 }}>
-            started {relTime(activeRun.started_at)} · open the Run Page to follow live →
+          <div className="v4-current-grid">
+            <Metric label="Agent" value={agentLabel(currentRun.agent_name ?? "unknown")} />
+            <Metric label="Spend" value={fmtCost(currentRun.estimated_cost)} />
+            <Metric label="Flagged" value={String(currentRun.dangerous_commands)} tone={currentRun.dangerous_commands ? "danger" : undefined} />
+            <Metric label="Passed" value={String(currentRun.passed_commands)} />
+          </div>
+          <div className="muted" style={{ marginTop: 10 }}>
+            folder: {currentProject?.path ?? "project folder not available"} · started {relTime(currentRun.started_at)} · open the run →
           </div>
         </Link>
       )}
@@ -165,6 +176,15 @@ export default function ControlRoom() {
       </ResourceGate>
 
       <CoveragePanel res={coverageRes.resource} onRetry={coverageRes.reload} />
+    </div>
+  );
+}
+
+function Metric({ label, value, tone }: { label: string; value: string; tone?: "danger" }) {
+  return (
+    <div>
+      <div className={`v4-metric-value ${tone === "danger" ? "tone-danger" : ""}`}>{value}</div>
+      <div className="v4-metric-label">{label}</div>
     </div>
   );
 }

@@ -395,6 +395,10 @@ fn real_main() -> Result<()> {
         },
         Commands::Integrations { action } => match action {
             Some(IntegrationsAction::Status) => commands::integrations::status(),
+            Some(IntegrationsAction::Install { agent }) if agent == "all" => {
+                let _ = daemon_ctl::ensure_running();
+                commands::hook_install::install(&agent)
+            }
             Some(IntegrationsAction::Install { agent }) => commands::hook_install::install(&agent),
             None => commands::integrations::list(),
         },

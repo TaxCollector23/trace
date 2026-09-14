@@ -46,6 +46,12 @@ export default function SystemPage() {
                   <th>Version</th>
                   <td className="mono">{h.version ?? "—"}</td>
                 </tr>
+                {h.setup_issue && (
+                  <tr>
+                    <th>Setup note</th>
+                    <td className="tone-attention">Trace saved a setup issue here: {h.setup_issue}</td>
+                  </tr>
+                )}
               </tbody>
             </table>
               );
