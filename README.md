@@ -79,7 +79,7 @@ only). Roll back a run's changes with `trc rollback`.
 | `trc costs <run_id>` | Show API usage and estimated cost for a run. |
 | `trc checkpoints` | List checkpoints across recent runs. |
 | `trc config show \| set` | View or change project configuration. |
-| `trc integrations [status]` | List integrations or check what is live. |
+| `trc integrations [status]` | List integrations or check what is live; `status --json` is script-friendly. |
 | `trc github <status\|commits\|pulls\|cat>` | Read directly from the repo (incl. private). |
 | `trc check <file>` | Run a file (or `-` for stdin) through the command guard + secret scanner; non-zero exit on require_approval/block. A CI gate for scripts. |
 | `trc ratify <pr> [--fail-on-risky]` | Ratify a GitHub pull request against the policy engine, no daemon, no `trc init`, no API key. |

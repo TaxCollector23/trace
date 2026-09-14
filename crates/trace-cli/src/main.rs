@@ -260,7 +260,11 @@ enum ConfigAction {
 #[derive(Subcommand)]
 enum IntegrationsAction {
     /// Check what is live right now (daemon, GitHub token, …).
-    Status,
+    Status {
+        /// Print machine-readable JSON for scripts and support bundles.
+        #[arg(long)]
+        json: bool,
+    },
     /// Install the hook/MCP for one agent — or "all" for every agent.
     /// Writes to ~/.trace/integrations/ and patches the agent's own
     /// config file idempotently.
@@ -445,7 +449,7 @@ fn real_main() -> Result<()> {
             ConfigAction::Set { key, value } => commands::config_cmd::set(&key, &value),
         },
         Commands::Integrations { action } => match action {
-            Some(IntegrationsAction::Status) => commands::integrations::status(),
+            Some(IntegrationsAction::Status { json }) => commands::integrations::status(json),
             Some(IntegrationsAction::Install { agent }) if agent == "all" => {
                 let _ = daemon_ctl::ensure_running();
                 commands::hook_install::install(&agent)
