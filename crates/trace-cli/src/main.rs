@@ -86,6 +86,13 @@ enum Commands {
     /// Run system checks (toolchain, clipboard, daemon, agents, paths).
     Doctor,
 
+    /// Show a compact connection snapshot and the next useful action.
+    Status {
+        /// Print machine-readable JSON for scripts and support bundles.
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Generate a realistic, deterministic demo run in the local database, so
     /// `trc dashboard` has something to show without a real coding agent
     /// running. Use `trc demo list` to see available scenarios. Rows are
@@ -189,7 +196,11 @@ enum Commands {
 
     /// Run Trace's own policy-engine benchmark (labeled fixtures, precision/recall).
     #[command(hide = true)]
-    SelfCheck,
+    SelfCheck {
+        /// Print one machine-readable report instead of the human report.
+        #[arg(long)]
+        json: bool,
+    },
 
     /// Review a diff range with the policy engine (and, optionally, the
     /// judge panel) — no daemon or `trc init` required. Built for CI: run
@@ -418,6 +429,7 @@ fn real_main() -> Result<()> {
         }),
         Commands::Dashboard => commands::dashboard::run(),
         Commands::Doctor => commands::doctor::run(),
+        Commands::Status { json } => commands::status::run(json),
         Commands::Demo { scenario, seed } => commands::demo::run(&scenario, seed),
         Commands::Scan => commands::scan_cmd::run(),
         Commands::Check { file } => commands::check::run(&file),
@@ -452,7 +464,7 @@ fn real_main() -> Result<()> {
             yes,
             dry_run,
         }),
-        Commands::SelfCheck => commands::self_check::run(),
+        Commands::SelfCheck { json } => commands::self_check::run(json),
         Commands::ReviewDiff {
             range,
             fail_on_risky,

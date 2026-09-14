@@ -19,4 +19,5 @@ pub mod rollback;
 pub mod run;
 pub mod scan_cmd;
 pub mod self_check;
+pub mod status;
 pub mod update;

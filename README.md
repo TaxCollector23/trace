@@ -70,6 +70,7 @@ only). Roll back a run's changes with `trc rollback`.
 | `trc rollback` | Restore a checkpoint (Git-based, confirmed; `-y`). |
 | `trc scan` | Detect the project's stack (package manager, framework, tests, git). |
 | `trc doctor` | System checks: toolchain, clipboard, daemon, agents, paths. |
+| `trc status [--json]` | Compact connection snapshot and next action; JSON is script-friendly. |
 | `trc runs` | List recent runs with copyable short IDs. |
 | `trc show <run_id>` | Show a run's summary and timeline; a short ID prefix is enough. |
 | `trc replay <run_id>` | Replay a run's events, commands, and file changes in order, paced by their real timestamps (`-y`/`--fast` to skip pacing). |
@@ -83,7 +84,7 @@ only). Roll back a run's changes with `trc rollback`.
 | `trc check <file>` | Run a file (or `-` for stdin) through the command guard + secret scanner; non-zero exit on require_approval/block. A CI gate for scripts. |
 | `trc ratify <pr> [--fail-on-risky]` | Ratify a GitHub pull request against the policy engine, no daemon, no `trc init`, no API key. |
 | `trc review-diff [--range] [--fail-on-risky] [--json]` | Review a diff range with the policy engine, no daemon or `trc init` required. What CI uses. |
-| `trc self-check` | Run the policy + red-team benchmarks against the real engines and print recall / precision. |
+| `trc self-check [--json]` | Run the policy + red-team benchmarks; optionally export one machine-readable report. |
 | `trc update` | Update the `trc` binary to the latest release. |
 | `trc daemon start \| stop \| status` | Manage the local daemon. |
 | `trc --help` / `trc --version` | Help and version. |

@@ -8,8 +8,22 @@ use trace_core::{run_policy_eval, run_redteam_eval};
 
 use crate::colors;
 
-pub fn run() -> Result<()> {
+pub fn run(json_output: bool) -> Result<()> {
     let report = run_policy_eval();
+    let rt = run_redteam_eval();
+
+    if json_output {
+        let value = serde_json::json!({
+            "policy": report,
+            "red_team": rt,
+            "passed": report.passed == report.total && rt.passed,
+        });
+        println!("{}", serde_json::to_string_pretty(&value)?);
+        if report.passed < report.total || !rt.passed {
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
 
     println!("{}", colors::bold("Trace policy engine self-check"));
     println!(
@@ -36,7 +50,6 @@ pub fn run() -> Result<()> {
     }
 
     // --- Red-team detection benchmark (guard / secrets / prompt) ---
-    let rt = run_redteam_eval();
     println!("\n{}", colors::bold("Trace red-team detection benchmark"));
     println!(
         "  {}/{} threats caught  ·  {} false positive(s)  ·  recall {:.0}%\n",

@@ -65,6 +65,17 @@ Each failing check prints an actionable fix.
 trc doctor
 ```
 
+### `trc status`
+
+Show the short answer to “is Trace connected?” without the longer diagnostic
+report. It includes the daemon, connected agents, and the current Trace project.
+Use `--json` in scripts or support bundles.
+
+```bash
+trc status
+trc status --json
+```
+
 ### `trc scan`
 
 Detect the current project's stack and print it: package manager, languages,
@@ -220,6 +231,7 @@ A quick way to sanity-check a build. See [Benchmarks](/benchmarks).
 
 ```bash
 trc self-check
+trc self-check --json
 ```
 
 ## CI and pull requests
