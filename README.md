@@ -47,10 +47,7 @@ machine.
 npm install -g trace-cli
 ```
 
-This installs the `trc` command on macOS, Linux, and Windows. (The npm package
-is published under the scoped name `@rangan23/trace-cli` — `trc`, `trace`,
-`trc-cli`, and `trace-cli` are all either taken or blocked by npm's
-anti-typosquat policy; the command it installs is `trc`.)
+This installs the `trc` command on macOS, Linux, and Windows.
 
 ## Quickstart
 
