@@ -78,15 +78,18 @@ published=$(fetch_text "${url}.sha256" | awk '{print $1}' | head -1)
 if [ -n "$published" ]; then
   local_sum=$(sha256_of "$tmp")
   if [ -z "$local_sum" ]; then
+    :
   elif [ "$local_sum" != "$published" ]; then
     rm -f "$tmp"
     err "checksum mismatch for $asset (expected $published, got $local_sum)"
   else
+    :
   fi
 elif [ -n "${TRACE_REQUIRE_CHECKSUM:-}" ]; then
   rm -f "$tmp"
   err "no checksum published for $asset and TRACE_REQUIRE_CHECKSUM is set"
 else
+  :
 fi
 
 chmod +x "$tmp"
