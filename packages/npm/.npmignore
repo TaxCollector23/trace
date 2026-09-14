@@ -1,0 +1,4 @@
+# The postinstall script downloads the correct binary for the user's platform.
+# Never publish a developer machine's downloaded binary in the portable wrapper.
+bin/trc
+bin/trc.exe
