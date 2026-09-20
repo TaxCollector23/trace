@@ -8,17 +8,17 @@ use crate::colors;
 use crate::daemon_ctl;
 
 const INTEGRATIONS: &[(&str, &str, &str)] = &[
-    ("Claude Code", "wrapper + hooks", "integrations/claude"),
+    ("Claude Code", "session + safety checks", "integrations/claude"),
     (
         "Codex",
         "lifecycle hooks + wrapper fallback",
         "integrations/codex",
     ),
-    ("Cursor", "MCP tools + guard hook", "integrations/cursor"),
-    ("Windsurf", "MCP server", "integrations/windsurf"),
+    ("Cursor", "session + safety checks + tools", "integrations/cursor"),
+    ("Windsurf", "activity + tools", "integrations/windsurf"),
     (
         "OpenCode",
-        "MCP tools + guard plugin",
+        "session + safety checks + tools",
         "integrations/opencode",
     ),
     (
@@ -104,17 +104,23 @@ pub fn status(json_output: bool) -> Result<()> {
         } else {
             colors::dim("not connected")
         };
-        println!(
-            "  {:<13} {mark}  {}",
-            connection.display_name,
-            colors::dim(connection.how)
-        );
+        let capability = trace_core::integrations::by_id(connection.id)
+            .and_then(|definition| definition.command_enforcement)
+            .map(|enforced| {
+                if enforced {
+                    "stops risky commands"
+                } else {
+                    "activity only"
+                }
+            })
+            .unwrap_or("activity and edit review");
+        println!("  {:<13} {mark}  {}", connection.display_name, colors::dim(capability));
     }
     if any {
-        println!(
-            "\n{}",
-            colors::dim("Restart your agent after installing; Codex also needs /hooks trust before command blocking.")
-        );
+        println!("\nNext:");
+        println!("  Restart Claude Code, Cursor, and OpenCode if they are open.");
+        println!("  In Codex, run /hooks and trust Trace before testing a command.");
+        println!("  Windsurf shows activity but cannot stop a shell command.");
     } else {
         println!(
             "\nConnect every agent with `{}`.",

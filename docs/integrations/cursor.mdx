@@ -1,92 +1,51 @@
 ---
 title: Cursor
-description: An MCP server exposing Trace tools to Cursor.
+description: Connect Cursor so Trace can show sessions, review edits, and stop risky shell commands.
 ---
 
-The Cursor integration has two parts:
+Trace uses Cursor's hooks for live session and command visibility. It also adds
+Trace's local MCP tools so you can ask Cursor about recent runs, changes, and
+undo points.
 
-1. An **MCP server** that exposes Trace's read tools (recent runs, patch summary, rollback options), backed by the local daemon.
-2. An **enforcing guard hook** on `beforeShellExecution` that classifies every shell command Cursor is about to run and **denies** the dangerous ones before they execute.
-
-The hook is the important half. MCP tools are advisory, the agent chooses whether
-to call them, but the hook fires on every command and can block it, the same way
-the Claude Code integration does.
-
-## Install
+## Connect it
 
 ```bash
+npm install -g trace-agent-cli
 trc integrations install cursor
 ```
 
-This writes the MCP server to `~/.trace/integrations/cursor/index.js` and the
-guard hook to `~/.trace/integrations/cursor/cursor-hook.sh`, then idempotently
-patches two Cursor configs, backing each up first and preserving anything you
-already run:
+Or connect all supported agents:
 
-- `~/.cursor/mcp.json` gets the MCP server entry.
-- `~/.cursor/hooks.json` gets the `beforeShellExecution` hook.
-
-The MCP entry it adds:
-
-```json
-{
-  "mcpServers": {
-    "trace": {
-      "command": "node",
-      "args": ["/Users/you/.trace/integrations/cursor/index.js"]
-    }
-  }
-}
+```bash
+trc integrations install all
 ```
 
-The hook entry it adds:
+The installer writes a shared Trace hook, the MCP server, and Cursor's
+`~/.cursor/hooks.json`. It preserves your other hooks and creates a backup before
+changing an existing file. Cursor normally reloads the hook settings; reopen
+Cursor if the status stays disconnected.
 
-```json
-{
-  "version": 1,
-  "hooks": {
-    "beforeShellExecution": [
-      { "command": "/Users/you/.trace/integrations/cursor/cursor-hook.sh" }
-    ]
-  }
-}
-```
+## What Trace does
 
-The MCP server runs under Node.js, so install Node 18 or newer. Restart Cursor to
-load both.
+- At session start, Trace opens a run automatically.
+- Before Cursor runs a shell command, Trace checks it. A **block** decision is
+  denied before the command starts.
+- After a shell command or file edit, Trace records what happened in the
+  timeline and reviews the working tree.
+- At session end, Trace captures the final changes and closes the run.
 
-## How the guard hook decides
+File review is after the edit, so it reports a problem and gives you an undo
+point rather than pretending it can stop an edit that already landed.
 
-On every shell command, Cursor sends the command to the hook, which asks the
-daemon's deterministic guard and returns a decision:
+The shell guard fails closed: if Trace cannot reach its local daemon, the hook
+returns a denial instead of silently letting an unchecked command run.
 
-- A high-risk command (a recursive force-delete, a force-push, a piped shell
-  installer, a raw disk write) returns `{"permission":"deny"}` with a reason,
-  and Cursor does not run it.
-- Anything else returns `{"permission":"allow"}`.
-
-The hook **fails open**: if the daemon is not running or anything errors, the
-command is allowed, so Trace can never wedge Cursor.
-
-## Tools exposed
-
-- `trace_check_command`
-- `trace_get_recent_runs`
-- `trace_start_run`
-- `trace_end_run`
-- `trace_record_event`
-- `trace_get_patch_summary`
-- `trace_get_rollback_options`
-
-The server connects to `http://127.0.0.1:<port>` using the port recorded in
-`~/.trace/daemon.json`. Start the daemon with `trc daemon start` if it is not
-already running. If the daemon is down, tool calls fail closed and Cursor proceeds
-without Trace; the integration never blocks your agent.
-
-## Verify
+## Check the connection
 
 ```bash
 trc integrations status
+trc dashboard
 ```
 
-Cursor should read **connected** with "MCP tools + enforcing guard hook".
+Open the dashboard while Cursor is working. The current run should show Cursor,
+the project folder, commands, changes, blocked actions, and the timeline.

@@ -26,11 +26,10 @@ use trace_core::paths;
 
 // Embedded integration sources. Kept in sync with `integrations/` at build
 // time via include_str! — a new file there just needs to be added below.
-const CLAUDE_HOOK_SH: &str = include_str!("../../../../integrations/claude/trace-hook.sh");
+const AGENT_HOOK_JS: &str = include_str!("../../../../integrations/shared/agent-hook.js");
 const CODEX_ADAPTER_SH: &str = include_str!("../../../../integrations/codex/codex-adapter.sh");
 const CODEX_HOOK_JS: &str = include_str!("../../../../integrations/codex/codex-hook.js");
 const CURSOR_MCP_JS: &str = include_str!("../../../../integrations/cursor/src/index.js");
-const CURSOR_HOOK_SH: &str = include_str!("../../../../integrations/cursor/cursor-hook.sh");
 const OPENCODE_PLUGIN_JS: &str = include_str!("../../../../integrations/opencode/trace-plugin.js");
 
 /// The list of installable agents. `install <agent>` picks one; `install
@@ -312,6 +311,83 @@ fn merge_json_file(path: &Path, patch: &Value) -> Result<bool> {
     Ok(true)
 }
 
+/// Merge a hook config while replacing only Trace's old entries. This keeps a
+/// user's hooks intact and makes upgrades from the original shell adapters
+/// genuinely idempotent instead of stacking duplicate Trace hooks forever.
+fn merge_hook_file(path: &Path, patch: &Value) -> Result<bool> {
+    const TRACE_MARKERS: &[&str] = &["trace-hook.sh", "cursor-hook.sh", "agent-hook.js"];
+    let existing = if path.exists() {
+        let raw =
+            fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        parse_config(&raw)
+            .with_context(|| format!("{}: refusing to overwrite it", path.display()))?
+    } else {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).ok();
+        }
+        Value::Object(Default::default())
+    };
+
+    let mut merged = existing.clone();
+    if let Some(patch_hooks) = patch.get("hooks").and_then(Value::as_object) {
+        let hooks = merged
+            .as_object_mut()
+            .context("hook config must be a JSON object")?
+            .entry("hooks")
+            .or_insert_with(|| Value::Object(Default::default()));
+        if !hooks.is_object() {
+            *hooks = Value::Object(Default::default());
+        }
+        let hooks = hooks.as_object_mut().unwrap();
+        for (event, value) in patch_hooks {
+            let Some(entries) = value.as_array() else {
+                hooks.insert(event.clone(), value.clone());
+                continue;
+            };
+            let mut next = hooks
+                .get(event)
+                .and_then(Value::as_array)
+                .map(|current| {
+                    current
+                        .iter()
+                        .filter(|item| {
+                            let text = serde_json::to_string(item).unwrap_or_default();
+                            !TRACE_MARKERS.iter().any(|marker| text.contains(marker))
+                        })
+                        .cloned()
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            for entry in entries {
+                if !next.iter().any(|current| current == entry) {
+                    next.push(entry.clone());
+                }
+            }
+            hooks.insert(event.clone(), Value::Array(next));
+        }
+    }
+    if let Some(obj) = patch.as_object() {
+        for (key, value) in obj {
+            if key != "hooks" {
+                deep_merge(&mut merged[key], value);
+            }
+        }
+    }
+
+    if merged == existing {
+        return Ok(false);
+    }
+    if path.exists() {
+        let ts = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+        let backup = path.with_extension(format!("trace-backup-{ts}"));
+        fs::copy(path, &backup)
+            .with_context(|| format!("backing up {} -> {}", path.display(), backup.display()))?;
+    }
+    fs::write(path, serde_json::to_string_pretty(&merged)?)
+        .with_context(|| format!("writing {}", path.display()))?;
+    Ok(true)
+}
+
 fn deep_merge(target: &mut Value, patch: &Value) {
     match (target, patch) {
         (Value::Object(t), Value::Object(p)) => {
@@ -390,31 +466,90 @@ fn set_mcp_entry(
     Ok(true)
 }
 
+/// Replace Trace's entry in a top-level string array while preserving the
+/// user's entries. This is used for OpenCode's plugin list, where the plugin
+/// must be explicitly registered for current V2 releases.
+fn set_array_entry(config_path: &Path, key: &str, entry: String, markers: &[&str]) -> Result<bool> {
+    let mut config = if config_path.exists() {
+        let raw = fs::read_to_string(config_path)
+            .with_context(|| format!("reading {}", config_path.display()))?;
+        parse_config(&raw)
+            .with_context(|| format!("{}: refusing to overwrite it", config_path.display()))?
+    } else {
+        Value::Object(Default::default())
+    };
+    if !config.is_object() {
+        anyhow::bail!("{} is not a JSON object", config_path.display());
+    }
+    let before = config.clone();
+    let array = config
+        .as_object_mut()
+        .unwrap()
+        .entry(key.to_string())
+        .or_insert_with(|| Value::Array(Vec::new()));
+    if !array.is_array() {
+        *array = Value::Array(Vec::new());
+    }
+    let values = array.as_array_mut().unwrap();
+    values.retain(|value| {
+        let text = value.as_str().unwrap_or_default();
+        !markers.iter().any(|marker| text.contains(marker))
+    });
+    if !values.iter().any(|value| value.as_str() == Some(&entry)) {
+        values.push(Value::String(entry));
+    }
+    if config == before {
+        return Ok(false);
+    }
+    if config_path.exists() {
+        let ts = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+        let backup = config_path.with_extension(format!("trace-backup-{ts}"));
+        fs::copy(config_path, &backup).with_context(|| {
+            format!(
+                "backing up {} -> {}",
+                config_path.display(),
+                backup.display()
+            )
+        })?;
+    } else if let Some(parent) = config_path.parent() {
+        fs::create_dir_all(parent).ok();
+    }
+    fs::write(config_path, serde_json::to_string_pretty(&config)?)
+        .with_context(|| format!("writing {}", config_path.display()))?;
+    Ok(true)
+}
+
 fn install_claude() -> Result<Wired> {
     let hook = trace_integrations_dir()?
-        .join("claude")
-        .join("trace-hook.sh");
-    write_executable(&hook, CLAUDE_HOOK_SH)?;
+        .join("shared")
+        .join("agent-hook.js");
+    write_executable(&hook, AGENT_HOOK_JS)?;
 
     let home = dirs::home_dir().context("no home directory")?;
     let settings = home.join(".claude").join("settings.json");
-    let hook_cmd = hook.display().to_string();
+    let hook_cmd = format!("node {}", shell_quote(&hook.display().to_string()));
     let patch = json!({
         "hooks": {
+            "SessionStart": [{
+                "hooks": [{ "type": "command", "command": hook_cmd, "timeout": 10 }]
+            }],
+            "SessionEnd": [{
+                "hooks": [{ "type": "command", "command": hook_cmd, "timeout": 10 }]
+            }],
             "PreToolUse": [{
                 "matcher": "Bash",
-                "hooks": [{ "type": "command", "command": hook_cmd }]
+                "hooks": [{ "type": "command", "command": hook_cmd, "timeout": 5 }]
             }],
             "PostToolUse": [{
-                "matcher": "Edit|Write|MultiEdit|NotebookEdit",
-                "hooks": [{ "type": "command", "command": hook_cmd }]
+                "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
+                "hooks": [{ "type": "command", "command": hook_cmd, "timeout": 10 }]
             }]
         }
     });
-    merge_json_file(&settings, &patch)?;
+    merge_hook_file(&settings, &patch)?;
     Ok(Wired {
-        kind: "PreToolUse + PostToolUse hooks (enforced)",
-        note: None,
+        kind: "session + command + edit hooks",
+        note: Some("Restart Claude Code; Trace will show the session automatically.".to_string()),
     })
 }
 
@@ -451,10 +586,7 @@ fn install_codex() -> Result<Wired> {
     merge_json_file(&hooks_config, &patch)?;
     Ok(Wired {
         kind: "Codex hooks + wrapper",
-        note: Some(format!(
-            "Restart Codex, then run /hooks to review and trust Trace. CLI fallback: alias codex=\"{}\"",
-            adapter.display()
-        )),
+        note: Some("Restart Codex, then run /hooks and trust Trace.".to_string()),
     })
 }
 
@@ -472,20 +604,28 @@ fn install_cursor() -> Result<Wired> {
     // 2. Enforcing guard: a beforeShellExecution hook that denies dangerous
     //    commands before Cursor runs them.
     let hook = trace_integrations_dir()?
-        .join("cursor")
-        .join("cursor-hook.sh");
-    write_executable(&hook, CURSOR_HOOK_SH)?;
+        .join("shared")
+        .join("agent-hook.js");
+    write_executable(&hook, AGENT_HOOK_JS)?;
+    let hook_cmd = format!("node {}", shell_quote(&hook.display().to_string()));
     let hooks_json = cursor_dir.join("hooks.json");
     let patch = json!({
         "version": 1,
         "hooks": {
-            "beforeShellExecution": [{ "command": hook.display().to_string() }]
+            "sessionStart": [{ "command": hook_cmd, "timeout": 10 }],
+            "sessionEnd": [{ "command": hook_cmd, "timeout": 10 }],
+            "beforeShellExecution": [{ "command": hook_cmd, "timeout": 5, "failClosed": true }],
+            "afterShellExecution": [{ "command": hook_cmd, "timeout": 10 }],
+            "afterFileEdit": [{ "command": hook_cmd, "timeout": 10 }]
         }
     });
-    merge_json_file(&hooks_json, &patch)?;
+    merge_hook_file(&hooks_json, &patch)?;
     Ok(Wired {
-        kind: "MCP tools + enforcing guard hook",
-        note: None,
+        kind: "session + command + edit hooks",
+        note: Some(
+            "Cursor reloads hooks automatically; reopen it if Trace stays disconnected."
+                .to_string(),
+        ),
     })
 }
 
@@ -536,10 +676,16 @@ fn install_opencode() -> Result<Wired> {
         Some("https://opencode.ai/config.json"),
     )?;
 
-    // Enforcing guard: a `tool.execute.before` plugin, auto-loaded from the
-    // global plugin dir, that blocks dangerous bash commands before they run.
+    // Enforcing guard: current OpenCode releases require a plugin path in the
+    // config. Register the absolute path while preserving other plugins.
     let plugin = config_base.join("opencode").join("plugin").join("trace.js");
     write_executable(&plugin, OPENCODE_PLUGIN_JS)?;
+    set_array_entry(
+        &config_path,
+        "plugins",
+        plugin.display().to_string(),
+        &["/opencode/plugin/trace.js", "\\opencode\\plugin\\trace.js"],
+    )?;
 
     Ok(Wired {
         kind: "MCP tools + enforcing guard plugin",
@@ -663,6 +809,61 @@ mod tests {
         assert!(result.is_err(), "must error, not overwrite");
         // The file is untouched.
         assert_eq!(fs::read_to_string(&path).unwrap(), garbage);
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn merge_hook_replaces_trace_entries_and_keeps_user_hooks() {
+        let dir = std::env::temp_dir().join(format!("trc-hooks-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("hooks.json");
+        fs::write(
+            &path,
+            r#"{"hooks":{"beforeShellExecution":[{"command":"node old/cursor-hook.sh"},{"command":"my-hook"}]}}"#,
+        )
+        .unwrap();
+        let patch = json!({
+            "hooks": {
+                "beforeShellExecution": [{"command":"node /tmp/agent-hook.js"}]
+            }
+        });
+        assert!(merge_hook_file(&path, &patch).unwrap());
+        let out: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(
+            out["hooks"]["beforeShellExecution"]
+                .as_array()
+                .unwrap()
+                .len(),
+            2
+        );
+        assert!(out.to_string().contains("my-hook"));
+        assert!(out.to_string().contains("agent-hook.js"));
+        assert!(!out.to_string().contains("cursor-hook.sh"));
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn set_array_entry_replaces_our_plugin_and_keeps_user_plugins() {
+        let dir = std::env::temp_dir().join(format!("trc-plugins-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("opencode.json");
+        fs::write(
+            &path,
+            r#"{"plugins":["./mine","/old/opencode/plugin/trace.js"]}"#,
+        )
+        .unwrap();
+        assert!(set_array_entry(
+            &path,
+            "plugins",
+            "/new/opencode/plugin/trace.js".into(),
+            &["/opencode/plugin/trace.js"]
+        )
+        .unwrap());
+        let out: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(
+            out["plugins"],
+            json!(["./mine", "/new/opencode/plugin/trace.js"])
+        );
         fs::remove_dir_all(&dir).ok();
     }
 }

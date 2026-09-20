@@ -3,6 +3,17 @@ title: Release Notes
 description: Trace changelog.
 ---
 
+## v1.3.12 - Automatic Claude, Cursor, and OpenCode sessions
+
+- **Claude Code and Cursor** now create and close Trace runs from their session
+  hooks, record shell actions and file edits, and use a shared local adapter.
+- **OpenCode** now supports both its V1 and V2 plugin contracts. The installer
+  registers the plugin explicitly so current OpenCode releases load it.
+- All three command guards fail closed when the local daemon cannot be reached.
+  File review remains after-the-edit and is clearly labeled that way.
+- The landing page and integration guides now show the two commands to install
+  and connect Trace in plain language.
+
 ## v1.3.6 - Claude Code hook now blocks on high-severity findings
 
 - **The `PostToolUse` edit-review hook can block.** Previously any policy
@@ -22,9 +33,8 @@ description: Trace changelog.
 
 ## v1.3.5 - npm package rename, integration bugfixes
 
-- **npm package renamed** from `trace-dev` to **`@rangan23/trace-cli`** (`trc` and `trace`
-  are both already taken on npm). The installed command is unchanged: `trc`.
-  `npm install -g @rangan23/trace-cli` replaces `npm install -g trace-dev`.
+- **npm package renamed** from `trace-dev` to **`trace-agent-cli`**. The installed
+  command is unchanged: `trc`.
 - **Fixed `scripts/install.sh`** downloading from the wrong GitHub repo
   (`TaxCollector23/trc` instead of `TaxCollector23/trace`), which broke the
   `curl | sh` install path entirely.
@@ -50,7 +60,7 @@ description: Trace changelog.
 - **`trc replay <run_id>`** replays a run's timeline at its original recorded
   pace (or `--fast` to print immediately), reading the same data as `show`,
   `patch`, and `risks`.
-- **npm-only install** on every platform: `npm install -g @rangan23/trace-cli` installs the
+- **npm-only install** on every platform: `npm install -g trace-agent-cli` installs the
   `trc` command.
 
 ## v1.2 - Fully deterministic: no API key, add Ratify

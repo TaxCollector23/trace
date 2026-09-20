@@ -5,9 +5,10 @@ What each Trace agent integration can actually see and enforce, grounded in
 verification run against the real daemon on 2026-09-02/03 (`/api/check-command`
 proven to block `rm -rf /` for Claude Code and Cursor; the OpenCode plugin
 source read and confirmed to throw on `block`; the Windsurf MCP registration
-confirmed present with no accompanying command hook). Codex lifecycle hooks are
-now installed through `~/.codex/hooks.json` and must be trusted in `/hooks`
-before enforcement begins.
+confirmed present with no accompanying command hook). Claude Code and Cursor now
+use lifecycle hooks for automatic runs; OpenCode supports both its V1 and V2
+plugin contracts. Codex lifecycle hooks are installed through
+`~/.codex/hooks.json` and must be trusted in `/hooks` before enforcement begins.
 
 This is not a wishlist or a roadmap — it is what ships today. Where a cell
 says "unavailable" or "partial", that is a structural limit of the
@@ -23,22 +24,22 @@ named) · ⛔ unavailable (nothing to see, nothing to show).
 
 | Integration | Timeline | Commands | Files | Policies | Processes | Tests | Network |
 |---|---|---|---|---|---|---|---|
-| **Claude Code** | ✅ full session/tool-call timeline via PreToolUse+PostToolUse hooks | ✅ blocks on `block` — PreToolUse Bash hook exits 2 (proven live against `/api/check-command`) | 🟡 observed, never blocked — PostToolUse `hook_check` hardcodes `block:false`; also only runs when `TRACE_RUN_ID` is set | 🟡 deterministic policy engine runs and records findings; `require_approval`/`warn` are advisory only (never enforced at the hook boundary) | ⛔ no process-tree capture in the schema or the hook | 🟡 recorded only when the wrapped command is itself a test runner (`test_results` table); no automatic test discovery | ⛔ no network-call capture |
-| **Cursor** | ✅ MCP tool calls + `beforeShellExecution` events | ✅ blocks on `block` — `beforeShellExecution` denies (proven live) | ⛔ no file-edit hook exists at all | 🟡 same deterministic policy engine as Claude, same advisory-only ceiling for non-`block` decisions | ⛔ not captured | 🟡 same as Claude — only via an observed test-runner command | ⛔ not captured |
-| **OpenCode** | ✅ plugin-level `tool.execute.before`/MCP timeline | ✅ blocks on `block` — plugin throws a real exception pre-exec (proven live); fails open if the daemon is down | 🟡 edits flow through `trc run`/MCP and are recorded, but blocking behavior for file edits is **not independently verified** — treat as advisory until proven otherwise | 🟡 same deterministic policy engine; same advisory-only ceiling | ⛔ not captured | 🟡 same test-runner-command caveat as above | ⛔ not captured |
+| **Claude Code** | ✅ SessionStart/End + PreToolUse/PostToolUse timeline | ✅ PreToolUse denies `block` before Bash runs; fails closed if Trace is unavailable | 🟡 edits are recorded and reviewed after they land; they are not prevented before the tool call | 🟡 deterministic policy engine runs; only `block` is enforced | ⛔ no process-tree capture | 🟡 only when a test runner command is observed | ⛔ no network-call capture |
+| **Cursor** | ✅ session, shell, and file-edit hooks | ✅ `beforeShellExecution` denies `block` before the shell starts; fails closed if Trace is unavailable | 🟡 `afterFileEdit` records and reviews the edit after it lands | 🟡 deterministic policy engine runs; only `block` is enforced | ⛔ no process-tree capture | 🟡 only when a test runner command is observed | ⛔ no network-call capture |
+| **OpenCode** | ✅ V1/V2 tool hooks create a run and record completions | ✅ `execute.before`/`tool.execute.before` throws before Bash runs; fails closed if Trace is unavailable | 🟡 edits trigger capture/review after they land | 🟡 deterministic policy engine runs; only `block` is enforced | ⛔ no process-tree capture | 🟡 only when a test runner command is observed | ⛔ no network-call capture |
 | **Codex** | ✅ SessionStart/End + Bash/apply_patch lifecycle events via `~/.codex/hooks.json` | ✅ `PreToolUse` denies dangerous Bash before execution after the hook is trusted; fails closed if the daemon is unavailable | 🟡 file edits are captured and reviewed after the call, not denied before it | 🟡 deterministic policy engine runs over captured commands and the final diff | ⛔ not captured | 🟡 same test-runner-command caveat | ⛔ not captured |
 | **Windsurf** | 🟡 MCP server registered and queryable, but nothing drives it automatically — no hook triggers a timeline entry per action | ⛔ **no command hook of any kind** — no `beforeShellExecution` equivalent exists in this integration. Even when the MCP server is connected, commands are neither observed nor blocked | ⛔ MCP is read-only; no edit hook | ⛔ nothing to run the policy engine against | ⛔ not captured | ⛔ not captured | ⛔ not captured |
 
 ## Reading the table correctly
 
-- **"Connected" ≠ "enforcing."** A live config-file check (does `~/.cursor/mcp.json`
-  mention `.trace/integrations/cursor`? does `~/.claude/settings.json` mention
-  `trace-hook`?) only proves Trace's hook/plugin is *wired in*. Whether that
+- **"Connected" ≠ "enforcing."** A live config-file check (does
+  `~/.cursor/hooks.json` mention `agent-hook.js`? does `~/.claude/settings.json`
+  mention the shared hook?) only proves Trace's hook/plugin is *wired in*. Whether that
   hook can actually stop something is a separate, static fact about the
   integration's own architecture — see `command_enforcement` / `file_review`
   in `/api/integrations/coverage`, which are `true`/`false`/`null`
   (never fabricated as `true` when the mechanism doesn't exist).
-- **Windsurf is the clearest "connected but toothless" case.** Its MCP server
+- **Windsurf is the clearest "connected but read-only" case.** Its MCP server
   can be fully registered and Trace will correctly report `connected: true`,
   while `command_enforcement` and `file_review` both report `false` — the
   dashboard must never render Windsurf with the same "protected" badge as

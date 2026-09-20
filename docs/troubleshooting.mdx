@@ -41,8 +41,7 @@ directory for a `.trace/config.toml`, so run commands from inside the project.
 
 ## An agent is not being recorded
 
-Full command guarding and run attribution require launching the agent through the
-wrapper or a supported integration point:
+Run attribution comes from the wrapper or the agent's installed lifecycle hooks:
 
 ```bash
 trc run "claude ..."
@@ -54,10 +53,11 @@ If you installed the integrations, confirm they are live:
 trc integrations status
 ```
 
-Restart Cursor or Windsurf to load the MCP server; Claude Code hooks apply to new
-sessions. Restart Codex, run `/hooks`, and trust the Trace hook before testing
-command blocking. GUI tools that are not launched through the wrapper are
-observed only via file changes and git diffs. See [Limitations](/limitations).
+Restart Claude Code and OpenCode after installing. Cursor normally reloads its
+hooks, but reopen it if `trc integrations status` stays disconnected. Restart
+Codex, run `/hooks`, and trust the Trace hook before testing command blocking.
+Windsurf and Copilot remain activity-only because they do not expose a command
+hook. See [Limitations](/limitations).
 
 ## An MCP integration is not showing up
 

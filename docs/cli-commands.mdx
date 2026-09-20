@@ -37,10 +37,11 @@ trc integrations install claude      # or one agent at a time
 ```
 
 `install` accepts `claude`, `codex`, `cursor`, `windsurf`, `opencode`, or `all`.
-The Codex install patches its shared `~/.codex/hooks.json`; restart Codex and
-review/trust the Trace hook with `/hooks` before expecting enforcement.
-It writes each integration's hook or MCP file under `~/.trace/integrations/` and
-idempotently patches the agent's own config file, backing it up first. `status`
+`install all` starts the local daemon and prints the dashboard URL. Claude Code,
+Cursor, and OpenCode create runs automatically after their next restart; Codex
+also needs `/hooks` approval. The installer writes each integration's hook or
+MCP file under `~/.trace/integrations/` and idempotently patches the agent's own
+config file, backing it up first. `status`
 reports the daemon, GitHub token availability, and which agents are connected
 right now (detected from their config files). See
 [Integrations](/integrations/overview).

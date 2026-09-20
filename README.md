@@ -142,9 +142,9 @@ fake data in production.
 
 Each lives under `integrations/` and connects to the local daemon.
 
-- **Claude Code**: PreToolUse/PostToolUse hooks, enforcing (`integrations/claude`)
-- **Cursor**: MCP server + a `beforeShellExecution` guard hook, enforcing (`integrations/cursor`)
-- **OpenCode**: a `tool.execute.before` plugin, enforcing (`integrations/opencode`)
+- **Claude Code**: session, command, and edit hooks; Bash commands are enforced (`integrations/claude`)
+- **Cursor**: session, command, and edit hooks plus MCP tools; shell commands are enforced (`integrations/cursor`)
+- **OpenCode**: V1/V2 guard plugin plus MCP tools; Bash commands are enforced (`integrations/opencode`)
 - **Codex**: lifecycle hooks for CLI, desktop, and IDE plus a wrapper fallback; Bash commands are enforced after the hook is trusted, while file edits are reviewed after the call (`integrations/codex`)
 - **Windsurf**: MCP server, read-only (`integrations/windsurf`)
 - **Aider**: run through `trc run aider`; no standalone installer is advertised yet
@@ -154,7 +154,7 @@ Each lives under `integrations/` and connects to the local daemon.
 
 Run `trc integrations install all` to wire up Claude Code, Codex, Cursor,
 Windsurf, and OpenCode in one step. It starts the local daemon and prints the
-dashboard link. Restart each running agent; Codex also needs `/hooks` approval
+dashboard link. Restart the running agents; Codex also needs `/hooks` approval
 before its command guard becomes active.
 
 GUI tools are observed via file changes and Git diffs; full command guarding
@@ -196,6 +196,7 @@ trace
 │   ├── cursor/            # Cursor MCP server + hook
 │   ├── windsurf/          # Windsurf MCP server
 │   ├── opencode/          # OpenCode plugin
+│   ├── shared/            # Claude/Cursor lifecycle hook
 │   ├── claude/            # Claude Code hooks adapter
 │   ├── codex/             # Codex CLI adapter
 ├── packages/

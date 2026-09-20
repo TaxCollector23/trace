@@ -1,88 +1,61 @@
 ---
 title: Claude Code
-description: Hooks adapter with wrapper fallback.
+description: Connect Claude Code so Trace can show the session and stop risky commands.
 ---
 
-The Claude Code integration prefers the wrapper and adds optional hooks for
-finer-grained monitoring.
+Trace connects to Claude Code through Claude's own hooks. It starts a Trace run
+when a Claude session starts, records commands and file changes, and checks each
+Bash command before Claude runs it.
 
-## Install the hooks
+## Connect it
+
+Install Trace once, then connect every supported agent:
+
+```bash
+npm install -g trace-agent-cli
+trc integrations install all
+```
+
+Or connect only Claude Code:
 
 ```bash
 trc integrations install claude
 ```
 
-This writes the hook script to `~/.trace/integrations/claude/trace-hook.sh` and
-idempotently patches `~/.claude/settings.json`, backing it up first. The entry it
-adds registers Trace on two tool-use events, and **both can actually block**:
+The installer starts Trace, prints the local dashboard link, and backs up any
+settings file it changes. Restart Claude Code after installation. Claude Code
+also has a `/hooks` screen you can use to confirm that Trace is listed.
 
-- **PreToolUse** on `Bash`: the command guard classifies the command before
-  Claude Code runs it. A `block` decision exits 2, so the command never
-  executes and Claude Code sees why.
-- **PostToolUse** on `Edit`, `Write`, `MultiEdit`, and `NotebookEdit`: the
-  deterministic policy engine scans the edit. A high-severity finding (a
-  hardcoded secret, a dangerous pattern) exits 2 too — the edit already
-  landed on disk, but Claude Code gets the finding as feedback on that tool
-  call and has to address it before moving on. Medium/low findings are
-  advisory: logged to the run and echoed to the agent, but don't stop it.
+## What Trace does
 
-Start the daemon so the hooks have somewhere to report:
+- Before a Bash command runs, Trace checks it. A command classified as **block**
+  is denied before Claude can execute it.
+- After a file edit or command, Trace adds the action to the run timeline and
+  reviews the working tree.
+- When the session ends, Trace captures the final changes and closes the run.
 
-```bash
-trc daemon start
-```
+File review happens after the file edit has landed. It can warn Claude and show
+the finding in the dashboard, but it cannot undo an edit that already happened.
+Use the dashboard's undo point or `trc rollback` if you decide to remove it.
 
-Hooks apply to **new** Claude Code sessions, so restart Claude Code after
-installing. Verify with:
+## Check the connection
 
 ```bash
 trc integrations status
+trc dashboard
 ```
 
-Claude Code should read **connected** with "PreToolUse + PostToolUse hooks".
+Start a new Claude session and look for it under **Current run**. The dashboard
+should show the agent, working folder, commands, changes, and any blocked action.
 
-## Wrapper (works everywhere)
+## If hooks are unavailable
 
-You do not need hooks to get monitoring. The wrapper works with any version:
+The wrapper still works with older Claude Code versions or unusual launchers:
 
 ```bash
-trc run claude
 trc run "claude fix the login bug"
 ```
 
-This maps the Claude session to a Trace run, checkpoints git, watches file
-changes, records output, and captures the final diff. If hooks are unavailable or
-not configured, Trace falls back to wrapper-based monitoring automatically.
-
-## Which to use
-
-- The **hooks** give the guard a chance to see each Bash command Claude Code
-  issues, and record edits at tool-use granularity.
-- The **wrapper** attributes the whole session to one run and captures the final
-  git diff as the source of truth.
-
-They are complementary. Installing the hooks and also launching through `trc run`
-gives you both the per-tool detail and the whole-session record. See
-[Agent Runs](/agent-runs).
-
-## What shows up on the dashboard
-
-With hooks installed and `trc run claude` (or a session started while the
-daemon is running), a Claude Code session appears as one run with:
-
-- Every `Bash` command it ran, each with the guard's allow/warn/block
-  decision, on **Command Risk**.
-- Every file it touched via `Edit`/`Write`/`MultiEdit`, plus the full diff
-  captured from the final git state, on **Patch Review**.
-- Any policy finding — secret, risky pattern — raised at edit time, on
-  **Risk Center**, tagged with severity.
-- A chronological event log (checkpoint, each command, each edit, completion)
-  on **Session Timeline**.
-- A checkpoint you can roll back to on **Rollback Center**.
-
-If you only install the hooks without ever running through `trc run` (or
-without `TRACE_RUN_ID` set some other way), the `PostToolUse` edit-review
-hook has no run to attach findings to and is a no-op — the `PreToolUse`
-command guard still works standalone, since it doesn't need a run ID. For the
-edit review and full patch/timeline to show up, launch the session with
-`trc run claude ...` or via a wrapper that sets `TRACE_RUN_ID`.
+The wrapper gives Trace a complete run around the command. The hook install is
+the better option for live command decisions inside an already-running Claude
+session.

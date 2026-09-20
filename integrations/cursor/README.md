@@ -1,39 +1,23 @@
-# Trace — Cursor MCP integration
+# Trace + Cursor
 
-An MCP server that exposes Trace operations as tools, backed by the local
-daemon. Dependency-free (Node ≥ 18).
+Connect Cursor with one command:
 
-## Tools
-
-- `trace_start_run`
-- `trace_end_run`
-- `trace_record_event`
-- `trace_get_recent_runs`
-- `trace_get_patch_summary`
-- `trace_check_command`
-- `trace_get_rollback_options`
-
-## Configure in Cursor
-
-Add to your Cursor MCP config (`~/.cursor/mcp.json` or the MCP settings UI):
-
-```json
-{
-  "mcpServers": {
-    "trace": {
-      "command": "node",
-      "args": ["/absolute/path/to/trace/integrations/cursor/src/index.js"]
-    }
-  }
-}
+```bash
+npm install -g trace-agent-cli
+trc integrations install cursor
 ```
 
-The server reads the daemon port from `~/.trace/daemon.json` and talks only
-to `http://127.0.0.1:<port>`.
+The installer writes the MCP server and a shared hook to `~/.trace`, patches
+`~/.cursor/mcp.json` and `~/.cursor/hooks.json`, preserves other entries, and
+backs up files before changing them.
 
-## Honest limitation
+The hook starts and finishes a Trace run with each Cursor session, checks every
+shell command before execution, and records shell completions and file edits.
+The guard fails closed if the local Trace daemon is unavailable.
 
-Trace can observe project file changes and Git diffs. **Full command
-blocking requires supported integration points or running commands through
-`trace`.** The `trace_check_command` tool returns a guard decision, but
-enforcing it is up to the client.
+Restart Cursor if it does not reload the settings automatically. Verify with:
+
+```bash
+trc integrations status
+trc dashboard
+```

@@ -1,5 +1,5 @@
 {
-  "_comment": "Add this to your Claude Code settings.json (merge with existing 'hooks'). Adjust the absolute path to trace-hook.sh.",
+  "_comment": "The installer creates this automatically. Use it only for a manual setup, replacing the path if needed.",
   "hooks": {
     "PreToolUse": [
       {
@@ -7,18 +7,38 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.trace/integrations/claude/trace-hook.sh"
+            "command": "node $HOME/.trace/integrations/shared/agent-hook.js"
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit|Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.trace/integrations/claude/trace-hook.sh"
+            "command": "node $HOME/.trace/integrations/shared/agent-hook.js"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $HOME/.trace/integrations/shared/agent-hook.js"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node $HOME/.trace/integrations/shared/agent-hook.js"
           }
         ]
       }

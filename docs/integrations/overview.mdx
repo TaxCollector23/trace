@@ -9,11 +9,11 @@ the cloud, and none require an API key.
 
 | Integration | Mechanism | Config it patches |
 | --- | --- | --- |
-| [Claude Code](/integrations/claude) | Hooks adapter, wrapper fallback | `~/.claude/settings.json` |
+| [Claude Code](/integrations/claude) | Session, command, and edit hooks | `~/.claude/settings.json` |
 | [Codex](/integrations/codex) | Codex lifecycle hooks + wrapper fallback | `~/.codex/hooks.json` |
-| [Cursor](/integrations/cursor) | MCP server | `~/.cursor/mcp.json` |
+| [Cursor](/integrations/cursor) | Session, command, and edit hooks + MCP | `~/.cursor/hooks.json` and `~/.cursor/mcp.json` |
 | [Windsurf](/integrations/windsurf) | MCP server | `~/.codeium/windsurf/mcp_config.json` |
-| [OpenCode](/integrations/opencode) | MCP server | `~/.config/opencode/opencode.json` |
+| [OpenCode](/integrations/opencode) | V1/V2 guard plugin + MCP | `~/.config/opencode/opencode.json` |
 | [GitHub](/integrations/github) | Actions + direct repo read | none (token from env / `gh` / file) |
 
 ## One command to connect them all
@@ -37,16 +37,15 @@ trc integrations status
 ```
 
 This reports the daemon, whether a GitHub token is available, and which agents are
-connected right now (detected by looking for Trace's entry in each agent's config
-file).
+connected right now. It reads the same config files the installer patches; it does
+not guess from an installed binary alone.
 
 ## How the adapters differ
 
-Each adapter declares what it can honestly observe. Terminal-first agents (Claude
-Code, Codex, OpenCode) can observe piped terminal output; GUI editors (Cursor,
-Windsurf) observe filesystem and git changes but not meaningful piped output, so
-their adapters report `observe_terminal` as false rather than pretending. An
-unrecognized command falls back to a generic terminal adapter.
+Claude Code, Codex, Cursor, and OpenCode can check shell commands before they run.
+Their file review is after the edit. Windsurf and Copilot can show activity and
+file changes, but do not currently expose the same command hook. An unrecognized
+command falls back to a generic terminal adapter.
 
 ## Honest boundaries
 

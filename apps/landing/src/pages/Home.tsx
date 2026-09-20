@@ -18,12 +18,13 @@ const heroFade = {
 // The real output of `trc integrations install all`, replayed line by line in
 // the wire-up terminal. Agent names are shown as proper nouns.
 const WIRE_UP_OUTPUT: TermLine[] = [
-  { text: "Trace is connected", cls: "text-white/55" },
-  { text: "  ✓ Claude Code — command guard", cls: "text-emerald-400/90" },
-  { text: "  ✓ Codex — command guard after /hooks", cls: "text-emerald-400/90" },
-  { text: "  ✓ Cursor — command guard", cls: "text-emerald-400/90" },
-  { text: "  ◐ Windsurf — observe only", cls: "text-amber-300/90" },
-  { text: "  ✓ OpenCode — command guard", cls: "text-emerald-400/90" },
+  { text: "Trace is ready", cls: "text-white/55" },
+  { text: "  ✓ Claude Code — risky commands stopped", cls: "text-emerald-400/90" },
+  { text: "  ✓ Codex — risky commands stopped after /hooks", cls: "text-emerald-400/90" },
+  { text: "  ✓ Cursor — risky commands stopped", cls: "text-emerald-400/90" },
+  { text: "  ◐ Windsurf — activity shown", cls: "text-amber-300/90" },
+  { text: "  ✓ OpenCode — risky commands stopped", cls: "text-emerald-400/90" },
+  { text: "dashboard: http://127.0.0.1:8757", cls: "text-white/55" },
 ];
 
 export default function Home() {
@@ -39,7 +40,7 @@ export default function Home() {
             variants={heroFade}
             className="font-serif text-4xl text-text md:text-5xl"
           >
-            Know what your AI agent did before you ship it.
+            Your AI can code. Trace shows what it did.
           </motion.h1>
           <motion.p
             custom={1}
@@ -48,9 +49,9 @@ export default function Home() {
             variants={heroFade}
             className="mt-5 max-w-[520px] text-lg leading-relaxed text-text-dim"
           >
-            Your AI can move fast. Trace gives you the seatbelt: a clear record of
-            every command, file change, cost, and decision, with a local dashboard
-            that lets you stop risky work and undo a run when you need to.
+            Trace watches AI coding sessions on your computer. It records commands
+            and file changes, stops commands it recognizes as dangerous, and gives
+            you a local dashboard to review or undo the work.
           </motion.p>
           <motion.div
             custom={2}
@@ -82,16 +83,18 @@ export default function Home() {
           command="npm i -g trace-agent-cli"
           copyText="npm i -g trace-agent-cli"
         />
-        <p className="mt-4 text-center text-sm text-text-dim">
-          Then run <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs text-text">trc integrations install all</code> to connect your agents.
-        </p>
+        <div className="mx-auto mt-5 max-w-xl text-center text-sm leading-relaxed text-text-dim">
+          <p><span className="font-medium text-text">1.</span> Install Trace.</p>
+          <p><span className="font-medium text-text">2.</span> Run <code className="rounded bg-white px-1.5 py-0.5 font-mono text-xs text-text">trc integrations install all</code> to connect your agents.</p>
+          <p><span className="font-medium text-text">3.</span> Restart the agents you use. The dashboard link appears in your terminal.</p>
+        </div>
       </section>
 
       {/* ---------- Works everywhere ---------- */}
       <Section
         id="integrations"
         title="Works with the agents you already run"
-        lede="Connect the coding agents you already use. Trace shows what each one did, what it changed, and whether it tried something risky. Where an agent supports a command hook, Trace can stop the risky action before it runs."
+        lede="Trace shows what your coding agent did, what it changed, and whether it tried something risky. Claude Code, Codex, Cursor, and OpenCode can stop dangerous shell commands before they run."
       >
         <WorksEverywhere />
       </Section>
@@ -99,8 +102,8 @@ export default function Home() {
       {/* ---------- One command wires up every supported agent ---------- */}
       <Section
         id="wire-up"
-        title="One command wires up every supported agent"
-        lede="Run one command. Trace adds its connection, keeps a backup of settings it touches, and starts the local dashboard for you."
+        title="Connect your agents in one command"
+        lede="Trace starts the local dashboard, backs up settings before changing them, and tells you which apps need a restart."
       >
         <Terminal
           label="trace - integrations"

@@ -29,16 +29,16 @@ Wire up every supported agent in one command:
 trc integrations install all
 ```
 
-This installs the Claude Code hooks, Codex lifecycle hooks, and the Cursor,
-Windsurf, and OpenCode MCP servers, patching each agent's own config file
-idempotently and backing it up first. It also starts the local daemon and prints
-the dashboard link. You can install one agent at a time, for example
+This installs the Claude Code, Codex, Cursor, and OpenCode session/command
+connections plus the Windsurf read-only connection. It patches each agent's own
+config file idempotently and backs it up first. It also starts the local daemon
+and prints the dashboard link. You can install one agent at a time, for example
 `trc integrations install claude`. See
 [Integrations](/integrations/overview).
 
-After installing Codex, restart it, run `/hooks`, and trust the Trace hook when
-Codex asks. That is required before Codex can send Bash commands to Trace for a
-pre-run safety decision.
+Restart Claude Code, Cursor, and OpenCode after installing them. Restart Codex,
+run `/hooks`, and trust the Trace hook when Codex asks. That approval is only
+needed for Codex; the other integrations load their own settings directly.
 </Step>
 
 <Step title="Run an agent through Trace">

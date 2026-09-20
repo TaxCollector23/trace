@@ -26,7 +26,7 @@ one. There are three tiers:
 
 - **Enforced.** Agents that expose a command hook are guarded before a command
   runs: Claude Code (`PreToolUse`), Cursor (`beforeShellExecution`), OpenCode
-  (`tool.execute.before`), and Codex (`PreToolUse` after the hook is trusted in
+  (V1/V2 tool hooks), and Codex (`PreToolUse` after the hook is trusted in
   `/hooks`). A dangerous command is denied, not just recorded.
 - **Enforced via the wrapper.** Anything you launch with `trc run` is guarded at
   the shell boundary.
