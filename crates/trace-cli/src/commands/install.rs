@@ -9,7 +9,6 @@
 use anyhow::Result;
 
 use crate::commands::hook_install;
-use crate::daemon_ctl;
 
 pub fn run(target: &str) -> Result<()> {
     match target {
@@ -23,17 +22,8 @@ pub fn run(target: &str) -> Result<()> {
 }
 
 fn install_agents() -> Result<()> {
-    // Live review needs the daemon; start it now so the connection is complete
-    // the moment an agent restarts. A failure here is non-fatal — the hooks/MCP
-    // still install, they just won't stream live review until the daemon runs.
-    let port = daemon_ctl::ensure_running().ok();
-
-    // Install/patch every supported agent (idempotent, with backups).
+    // Install/patch every supported agent and start the daemon. The same
+    // implementation backs `trc integrations install all`.
     hook_install::install("all")?;
-
-    if let Some(port) = port {
-        println!("dashboard: http://127.0.0.1:{port}");
-    }
-    println!("agents connected");
     Ok(())
 }

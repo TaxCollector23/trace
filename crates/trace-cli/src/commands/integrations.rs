@@ -9,7 +9,11 @@ use crate::daemon_ctl;
 
 const INTEGRATIONS: &[(&str, &str, &str)] = &[
     ("Claude Code", "wrapper + hooks", "integrations/claude"),
-    ("Codex CLI", "wrapper", "integrations/codex"),
+    (
+        "Codex",
+        "lifecycle hooks + wrapper fallback",
+        "integrations/codex",
+    ),
     ("Cursor", "MCP tools + guard hook", "integrations/cursor"),
     ("Windsurf", "MCP server", "integrations/windsurf"),
     (
@@ -109,7 +113,7 @@ pub fn status(json_output: bool) -> Result<()> {
     if any {
         println!(
             "\n{}",
-            colors::dim("Restart Cursor/Windsurf to load the MCP server; Claude hooks apply to new sessions.")
+            colors::dim("Restart your agent after installing; Codex also needs /hooks trust before command blocking.")
         );
     } else {
         println!(

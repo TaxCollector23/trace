@@ -25,14 +25,20 @@ Trace's guard can only block a command if the agent gives it a place to intercep
 one. There are three tiers:
 
 - **Enforced.** Agents that expose a command hook are guarded before a command
-  runs: Claude Code (`PreToolUse`), Cursor (`beforeShellExecution`), and OpenCode
-  (`tool.execute.before`). A dangerous command is denied, not just recorded.
+  runs: Claude Code (`PreToolUse`), Cursor (`beforeShellExecution`), OpenCode
+  (`tool.execute.before`), and Codex (`PreToolUse` after the hook is trusted in
+  `/hooks`). A dangerous command is denied, not just recorded.
 - **Enforced via the wrapper.** Anything you launch with `trc run` is guarded at
   the shell boundary.
 - **Observe-only.** An agent with no hook surface and not launched through the
   wrapper can still have its file changes and git diffs recorded, but Trace
   cannot block a command it never sees. Windsurf is observe-only today (MCP read
-  tools, no command hook exposed yet).
+  tools, no command hook exposed yet), as is the VS Code/Copilot bridge.
+
+Codex's Bash hook fails closed if the local Trace daemon is unavailable. Codex
+file edits are recorded and reviewed after the tool call; Trace cannot deny a
+file edit before it lands because Codex does not provide a pre-edit decision
+hook.
 
 See [Integrations](/integrations/overview).
 

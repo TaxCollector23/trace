@@ -18,12 +18,12 @@ const heroFade = {
 // The real output of `trc integrations install all`, replayed line by line in
 // the wire-up terminal. Agent names are shown as proper nouns.
 const WIRE_UP_OUTPUT: TermLine[] = [
-  { text: "Trace is watching", cls: "text-white/55" },
-  { text: "  ✓ Claude Code", cls: "text-emerald-400/90" },
-  { text: "  ✓ Codex CLI", cls: "text-emerald-400/90" },
-  { text: "  ✓ Cursor", cls: "text-emerald-400/90" },
-  { text: "  ✓ Windsurf", cls: "text-emerald-400/90" },
-  { text: "  ✓ OpenCode", cls: "text-emerald-400/90" },
+  { text: "Trace is connected", cls: "text-white/55" },
+  { text: "  ✓ Claude Code — command guard", cls: "text-emerald-400/90" },
+  { text: "  ✓ Codex — command guard after /hooks", cls: "text-emerald-400/90" },
+  { text: "  ✓ Cursor — command guard", cls: "text-emerald-400/90" },
+  { text: "  ◐ Windsurf — observe only", cls: "text-amber-300/90" },
+  { text: "  ✓ OpenCode — command guard", cls: "text-emerald-400/90" },
 ];
 
 export default function Home() {
@@ -91,15 +91,15 @@ export default function Home() {
       <Section
         id="integrations"
         title="Works with the agents you already run"
-        lede="Connect the coding agents you already use. Trace shows what each one did, what it changed, and whether it tried something risky."
+        lede="Connect the coding agents you already use. Trace shows what each one did, what it changed, and whether it tried something risky. Where an agent supports a command hook, Trace can stop the risky action before it runs."
       >
         <WorksEverywhere />
       </Section>
 
-      {/* ---------- One command wires up every agent ---------- */}
+      {/* ---------- One command wires up every supported agent ---------- */}
       <Section
         id="wire-up"
-        title="One command wires up every agent you use"
+        title="One command wires up every supported agent"
         lede="Run one command. Trace adds its connection, keeps a backup of settings it touches, and starts the local dashboard for you."
       >
         <Terminal

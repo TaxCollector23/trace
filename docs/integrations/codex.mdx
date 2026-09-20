@@ -1,10 +1,11 @@
 ---
 title: Codex
-description: Codex CLI wrapper adapter.
+description: Codex lifecycle hooks for CLI, desktop, and IDE sessions.
 ---
 
-The Codex integration is wrapper-first. Codex is a terminal agent, so a wrapped
-session observes filesystem, git, commands, and piped output directly.
+The Codex integration uses Codex lifecycle hooks. Codex CLI, the Codex desktop
+app, and the Codex IDE extension share `~/.codex/hooks.json`, so one Trace
+install can observe sessions from all three surfaces.
 
 ## Install
 
@@ -12,64 +13,33 @@ session observes filesystem, git, commands, and piped output directly.
 trc integrations install codex
 ```
 
-This writes the adapter script to
-`~/.trace/integrations/codex/codex-adapter.sh`. There is no upstream config file
-to patch, so the installer prints the one manual step: add a shell alias so every
-`codex` call routes through Trace. Put this in your shell rc (`~/.zshrc`,
-`~/.bashrc`):
-
-```bash
-alias codex="$HOME/.trace/integrations/codex/codex-adapter.sh"
-```
-
-Reload your shell, and `codex ...` now runs under Trace.
-
-## Wrapper (no alias needed)
-
-You can always wrap a single invocation explicitly:
-
-```bash
-trc run codex
-trc run "codex <prompt>"
-```
-
-The adapter starts a Trace run, creates a checkpoint, monitors file changes and
-command output, and records the git diff and final state.
-
-## Verify
+This writes `~/.trace/integrations/codex/codex-hook.js` and patches
+`~/.codex/hooks.json`. Restart Codex. In a Codex session, run `/hooks`, review
+the Trace hook, and trust it when Codex asks. Codex requires this review for
+user-installed hooks.
 
 ```bash
 trc integrations status
 ```
 
-Codex CLI shows as connected once the adapter script is written. Because the alias
-is a manual step, Trace reports the wrapper script is installed and reminds you to
-add the alias to finish.
+The adapter script remains available as a fallback for older Codex versions:
+
+```bash
+trc run "codex <prompt>"
+```
 
 ## What shows up on the dashboard
 
-Codex has no per-tool hook — the whole `codex ...` invocation is one wrapped
-process, so Trace observes it at the process boundary instead of the
-individual-edit boundary Claude Code's hooks give you. A Codex run appears
-with:
+Every Codex session with the hook trusted appears as a Trace run. It includes:
 
-- The command guard's decision on the **top-level `codex ...` invocation
-  only**, on **Command Risk**. A `block` decision stops it before Codex even
-  starts. Any shell commands Codex runs *internally* as part of its own agent
-  loop are not individually guarded or listed here — Trace can't see inside
-  Codex's own process.
-- A checkpoint taken before Codex starts, and the full git diff of everything
-  that changed by the time it exits, on **Patch Review**.
-- Captured stdout/stderr and a coarse timeline (start, file-change events,
-  completion) on **Session Timeline**.
-- Any secret or risky-pattern finding from scanning the final diff, on
-  **Risk Center**.
+- Every Bash tool call, including the guard decision. A `block` decision denies
+  the call before Codex executes it.
+- Tool completion events and the session lifecycle on **Session Timeline**.
+- The final Git diff and policy findings on **Patch Review** and **Risk Center**.
+- The folder and agent identity on the current-run card.
 
-The practical difference from Claude Code: Trace guards and records Claude
-Code at the granularity of each tool call it makes; for Codex it only guards
-the launch and then reconstructs what happened from the filesystem and git
-afterward. That's still enough to catch a bad diff or a leaked secret before
-you commit, but a risky command Codex ran and then reverted internally, or an
-edit it made and undid before exiting, won't show up. Skipping the alias, or
-calling the real `codex` binary directly, makes a session invisible to Trace
-entirely.
+Trace cannot block a file edit before it lands because Codex's file-edit hook is
+not used as a pre-edit policy boundary yet; it records and reviews the result
+after the tool call. If the Trace daemon is unavailable, the Codex Bash hook
+denies the call and tells you to start Trace, rather than silently claiming the
+command was checked.

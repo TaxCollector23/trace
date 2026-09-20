@@ -145,15 +145,17 @@ Each lives under `integrations/` and connects to the local daemon.
 - **Claude Code**: PreToolUse/PostToolUse hooks, enforcing (`integrations/claude`)
 - **Cursor**: MCP server + a `beforeShellExecution` guard hook, enforcing (`integrations/cursor`)
 - **OpenCode**: a `tool.execute.before` plugin, enforcing (`integrations/opencode`)
-- **Codex**: CLI wrapper adapter, observe-only for sub-invocations (`integrations/codex`)
+- **Codex**: lifecycle hooks for CLI, desktop, and IDE plus a wrapper fallback; Bash commands are enforced after the hook is trusted, while file edits are reviewed after the call (`integrations/codex`)
 - **Windsurf**: MCP server, read-only (`integrations/windsurf`)
-- **Aider**: wrapper adapter, manual setup (`integrations/aider`)
+- **Aider**: run through `trc run aider`; no standalone installer is advertised yet
 - **VS Code**: extension, not yet published to the marketplace (`integrations/vscode`)
 - **GitHub**: App + Action running the deterministic policy engine
   (`trc review-diff`) and posting sanitized summaries (`integrations/github`)
 
 Run `trc integrations install all` to wire up Claude Code, Codex, Cursor,
-Windsurf, and OpenCode in one step.
+Windsurf, and OpenCode in one step. It starts the local daemon and prints the
+dashboard link. Restart each running agent; Codex also needs `/hooks` approval
+before its command guard becomes active.
 
 GUI tools are observed via file changes and Git diffs; full command guarding
 requires supported hooks or running through `trc run`.
@@ -196,7 +198,6 @@ trace
 │   ├── opencode/          # OpenCode plugin
 │   ├── claude/            # Claude Code hooks adapter
 │   ├── codex/             # Codex CLI adapter
-│   └── aider/             # Aider wrapper adapter
 ├── packages/
 │   └── npm/               # npm wrapper package
 ├── homebrew-trace/        # Homebrew formula (mirrors the tap repo)
@@ -269,12 +270,11 @@ See [docs/security-model.mdx](docs/security-model.mdx).
 - Full command guarding and run attribution require the `trc run` wrapper or
   supported hooks. GUI tools are otherwise observed only via file changes and
   Git diffs.
-- **Live agent feedback** (surfacing a finding back into the agent's own
-  context mid-session) is only fully wired for Claude Code, which has a hook
-  system Trace can inject into. Other wrapped agents (Cursor, Aider, Codex,
-  OpenCode, Gemini) get the same live policy review, but findings surface as a
-  terminal alert to the human plus a dashboard flag, not something the agent
-  itself sees, because those tools don't expose an equivalent hook surface yet.
+- **Live agent feedback** depends on the agent's hook surface. Claude Code,
+  Cursor, OpenCode, and Codex can receive an enforced command decision through
+  their supported hooks. Windsurf and the VS Code/Copilot bridge are
+  observe-only for agent activity; Aider is available through the wrapper but
+  is not part of `trc integrations install all`.
 - Ratify reads a repo's PR files via a personal/CLI token, not a GitHub App,
   fine for local, user-triggered ratification; an org-wide automatic version
   would need App infrastructure this doesn't include.

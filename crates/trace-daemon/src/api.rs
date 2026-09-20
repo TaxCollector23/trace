@@ -33,6 +33,7 @@ pub fn router() -> Router<AppState> {
         .route("/runs", get(list_runs).post(create_run))
         .route("/runs/:id", get(get_run))
         .route("/runs/:id/finish", post(finish_run))
+        .route("/runs/:id/capture", post(capture_run))
         // GET on this path is owned by intel_routes::router() (normalized
         // events, see RECOVERY-AUDIT-driven v4 intel spine) — merged below.
         // The raw/legacy shape stays reachable at GET /runs/:id/timeline.
@@ -257,6 +258,50 @@ async fn finish_run(
     // are set). Runs on its own thread; never blocks this response.
     crate::cloud_sync::enqueue(id.clone(), state.store.clone());
     Ok(Json(json!({ "ok": true })))
+}
+
+/// Capture the current working tree for integrations that receive lifecycle
+/// hooks but cannot run Trace's long-lived file watcher themselves (Codex is
+/// the first one). The starting commit is the source of truth; `.trace/` is
+/// excluded by the shared git helpers.
+async fn capture_run(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> ApiResult<impl IntoResponse> {
+    let (run, project) = {
+        let s = store(&state);
+        let run = s
+            .run_by_id(&id)?
+            .ok_or_else(|| ApiError::not_found("run"))?;
+        let project = s
+            .project_by_id(&run.project_id)?
+            .ok_or_else(|| ApiError::not_found("project"))?;
+        (run, project)
+    };
+
+    let Some(starting_commit) = run.starting_commit.as_deref() else {
+        return Ok(Json(
+            json!({ "ok": true, "count": 0, "reason": "no starting commit" }),
+        ));
+    };
+    let root = std::path::Path::new(&project.path);
+    let entries = git::diff_against(root, starting_commit)?;
+    let changes: Vec<NewFileChange> = entries
+        .iter()
+        .map(|entry| NewFileChange {
+            path: entry.path.clone(),
+            change_type: entry.change_type.as_str().to_string(),
+            diff_summary: entry.diff_summary.clone(),
+        })
+        .collect();
+    store(&state).replace_file_changes(&id, &changes)?;
+
+    let run_dir = root.join(".trace").join("runs").join(&id);
+    let diff = git::full_diff(root, starting_commit)?;
+    std::fs::create_dir_all(&run_dir).map_err(anyhow::Error::from)?;
+    std::fs::write(run_dir.join("diff.patch"), diff).map_err(anyhow::Error::from)?;
+
+    Ok(Json(json!({ "ok": true, "count": changes.len() })))
 }
 
 // --- Events / timeline ----------------------------------------------------

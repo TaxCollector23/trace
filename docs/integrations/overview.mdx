@@ -10,7 +10,7 @@ the cloud, and none require an API key.
 | Integration | Mechanism | Config it patches |
 | --- | --- | --- |
 | [Claude Code](/integrations/claude) | Hooks adapter, wrapper fallback | `~/.claude/settings.json` |
-| [Codex CLI](/integrations/codex) | Wrapper script + shell alias | none (you add an alias) |
+| [Codex](/integrations/codex) | Codex lifecycle hooks + wrapper fallback | `~/.codex/hooks.json` |
 | [Cursor](/integrations/cursor) | MCP server | `~/.cursor/mcp.json` |
 | [Windsurf](/integrations/windsurf) | MCP server | `~/.codeium/windsurf/mcp_config.json` |
 | [OpenCode](/integrations/opencode) | MCP server | `~/.config/opencode/opencode.json` |
@@ -22,10 +22,11 @@ the cloud, and none require an API key.
 trc integrations install all
 ```
 
-This installs every agent integration, writing each hook or MCP file under
-`~/.trace/integrations/` and idempotently patching the agent's own config file. It
-backs up any file it touches first and never removes an entry you already
-configured, so re-running it is safe. Install one at a time with
+This installs every installable agent integration, writing each hook or MCP file
+under `~/.trace/integrations/` and idempotently patching the agent's own config
+file. It backs up any file it touches first, starts the local daemon, and never
+removes an entry you already configured, so re-running it is safe. Install one
+at a time with
 `trc integrations install <agent>`, where `<agent>` is `claude`, `codex`,
 `cursor`, `windsurf`, or `opencode`.
 

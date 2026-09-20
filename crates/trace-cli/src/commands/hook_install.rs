@@ -21,12 +21,14 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::colors;
+use crate::daemon_ctl;
 use trace_core::paths;
 
 // Embedded integration sources. Kept in sync with `integrations/` at build
 // time via include_str! — a new file there just needs to be added below.
 const CLAUDE_HOOK_SH: &str = include_str!("../../../../integrations/claude/trace-hook.sh");
 const CODEX_ADAPTER_SH: &str = include_str!("../../../../integrations/codex/codex-adapter.sh");
+const CODEX_HOOK_JS: &str = include_str!("../../../../integrations/codex/codex-hook.js");
 const CURSOR_MCP_JS: &str = include_str!("../../../../integrations/cursor/src/index.js");
 const CURSOR_HOOK_SH: &str = include_str!("../../../../integrations/cursor/cursor-hook.sh");
 const OPENCODE_PLUGIN_JS: &str = include_str!("../../../../integrations/opencode/trace-plugin.js");
@@ -61,11 +63,21 @@ pub fn install(agent: &str) -> Result<()> {
     if agent == "all" {
         let mut any_err = false;
         let mut connected = 0usize;
+        let mut notes = Vec::new();
+        let daemon_port = match daemon_ctl::ensure_running() {
+            Ok(port) => Some(port),
+            Err(error) => {
+                record_install_error(&format!("daemon: {error}"));
+                None
+            }
+        };
         for a in SUPPORTED {
             match install_one(a) {
                 Ok(w) => {
                     connected += 1;
-                    let _ = w.note;
+                    if let Some(note) = w.note {
+                        notes.push(note);
+                    }
                 }
                 Err(e) => {
                     record_install_error(&format!("{}: {e}", display_name(a)));
@@ -74,6 +86,12 @@ pub fn install(agent: &str) -> Result<()> {
             }
         }
         println!("agents connected: {connected}/{}", SUPPORTED.len());
+        if let Some(port) = daemon_port {
+            println!("dashboard: http://127.0.0.1:{port}");
+        }
+        for note in notes {
+            println!("next: {note}");
+        }
         if any_err {
             // Keep setup usable and put details in the local dashboard's
             // diagnostics file rather than interrupting a one-command install.
@@ -401,17 +419,47 @@ fn install_claude() -> Result<Wired> {
 }
 
 fn install_codex() -> Result<Wired> {
+    let home = dirs::home_dir().context("no home directory")?;
     let adapter = trace_integrations_dir()?
         .join("codex")
         .join("codex-adapter.sh");
     write_executable(&adapter, CODEX_ADAPTER_SH)?;
+    let hook = trace_integrations_dir()?
+        .join("codex")
+        .join("codex-hook.js");
+    write_executable(&hook, CODEX_HOOK_JS)?;
+    let hooks_config = home.join(".codex").join("hooks.json");
+    let command = format!("node {}", shell_quote(&hook.display().to_string()));
+    let patch = json!({
+        "hooks": {
+            "SessionStart": [{
+                "hooks": [{ "type": "command", "command": command, "timeout": 10 }]
+            }],
+            "SessionEnd": [{
+                "hooks": [{ "type": "command", "command": command, "timeout": 10 }]
+            }],
+            "PreToolUse": [{
+                "matcher": "Bash",
+                "hooks": [{ "type": "command", "command": command, "timeout": 5, "statusMessage": "Trace checking command" }]
+            }],
+            "PostToolUse": [{
+                "matcher": "Bash|apply_patch",
+                "hooks": [{ "type": "command", "command": command, "timeout": 10 }]
+            }]
+        }
+    });
+    merge_json_file(&hooks_config, &patch)?;
     Ok(Wired {
-        kind: "wrapper script",
+        kind: "Codex hooks + wrapper",
         note: Some(format!(
-            "Codex: add to your shell rc  ->  alias codex=\"{}\"",
+            "Restart Codex, then run /hooks to review and trust Trace. CLI fallback: alias codex=\"{}\"",
             adapter.display()
         )),
     })
+}
+
+fn shell_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "'\\''"))
 }
 
 fn install_cursor() -> Result<Wired> {
