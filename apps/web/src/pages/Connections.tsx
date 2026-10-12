@@ -99,7 +99,7 @@ function ConnectionTable({ rows }: { rows: ConnectionRow[] }) {
       <section className="usage-panel connections-capabilities" aria-labelledby="capability-title">
         <div className="usage-panel-heading">
           <h2 id="capability-title">Capability matrix</h2>
-          <span className="muted">A blank capability means the daemon has not verified it, not that it is zero.</span>
+          <span className="muted">Unavailable capability data is shown explicitly, never as zero.</span>
         </div>
         <div className="v4-table-wrap">
           <table className="connections-table">
@@ -136,7 +136,7 @@ function ConnectionStatus({ row }: { row: ConnectionRow }) {
       <span className={`connection-state ${row.connected ? "connected" : ""}`}>
         <span className="connection-dot" aria-hidden="true" /> {state}
       </span>
-      <div className="muted connections-note">{row.note || row.install_hint || "No next action was reported."}</div>
+      <div className="muted connections-note">{row.action || row.note || row.install_hint || "No next action was reported."}</div>
     </div>
   );
 }
@@ -144,6 +144,6 @@ function ConnectionStatus({ row }: { row: ConnectionRow }) {
 function capability(value: CapabilityStatus) {
   if (value === "available") return <span className="connection-cap connection-cap-yes">available</span>;
   if (value === "partial") return <span className="connection-cap">partial</span>;
-  if (value === "not_available") return <span className="connection-cap connection-cap-no">not available</span>;
-  return <span className="muted">not reported</span>;
+  if (value === "not_available") return <span className="connection-cap connection-cap-no">not available for this agent</span>;
+  return <span className="muted">not verified for this agent</span>;
 }
