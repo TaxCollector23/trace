@@ -35,10 +35,12 @@ esac
 
 asset="trace-${os_tag}-${arch_tag}"
 version="${TRACE_VERSION:-latest}"
+release_base_url="${TRACE_RELEASE_BASE_URL:-https://github.com/${REPO}/releases}"
+release_base_url="${release_base_url%/}"
 if [ "$version" = "latest" ]; then
-  url="https://github.com/${REPO}/releases/latest/download/${asset}"
+  url="${release_base_url}/latest/download/${asset}"
 else
-  url="https://github.com/${REPO}/releases/download/${version}/${asset}"
+  url="${release_base_url}/download/${version}/${asset}"
 fi
 
 mkdir -p "$INSTALL_DIR"

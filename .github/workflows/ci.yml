@@ -6,26 +6,40 @@ on:
   pull_request:
 
 jobs:
-  rust:
-    name: Rust (fmt, clippy, test)
+  fmt:
+    name: Rustfmt
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt
+      - run: cargo fmt --all --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
       - uses: Swatinem/rust-cache@v2
-      - name: rustfmt
-        run: cargo fmt --all --check
-      - name: clippy
-        run: cargo clippy --workspace --exclude trace-desktop --all-targets -- -D warnings
-      - name: test
-        run: cargo test --workspace --exclude trace-desktop
+      - run: cargo clippy --workspace --exclude trace-desktop --all-targets -- -D warnings
+
+  test:
+    name: Rust tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace --exclude trace-desktop
 
   cli-e2e:
     name: CLI end-to-end smoke
     runs-on: ubuntu-latest
-    needs: rust
+    needs: [fmt, clippy, test]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -57,6 +71,101 @@ jobs:
             exit 1
           fi
           "$trc" self-check | grep -q "All fixtures and red-team threats passed."
+
+  release-smoke:
+    name: Release usage smoke
+    runs-on: ubuntu-latest
+    needs: [fmt, clippy, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: build release CLI
+        run: cargo build --release -p trace-cli
+      - name: init, import, usage JSON, verify day, and fixture properties
+        shell: bash
+        run: |
+          set -euo pipefail
+          project="$(mktemp -d)"
+          home="$(mktemp -d)"
+          trace_home="$(mktemp -d)"
+          git -C "$project" init -q
+          git -C "$project" config user.email trace-ci@example.invalid
+          git -C "$project" config user.name trace-ci
+          printf '# smoke\n' > "$project/README.md"
+          git -C "$project" add README.md
+          git -C "$project" commit -qm initial
+          export HOME="$home"
+          export USERPROFILE="$home"
+          export TRACE_HOME="$trace_home"
+          export TRACE_DB="$trace_home/trace.db"
+          export XDG_CONFIG_HOME="$home/.config"
+          trc="$GITHUB_WORKSPACE/target/release/trc"
+          trap '"$trc" daemon stop >/dev/null 2>&1 || true' EXIT
+          mkdir -p "$home/.claude/projects/-fixture-project"
+          cp tests/fixtures/claude/cache-tokens/transcript.jsonl \
+            "$home/.claude/projects/-fixture-project/transcript.jsonl"
+          cd "$project"
+          "$trc" init
+          "$trc" usage --by day --since 2026-10-12 --json > "$trace_home/usage.json"
+          python3 - "$trace_home/usage.json" <<'PY'
+          import json, sys
+          payload = json.load(open(sys.argv[1], encoding="utf-8"))
+          row = next((row for row in payload["rows"] if row["key"] == "2026-10-12"), None)
+          assert row is not None, payload
+          assert row["event_count"] == 1, row
+          assert payload["totals"]["event_count"] == 1, payload
+          PY
+          "$trc" verify --day 2026-10-12 | tee "$trace_home/verify.txt"
+          grep -q "Trace usage verification" "$trace_home/verify.txt"
+          sanitized="$(mktemp -d)"
+          python3 "$GITHUB_WORKSPACE/scripts/sanitize_claude_log.py" \
+            --input "$GITHUB_WORKSPACE/tests/fixtures/claude/cache-tokens/transcript.jsonl" \
+            --output "$sanitized/transcript.jsonl" --fail-on-malformed
+          python3 "$GITHUB_WORKSPACE/scripts/sanitize_claude_log.py" \
+            --check "$sanitized/transcript.jsonl"
+          python3 "$GITHUB_WORKSPACE/scripts/usage_fixture_harness.py" \
+            --binary "$trc" --all --properties
+
+  installer-container:
+    name: Installer (container)
+    runs-on: ubuntu-latest
+    container: ubuntu:24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: install container dependencies
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            ca-certificates curl coreutils python3
+      - name: execute installer against a local release fixture
+        shell: bash
+        run: |
+          set -euo pipefail
+          server_root="$(mktemp -d)"
+          fake_home="$(mktemp -d)"
+          mkdir -p "$server_root/latest/download"
+          cat > "$server_root/latest/download/trace-linux-x64" <<'EOF'
+          #!/bin/sh
+          if [ "${1:-}" = "--version" ]; then
+            echo "Trace installer smoke binary"
+          fi
+          exit 0
+          EOF
+          chmod +x "$server_root/latest/download/trace-linux-x64"
+          sha256sum "$server_root/latest/download/trace-linux-x64" \
+            | awk '{print $1}' > "$server_root/latest/download/trace-linux-x64.sha256"
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory "$server_root" >/tmp/trace-http.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" >/dev/null 2>&1 || true' EXIT
+          for _ in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:8765/latest/download/trace-linux-x64 >/dev/null && break
+            sleep 0.25
+          done
+          HOME="$fake_home" TRACE_RELEASE_BASE_URL=http://127.0.0.1:8765 \
+            TRACE_VERSION=latest TRACE_REQUIRE_CHECKSUM=1 sh scripts/install.sh
+          test -x "$fake_home/.trace/bin/trc"
+          "$fake_home/.trace/bin/trc" --version | grep -q "installer smoke binary"
 
   desktop:
     name: Desktop shell (${{ matrix.name }})
