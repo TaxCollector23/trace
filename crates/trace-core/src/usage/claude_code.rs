@@ -178,8 +178,8 @@ fn record_event(store: &Store, event: &NewUsageEvent, report: &mut ImportReport)
         }
     }
     match store.upsert_usage_event(event)? {
-        crate::db::UsageUpsertResult::Inserted => report.events_inserted += 1,
-        crate::db::UsageUpsertResult::Updated => report.events_updated += 1,
+        crate::usage::UsageUpsertResult::Inserted => report.events_inserted += 1,
+        crate::usage::UsageUpsertResult::Updated => report.events_updated += 1,
     }
     Ok(())
 }

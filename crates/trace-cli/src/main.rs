@@ -123,6 +123,19 @@ enum Commands {
     /// List recent runs.
     Runs,
 
+    /// Import and summarize local Claude Code token usage.
+    Usage {
+        /// Group rows by model, session, day, agent, or project.
+        #[arg(long, value_parser = ["model", "session", "day", "agent", "project"], default_value = "model")]
+        by: String,
+        /// Include events at or after this RFC3339 timestamp.
+        #[arg(long)]
+        since: Option<String>,
+        /// Print the full machine-readable response.
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Show a run's summary and timeline.
     Show { run_id: String },
 

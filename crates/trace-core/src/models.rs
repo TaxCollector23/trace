@@ -477,6 +477,87 @@ pub struct NewApiUsage {
     pub latency_ms: Option<i64>,
 }
 
+/// The provenance of a usage-event cost. Importers never compute a price;
+/// absent provider-reported cost stays `unknown` for the pricing workstream.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum UsageCostSource {
+    Reported,
+    Computed,
+    Unknown,
+}
+
+impl UsageCostSource {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Reported => "reported",
+            Self::Computed => "computed",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+/// A canonical, provider-neutral usage event imported from an agent's own
+/// local history. Prompt/response content is intentionally not part of this
+/// model; `raw_ref` is only a source path plus a stable row/byte locator.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct UsageEvent {
+    pub id: String,
+    pub run_id: Option<String>,
+    pub agent: String,
+    pub session_id: String,
+    pub message_id: String,
+    pub parent_message_id: Option<String>,
+    pub is_subagent: bool,
+    pub subagent_id: Option<String>,
+    pub model: Option<String>,
+    pub input_tokens: Option<i64>,
+    pub output_tokens: Option<i64>,
+    pub cache_read_tokens: Option<i64>,
+    pub cache_write_tokens: Option<i64>,
+    pub reasoning_tokens: Option<i64>,
+    pub ts: Option<String>,
+    pub cost_usd: Option<f64>,
+    pub cost_source: String,
+    pub raw_ref: String,
+}
+
+/// Insert shape for [`UsageEvent`]. The database assigns `id` and ignores a
+/// duplicate `(agent, session_id, message_id)` tuple.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct NewUsageEvent {
+    pub run_id: Option<String>,
+    pub agent: String,
+    pub session_id: String,
+    pub message_id: String,
+    pub parent_message_id: Option<String>,
+    pub is_subagent: bool,
+    pub subagent_id: Option<String>,
+    pub model: Option<String>,
+    pub input_tokens: Option<i64>,
+    pub output_tokens: Option<i64>,
+    pub cache_read_tokens: Option<i64>,
+    pub cache_write_tokens: Option<i64>,
+    pub reasoning_tokens: Option<i64>,
+    pub ts: Option<String>,
+    pub cost_usd: Option<f64>,
+    pub cost_source: String,
+    pub raw_ref: String,
+}
+
+/// Persistent cursor and diagnostics for one imported source path.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ImportSourceStatus {
+    pub agent: String,
+    pub path: String,
+    pub byte_offset: i64,
+    pub file_size: i64,
+    pub file_mtime: Option<i64>,
+    pub events_imported: i64,
+    pub parse_errors: i64,
+    pub last_event_at: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Checkpoint {
     pub id: String,

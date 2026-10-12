@@ -18,6 +18,13 @@ pub struct ImportReport {
     pub last_event_at: Option<String>,
 }
 
+/// Outcome of the canonical `(agent, session, message)` upsert.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UsageUpsertResult {
+    Inserted,
+    Updated,
+}
+
 impl ImportReport {
     pub fn merge(&mut self, other: &Self) {
         if self.agent.is_empty() {

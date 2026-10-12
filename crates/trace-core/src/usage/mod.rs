@@ -9,7 +9,7 @@ pub mod importer;
 use serde::{Deserialize, Serialize};
 
 pub use claude_code::ClaudeCodeImporter;
-pub use importer::{ImportReport, UsageImporter};
+pub use importer::{ImportReport, UsageImporter, UsageUpsertResult};
 
 // Canonical event/storage shapes live in the existing shared model module so
 // the importer and the legacy API cannot drift into two row contracts.

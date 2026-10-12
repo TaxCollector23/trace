@@ -10,7 +10,12 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::MutexGuard;
-use trace_core::{git, models::*, Store};
+use trace_core::{
+    git,
+    models::*,
+    usage::{ClaudeCodeImporter, UsageGroup, UsageImporter},
+    Store,
+};
 
 use crate::state::AppState;
 
@@ -60,6 +65,7 @@ pub fn router() -> Router<AppState> {
         .route("/scan", post(scan_project))
         .route("/doctor", get(doctor))
         .route("/analytics", get(analytics))
+        .route("/usage", get(usage))
         .route("/benchmarks", get(benchmarks))
         .route("/benchmarks/redteam", get(redteam_benchmarks))
         // Deterministic policy-engine review (no API key required)
@@ -90,6 +96,13 @@ impl ApiError {
         ApiError {
             status: StatusCode::NOT_FOUND,
             message: format!("{what} not found"),
+        }
+    }
+
+    fn bad_request(message: impl Into<String>) -> Self {
+        ApiError {
+            status: StatusCode::BAD_REQUEST,
+            message: message.into(),
         }
     }
 }
@@ -591,6 +604,34 @@ async fn doctor(State(state): State<AppState>) -> impl IntoResponse {
 /// anywhere.
 async fn analytics(State(state): State<AppState>) -> ApiResult<impl IntoResponse> {
     Ok(Json(store(&state).analytics_summary()?))
+}
+
+#[derive(Deserialize)]
+struct UsageQuery {
+    #[serde(default)]
+    by: Option<String>,
+    #[serde(default)]
+    since: Option<String>,
+}
+
+/// Import local Claude Code accounting metadata and return the canonical
+/// aggregate. The endpoint intentionally exposes no transcript content and
+/// keeps unknown provider cost as JSON null.
+async fn usage(
+    State(state): State<AppState>,
+    Query(q): Query<UsageQuery>,
+) -> ApiResult<impl IntoResponse> {
+    let by = q.by.as_deref().unwrap_or("model");
+    let group = UsageGroup::parse(by).ok_or_else(|| {
+        ApiError::bad_request("by must be model, session, day, agent, or project")
+    })?;
+    let importer = ClaudeCodeImporter::from_default_location()?;
+    let import = importer.import(&store(&state))?;
+    Ok(Json(store(&state).usage_response(
+        group,
+        q.since.as_deref(),
+        import,
+    )?))
 }
 
 /// Runs the policy engine's own labeled-fixture benchmark fresh on every

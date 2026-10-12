@@ -63,6 +63,7 @@ pub mod rules_pack;
 pub mod scan;
 pub mod secrets;
 pub mod time;
+pub mod usage;
 
 pub use compress::{decode as decompress_stored, encode as compress_for_storage, CompressionStats};
 pub use config::ProjectConfig;
@@ -74,6 +75,7 @@ pub use policy::{run_policy_checks, FileDiff, PolicyFinding, Severity};
 pub use prompt_quality::{analyze_prompt, PromptAnalysis, PromptPattern};
 pub use ratify::{summarize as ratify_summarize, RatifySummary, RatifyVerdict, SeverityCounts};
 pub use redteam::{run_redteam_eval, EngineScore, RedTeamReport};
+pub use usage::{ClaudeCodeImporter, ImportReport, UsageImporter};
 
 #[cfg(test)]
 mod version_tests {

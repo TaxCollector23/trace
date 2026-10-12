@@ -9,6 +9,10 @@ use rusqlite::{params, Connection, OptionalExtension};
 use crate::ids::new_id;
 use crate::models::*;
 use crate::time::now_rfc3339;
+use crate::usage::{
+    NewUsageEvent, UsageBreakdown, UsageEvent, UsageGroup, UsageResponse, UsageTotals,
+    UsageUpsertResult,
+};
 
 /// Embedded schema. Applied idempotently on every open.
 const SCHEMA: &str = r#"
@@ -91,6 +95,46 @@ CREATE TABLE IF NOT EXISTS api_usage (
     created_at     TEXT NOT NULL
 );
 
+-- Additive canonical usage storage used by local agent importers. The
+-- uniqueness constraint is the idempotency boundary: a streaming duplicate
+-- for the same provider/session/message can never double count.
+CREATE TABLE IF NOT EXISTS usage_events (
+    id                  TEXT PRIMARY KEY,
+    run_id              TEXT REFERENCES runs(id),
+    agent               TEXT NOT NULL,
+    session_id          TEXT NOT NULL,
+    message_id          TEXT NOT NULL,
+    parent_message_id   TEXT,
+    is_subagent         INTEGER NOT NULL DEFAULT 0,
+    subagent_id         TEXT,
+    model               TEXT,
+    input_tokens        INTEGER,
+    output_tokens       INTEGER,
+    cache_read_tokens   INTEGER,
+    cache_write_tokens  INTEGER,
+    reasoning_tokens    INTEGER,
+    ts                  TEXT,
+    cost_usd            REAL,
+    cost_source         TEXT NOT NULL DEFAULT 'unknown',
+    raw_ref             TEXT NOT NULL,
+    UNIQUE (agent, session_id, message_id)
+);
+
+-- Import state is deliberately separate from usage data. It permits an
+-- importer to resume a growing JSONL file while keeping malformed-line
+-- counts and source locations visible to doctor/dashboard diagnostics.
+CREATE TABLE IF NOT EXISTS import_sources (
+    path                TEXT PRIMARY KEY,
+    agent               TEXT NOT NULL,
+    byte_offset         INTEGER NOT NULL DEFAULT 0,
+    file_size           INTEGER NOT NULL DEFAULT 0,
+    file_mtime          INTEGER,
+    events_imported     INTEGER NOT NULL DEFAULT 0,
+    parse_errors        INTEGER NOT NULL DEFAULT 0,
+    last_event_at       TEXT,
+    updated_at          TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS checkpoints (
     id              TEXT PRIMARY KEY,
     run_id          TEXT NOT NULL REFERENCES runs(id),
@@ -128,6 +172,9 @@ CREATE INDEX IF NOT EXISTS idx_file_changes_run ON file_changes(run_id);
 CREATE INDEX IF NOT EXISTS idx_commands_run ON commands(run_id);
 CREATE INDEX IF NOT EXISTS idx_secrets_run ON secrets(run_id);
 CREATE INDEX IF NOT EXISTS idx_api_usage_run ON api_usage(run_id);
+CREATE INDEX IF NOT EXISTS idx_usage_events_agent_ts ON usage_events(agent, ts);
+CREATE INDEX IF NOT EXISTS idx_usage_events_session ON usage_events(agent, session_id);
+CREATE INDEX IF NOT EXISTS idx_import_sources_agent ON import_sources(agent);
 CREATE INDEX IF NOT EXISTS idx_checkpoints_run ON checkpoints(run_id);
 CREATE INDEX IF NOT EXISTS idx_test_results_run ON test_results(run_id);
 CREATE INDEX IF NOT EXISTS idx_policy_findings_run ON policy_findings(run_id);
@@ -575,6 +622,289 @@ impl Store {
         )?;
         let rows = stmt.query_map(params![run_id], map_api_usage)?;
         Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    // --- Canonical imported usage ----------------------------------------
+
+    /// Insert one imported event. Returns `true` only when the row was new;
+    /// repeated imports and duplicate streaming records are harmless. The
+    /// existing boolean API is retained for the other workstreams; the richer
+    /// importer path uses [`Store::upsert_usage_event`].
+    pub fn insert_usage_event(&self, new: &NewUsageEvent) -> Result<bool> {
+        Ok(matches!(
+            self.upsert_usage_event(new)?,
+            UsageUpsertResult::Inserted
+        ))
+    }
+
+    pub fn list_usage_events(&self, agent: Option<&str>) -> Result<Vec<UsageEvent>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, run_id, agent, session_id, message_id, parent_message_id,
+                    is_subagent, subagent_id, model, input_tokens, output_tokens,
+                    cache_read_tokens, cache_write_tokens, reasoning_tokens, ts,
+                    cost_usd, cost_source, raw_ref
+             FROM usage_events
+             WHERE (?1 IS NULL OR agent = ?1)
+             ORDER BY ts ASC, rowid ASC",
+        )?;
+        let rows = stmt.query_map(params![agent], map_usage_event)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    pub fn usage_event_count(&self, agent: &str) -> Result<i64> {
+        Ok(self.conn.query_row(
+            "SELECT COUNT(*) FROM usage_events WHERE agent = ?1",
+            params![agent],
+            |row| row.get(0),
+        )?)
+    }
+
+    pub fn usage_event_last_ts(&self, agent: &str) -> Result<Option<String>> {
+        Ok(self.conn.query_row(
+            "SELECT MAX(ts) FROM usage_events WHERE agent = ?1",
+            params![agent],
+            |row| row.get(0),
+        )?)
+    }
+
+    pub fn import_source(&self, path: &str) -> Result<Option<ImportSourceStatus>> {
+        self.conn
+            .query_row(
+                "SELECT agent, path, byte_offset, file_size, file_mtime,
+                        events_imported, parse_errors, last_event_at
+                 FROM import_sources WHERE path = ?1",
+                params![path],
+                map_import_source,
+            )
+            .optional()
+            .map_err(Into::into)
+    }
+
+    /// Record the latest cursor and add this pass's diagnostics to the
+    /// cumulative source counters. `last_event_at` never regresses when an
+    /// older source line is re-read.
+    pub fn record_import_source(
+        &self,
+        agent: &str,
+        path: &str,
+        byte_offset: i64,
+        file_size: i64,
+        file_mtime: Option<i64>,
+        events_imported: i64,
+        parse_errors: i64,
+        last_event_at: Option<&str>,
+    ) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO import_sources
+             (path, agent, byte_offset, file_size, file_mtime, events_imported,
+              parse_errors, last_event_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+             ON CONFLICT(path) DO UPDATE SET
+                agent = excluded.agent,
+                byte_offset = excluded.byte_offset,
+                file_size = excluded.file_size,
+                file_mtime = excluded.file_mtime,
+                events_imported = import_sources.events_imported + excluded.events_imported,
+                parse_errors = import_sources.parse_errors + excluded.parse_errors,
+                last_event_at = CASE
+                    WHEN excluded.last_event_at IS NULL THEN import_sources.last_event_at
+                    WHEN import_sources.last_event_at IS NULL THEN excluded.last_event_at
+                    ELSE MAX(import_sources.last_event_at, excluded.last_event_at)
+                END,
+                updated_at = excluded.updated_at",
+            params![
+                path,
+                agent,
+                byte_offset,
+                file_size,
+                file_mtime,
+                events_imported,
+                parse_errors,
+                last_event_at,
+                now_rfc3339(),
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn import_sources(&self, agent: Option<&str>) -> Result<Vec<ImportSourceStatus>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT agent, path, byte_offset, file_size, file_mtime,
+                    events_imported, parse_errors, last_event_at
+             FROM import_sources
+             WHERE (?1 IS NULL OR agent = ?1)
+             ORDER BY agent ASC, path ASC",
+        )?;
+        let rows = stmt.query_map(params![agent], map_import_source)?;
+        Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+    }
+
+    // --- Canonical usage events -------------------------------------------
+
+    /// Insert a canonical usage event or update the existing streaming record
+    /// for the same `(agent, session_id, message_id)`. A duplicate is an
+    /// update, never a second billable row.
+    pub fn upsert_usage_event(&self, event: &NewUsageEvent) -> Result<UsageUpsertResult> {
+        if !matches!(
+            event.cost_source.as_str(),
+            "reported" | "computed" | "unknown"
+        ) {
+            anyhow::bail!("invalid usage cost source: {}", event.cost_source);
+        }
+        let exists: bool = self.conn.query_row(
+            "SELECT EXISTS(
+                SELECT 1 FROM usage_events
+                WHERE agent = ?1 AND session_id = ?2 AND message_id = ?3
+             )",
+            params![event.agent, event.session_id, event.message_id],
+            |row| row.get::<_, i64>(0).map(|value| value != 0),
+        )?;
+        self.conn.execute(
+            "INSERT INTO usage_events (
+                id, run_id, agent, session_id, message_id, parent_message_id,
+                is_subagent, subagent_id, model, input_tokens, output_tokens,
+                cache_read_tokens, cache_write_tokens, reasoning_tokens, ts,
+                cost_usd, cost_source, raw_ref
+             ) VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
+                ?14, ?15, ?16, ?17, ?18
+             )
+             ON CONFLICT(agent, session_id, message_id) DO UPDATE SET
+                run_id = COALESCE(excluded.run_id, usage_events.run_id),
+                parent_message_id = COALESCE(excluded.parent_message_id, usage_events.parent_message_id),
+                is_subagent = excluded.is_subagent,
+                subagent_id = COALESCE(excluded.subagent_id, usage_events.subagent_id),
+                model = COALESCE(excluded.model, usage_events.model),
+                input_tokens = COALESCE(excluded.input_tokens, usage_events.input_tokens),
+                output_tokens = COALESCE(excluded.output_tokens, usage_events.output_tokens),
+                cache_read_tokens = COALESCE(excluded.cache_read_tokens, usage_events.cache_read_tokens),
+                cache_write_tokens = COALESCE(excluded.cache_write_tokens, usage_events.cache_write_tokens),
+                reasoning_tokens = COALESCE(excluded.reasoning_tokens, usage_events.reasoning_tokens),
+                ts = excluded.ts,
+                cost_usd = COALESCE(excluded.cost_usd, usage_events.cost_usd),
+                cost_source = CASE
+                    WHEN excluded.cost_usd IS NOT NULL THEN excluded.cost_source
+                    ELSE usage_events.cost_source
+                END,
+                raw_ref = excluded.raw_ref",
+            params![
+                new_id(),
+                event.run_id,
+                event.agent,
+                event.session_id,
+                event.message_id,
+                event.parent_message_id,
+                if event.is_subagent { 1_i64 } else { 0_i64 },
+                event.subagent_id,
+                event.model,
+                event.input_tokens,
+                event.output_tokens,
+                event.cache_read_tokens,
+                event.cache_write_tokens,
+                event.reasoning_tokens,
+                event.ts,
+                event.cost_usd,
+                event.cost_source,
+                event.raw_ref,
+            ],
+        )?;
+        Ok(if exists {
+            UsageUpsertResult::Updated
+        } else {
+            UsageUpsertResult::Inserted
+        })
+    }
+
+    /// Aggregate canonical usage without converting unavailable values to
+    /// zero. A group's cost is null whenever any event in that group lacks a
+    /// known cost, which keeps partial data honest for the first consumer.
+    pub fn usage_response(
+        &self,
+        group: UsageGroup,
+        since: Option<&str>,
+        import: crate::usage::ImportReport,
+    ) -> Result<UsageResponse> {
+        let expression = match group {
+            UsageGroup::Model => "COALESCE(model, 'unknown')",
+            UsageGroup::Session => {
+                "CASE WHEN is_subagent = 1 THEN session_id || ' / subagent:' || COALESCE(subagent_id, 'unknown') ELSE session_id END"
+            }
+            UsageGroup::Day => "COALESCE(substr(ts, 1, 10), 'unknown')",
+            UsageGroup::Agent => "agent",
+            UsageGroup::Project => {
+                "COALESCE(
+                    (SELECT p.path FROM runs r JOIN projects p ON p.id = r.project_id WHERE r.id = usage_events.run_id),
+                    CASE
+                        WHEN instr(raw_ref, '/projects/') > 0 THEN
+                            substr(
+                                raw_ref,
+                                instr(raw_ref, '/projects/') + 10,
+                                instr(substr(raw_ref, instr(raw_ref, '/projects/') + 10), '/') - 1
+                            )
+                        ELSE 'unknown'
+                    END
+                )"
+            }
+        };
+        let sql = format!(
+            "WITH filtered AS (
+                SELECT {expression} AS grouping_key, input_tokens, output_tokens,
+                       cache_read_tokens, cache_write_tokens, reasoning_tokens,
+                       cost_usd, cost_source, is_subagent, session_id
+                FROM usage_events
+                WHERE (?1 IS NULL OR ts >= ?1)
+             )
+             SELECT grouping_key, COUNT(*), SUM(input_tokens), SUM(output_tokens),
+                    SUM(cache_read_tokens), SUM(cache_write_tokens), SUM(reasoning_tokens),
+                    CASE WHEN SUM(CASE WHEN cost_source = 'unknown' OR cost_usd IS NULL THEN 1 ELSE 0 END) = 0
+                         THEN SUM(cost_usd) ELSE NULL END,
+                    CASE WHEN MIN(cost_source) = MAX(cost_source) THEN MIN(cost_source)
+                         ELSE 'mixed' END,
+                    COALESCE(SUM(CASE WHEN cost_source = 'unknown' OR cost_usd IS NULL THEN 1 ELSE 0 END), 0),
+                    COALESCE(SUM(is_subagent), 0), COUNT(DISTINCT session_id)
+             FROM filtered
+             GROUP BY grouping_key
+             ORDER BY grouping_key ASC"
+        );
+        let mut stmt = self.conn.prepare(&sql)?;
+        let rows = stmt
+            .query_map(params![since], |row| {
+                Ok(UsageBreakdown {
+                    key: row.get(0)?,
+                    totals: map_usage_totals(row, 1)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        let totals = self.usage_totals(since)?;
+        Ok(UsageResponse {
+            by: group.as_str().to_string(),
+            since: since.map(ToOwned::to_owned),
+            totals,
+            rows,
+            import,
+        })
+    }
+
+    fn usage_totals(&self, since: Option<&str>) -> Result<UsageTotals> {
+        self.conn
+            .query_row(
+                "SELECT COUNT(*), SUM(input_tokens), SUM(output_tokens),
+                        SUM(cache_read_tokens), SUM(cache_write_tokens),
+                        SUM(reasoning_tokens),
+                        CASE WHEN SUM(CASE WHEN cost_source = 'unknown' OR cost_usd IS NULL THEN 1 ELSE 0 END) = 0
+                             AND COUNT(*) > 0 THEN SUM(cost_usd) ELSE NULL END,
+                        CASE WHEN COUNT(*) = 0 THEN 'unknown'
+                             WHEN MIN(cost_source) = MAX(cost_source) THEN MIN(cost_source)
+                             ELSE 'mixed' END,
+                        COALESCE(SUM(CASE WHEN cost_source = 'unknown' OR cost_usd IS NULL THEN 1 ELSE 0 END), 0),
+                        COALESCE(SUM(is_subagent), 0)
+                 FROM usage_events
+                 WHERE (?1 IS NULL OR ts >= ?1)",
+                params![since],
+                |row| map_usage_totals(row, 0),
+            )
+            .map_err(Into::into)
     }
 
     /// Usage analytics across every run: how often you run agents, and how
@@ -1239,6 +1569,57 @@ fn map_api_usage(row: &rusqlite::Row) -> rusqlite::Result<ApiUsage> {
         estimated_cost: row.get(7)?,
         latency_ms: row.get(8)?,
         created_at: row.get(9)?,
+    })
+}
+
+fn map_usage_event(row: &rusqlite::Row) -> rusqlite::Result<UsageEvent> {
+    Ok(UsageEvent {
+        id: row.get(0)?,
+        run_id: row.get(1)?,
+        agent: row.get(2)?,
+        session_id: row.get(3)?,
+        message_id: row.get(4)?,
+        parent_message_id: row.get(5)?,
+        is_subagent: row.get(6)?,
+        subagent_id: row.get(7)?,
+        model: row.get(8)?,
+        input_tokens: row.get(9)?,
+        output_tokens: row.get(10)?,
+        cache_read_tokens: row.get(11)?,
+        cache_write_tokens: row.get(12)?,
+        reasoning_tokens: row.get(13)?,
+        ts: row.get(14)?,
+        cost_usd: row.get(15)?,
+        cost_source: row.get(16)?,
+        raw_ref: row.get(17)?,
+    })
+}
+
+fn map_import_source(row: &rusqlite::Row) -> rusqlite::Result<ImportSourceStatus> {
+    Ok(ImportSourceStatus {
+        agent: row.get(0)?,
+        path: row.get(1)?,
+        byte_offset: row.get(2)?,
+        file_size: row.get(3)?,
+        file_mtime: row.get(4)?,
+        events_imported: row.get(5)?,
+        parse_errors: row.get(6)?,
+        last_event_at: row.get(7)?,
+    })
+}
+
+fn map_usage_totals(row: &rusqlite::Row, offset: usize) -> rusqlite::Result<UsageTotals> {
+    Ok(UsageTotals {
+        event_count: row.get(offset)?,
+        input_tokens: row.get(offset + 1)?,
+        output_tokens: row.get(offset + 2)?,
+        cache_read_tokens: row.get(offset + 3)?,
+        cache_write_tokens: row.get(offset + 4)?,
+        reasoning_tokens: row.get(offset + 5)?,
+        cost_usd: row.get(offset + 6)?,
+        cost_source: row.get(offset + 7)?,
+        unavailable_cost_events: row.get(offset + 8)?,
+        subagent_events: row.get(offset + 9)?,
     })
 }
 
