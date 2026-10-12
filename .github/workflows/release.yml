@@ -10,6 +10,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build:
@@ -97,6 +99,12 @@ jobs:
           $hash = (Get-FileHash -Algorithm SHA256 "dist\${{ matrix.artifact }}").Hash.ToLower()
           Set-Content -NoNewline -Path "dist\${{ matrix.artifact }}.sha256" -Value $hash
 
+      - name: Attest CLI artifact provenance
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/${{ matrix.artifact }}
+
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
@@ -115,165 +123,5 @@ jobs:
           files: |
             dist/${{ matrix.artifact }}
             dist/${{ matrix.artifact }}.sha256
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-
-  desktop-macos:
-    name: build desktop shell (macOS, aarch64)
-    runs-on: macos-14
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      # The desktop shell loads the daemon's own served dashboard at runtime,
-      # but Tauri still bundles frontendDist, so build it first.
-      - name: Build dashboard
-        working-directory: apps/web
-        run: |
-          npm ci
-          npm run build
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-apple-darwin
-
-      - name: Install desktop npm deps
-        working-directory: apps/desktop
-        run: npm install
-
-      # Unsigned build — macOS will warn on first launch until
-      # notarization/signing is added (see README "Engineering decisions").
-      - name: Build desktop app bundle
-        working-directory: apps/desktop
-        run: npm run tauri build -- --target aarch64-apple-darwin
-
-      # apps/desktop/src-tauri is a Cargo workspace member, so the build
-      # output lands in the workspace-root target/ dir, not a nested
-      # apps/desktop/src-tauri/target/ — this bit us the first time.
-      - name: Stage bundle
-        run: |
-          mkdir -p dist
-          cp target/aarch64-apple-darwin/release/bundle/dmg/*.dmg dist/trace-desktop-macos-arm64.dmg
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: trace-desktop-macos-arm64
-          path: dist/trace-desktop-macos-arm64.dmg
-
-      - name: Publish asset to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: dist/trace-desktop-macos-arm64.dmg
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-
-  desktop-windows:
-    name: build desktop shell (Windows, x64)
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Build dashboard
-        working-directory: apps/web
-        run: |
-          npm ci
-          npm run build
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-pc-windows-msvc
-
-      - name: Install desktop npm deps
-        working-directory: apps/desktop
-        run: npm install
-
-      - name: Build desktop app bundle
-        working-directory: apps/desktop
-        run: npm run tauri build -- --target x86_64-pc-windows-msvc
-
-      - name: Stage bundle
-        shell: bash
-        run: |
-          mkdir -p dist
-          cp target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe dist/trace-desktop-windows-x64-setup.exe
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: trace-desktop-windows-x64
-          path: dist/trace-desktop-windows-x64-setup.exe
-
-      - name: Publish asset to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: dist/trace-desktop-windows-x64-setup.exe
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-
-  desktop-linux:
-    name: build desktop shell (Linux, x64)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      # Tauri's Linux backend is WebKitGTK — these are the runtime/dev
-      # libraries it needs to compile and link against.
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
-            librsvg2-dev patchelf build-essential libssl-dev libgtk-3-dev file
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Build dashboard
-        working-directory: apps/web
-        run: |
-          npm ci
-          npm run build
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-gnu
-
-      - name: Install desktop npm deps
-        working-directory: apps/desktop
-        run: npm install
-
-      - name: Build desktop app bundle
-        working-directory: apps/desktop
-        run: npm run tauri build -- --target x86_64-unknown-linux-gnu --bundles deb,appimage
-
-      - name: Stage bundles
-        run: |
-          mkdir -p dist
-          cp target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb dist/trace-desktop-linux-x64.deb
-          cp target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage dist/trace-desktop-linux-x64.AppImage
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: trace-desktop-linux-x64
-          path: |
-            dist/trace-desktop-linux-x64.deb
-            dist/trace-desktop-linux-x64.AppImage
-
-      - name: Publish assets to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: |
-            dist/trace-desktop-linux-x64.deb
-            dist/trace-desktop-linux-x64.AppImage
           generate_release_notes: true
           fail_on_unmatched_files: true

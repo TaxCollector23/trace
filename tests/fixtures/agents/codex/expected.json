@@ -1,0 +1,12 @@
+{
+  "agent": "codex",
+  "files_scanned": 1,
+  "events_seen": 2,
+  "events_imported": 2,
+  "duplicates": 0,
+  "parse_errors": 1,
+  "events": [
+    {"message_id": "codex-response-1", "input_tokens": 1200, "output_tokens": 240, "cache_read_tokens": 300, "cost_source": "unknown", "is_subagent": false},
+    {"message_id": "codex-response-2", "input_tokens": 500, "output_tokens": 100, "reasoning_tokens": 20, "cost_source": "unknown", "is_subagent": true}
+  ]
+}

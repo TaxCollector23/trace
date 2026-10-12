@@ -1,7 +1,7 @@
 //! `trc doctor` — system checks with actionable fixes.
 
 use anyhow::Result;
-use trace_core::{agents, paths};
+use trace_core::{agents, connections, importers::ImportContext, paths, Store};
 
 use crate::colors;
 use crate::daemon_ctl;
@@ -39,15 +39,16 @@ fn heading(s: &str) {
 }
 
 pub fn run() -> Result<()> {
+    let version_details = trace_core::version_details();
     println!(
         "{}\n",
-        colors::bold(&format!("Trace doctor — v{}", trace_core::VERSION))
+        colors::bold(&format!("Trace doctor — {version_details}"))
     );
 
     // Version + rule-pack provenance, so `doctor` and `--version` agree and a
     // user can see exactly which rules are active.
     heading("Version:");
-    line("trace", true, &format!("v{}", trace_core::VERSION));
+    line("trace", true, &version_details);
     line(
         "rule pack",
         true,
@@ -57,6 +58,7 @@ pub fn run() -> Result<()> {
             trace_core::rule_count()
         ),
     );
+    line("pricing", true, &trace_core::cost::pricing_version());
     println!();
 
     // Core toolchain.
@@ -111,13 +113,14 @@ pub fn run() -> Result<()> {
         "self-check",
         report.passed == report.total,
         &format!(
-            "{}/{} fixtures passed ({} false positives, {} missed; {:.0}% precision, {:.0}% recall) — full report: `trc self-check`",
+            "{}/{} fixtures passed ({} false positives, {} missed; {:.0}% precision, {:.0}% recall, {:.0}% F1) — full report: `trc self-check`",
             report.passed,
             report.total,
             report.false_positives,
             report.false_negatives,
             report.precision * 100.0,
-            report.recall * 100.0
+            report.recall * 100.0,
+            report.f1 * 100.0
         ),
     );
 
@@ -188,5 +191,63 @@ pub fn run() -> Result<()> {
     );
 
     println!("\nRun a detected tool directly, e.g. `trc run claude \"<prompt>\"`.");
+    Ok(())
+}
+
+/// `trc doctor agents` — detailed, source-aware connection diagnostics.
+pub fn agents(json: bool) -> Result<()> {
+    let store = Store::open(&paths::database_path()?)?;
+    let context = ImportContext::from_environment()?;
+    let rows = connections::inspect(&store, &context)?;
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({ "agents": rows }))?
+        );
+        return Ok(());
+    }
+
+    println!("{}", colors::bold("Trace doctor — agents"));
+    for row in rows {
+        let installed = if row.installed {
+            "installed"
+        } else {
+            "not installed"
+        };
+        let connected = if row.connected {
+            "connected"
+        } else {
+            row.status.as_str()
+        };
+        println!(
+            "\n{}  {} · {}",
+            colors::bold(&row.name),
+            installed,
+            connected
+        );
+        if let Some(path) = row.path {
+            println!("  executable: {}", colors::dim(&path));
+        }
+        if let Some(version) = row.version {
+            println!("  version: {}", colors::dim(&version));
+        }
+        println!("  session data: {}", row.session_paths.join(", "));
+        println!(
+            "  found: {} · imported: {} · parse errors: {} · last event: {}",
+            row.session_data_found,
+            row.events_imported,
+            row.parse_errors,
+            row.last_event_at.as_deref().unwrap_or("unavailable")
+        );
+        println!("  action: {}", row.action);
+        println!(
+            "  capabilities: tokens={} cost={} subagents={} tool_calls={} command_guard={}",
+            row.capabilities.tokens.as_str(),
+            row.capabilities.cost.as_str(),
+            row.capabilities.subagents.as_str(),
+            row.capabilities.tool_calls.as_str(),
+            row.capabilities.command_guard.as_str(),
+        );
+    }
     Ok(())
 }

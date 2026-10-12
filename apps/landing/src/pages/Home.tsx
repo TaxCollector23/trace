@@ -49,9 +49,10 @@ export default function Home() {
             variants={heroFade}
             className="mt-5 max-w-[520px] text-lg leading-relaxed text-text-dim"
           >
-            Trace watches AI coding sessions on your computer. It records commands
-            and file changes, stops commands it recognizes as dangerous, and gives
-            you a local dashboard to review or undo the work.
+            Trace is free and open source. It watches AI coding sessions on your
+            computer, records commands and file changes, stops commands it
+            recognizes as dangerous, and gives you a local dashboard to review or
+            undo the work.
           </motion.p>
           <motion.div
             custom={2}
@@ -131,7 +132,7 @@ export default function Home() {
               <div className="font-serif text-lg text-text">A clear answer</div>
               <p className="mt-2 text-sm leading-relaxed text-text-dim">
                 See exactly what needs attention, where it is, and why. Clean changes pass; risky
-                changes are held for a human. Private repositories stay on the connection you provide.
+                changes are held for a human. Repository access stays on the connection you provide.
               </p>
             </div>
           </div>
@@ -148,16 +149,16 @@ export default function Home() {
           <div className="overflow-hidden rounded-2xl border border-border bg-[#0d0d10] p-6 font-mono text-[13px] leading-relaxed text-white">
             <div className="text-white/40">$ trc self-check</div>
             <div className="mt-3 text-white/70">Trace red-team detection benchmark</div>
-            <div className="mt-1"><span className="text-emerald-400">59/59</span> dangerous examples stopped · <span className="text-emerald-400">0</span> safe examples interrupted</div>
+            <div className="mt-1"><span className="text-emerald-400">labeled fixtures</span> · policy and red-team results generated from this checkout</div>
             <div className="mt-3 space-y-1">
               <div>
-                <span className="text-emerald-400">[PASS]</span> Dangerous commands&nbsp;&nbsp;35/35 stopped · 0 safe commands stopped
+                <span className="text-emerald-400">[PASS]</span> Policy fixtures&nbsp;&nbsp;precision, recall, and F1
               </div>
               <div>
-                <span className="text-emerald-400">[PASS]</span> Secrets&nbsp;&nbsp;18/18 found · 0 safe examples interrupted
+                <span className="text-emerald-400">[PASS]</span> Red-team engines&nbsp;&nbsp;commands, secrets, prompts
               </div>
               <div>
-                <span className="text-emerald-400">[PASS]</span> Unsafe instructions&nbsp;&nbsp;6/6 found
+                <span className="text-emerald-400">[PASS]</span> Per-rule confusion matrix&nbsp;&nbsp;included in the report
               </div>
             </div>
             <div className="mt-3 text-white/40">

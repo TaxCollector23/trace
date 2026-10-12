@@ -13,11 +13,12 @@ plugin contracts. Codex lifecycle hooks are installed through
 This is not a wishlist or a roadmap — it is what ships today. Where a cell
 says "unavailable" or "partial", that is a structural limit of the
 integration's own hook architecture, not a bug Trace can silently fix by
-trying harder. The dashboard's `/api/integrations/coverage` endpoint
-(`crates/trace-daemon/src/health_routes.rs`) and its underlying detector
-(`crates/trace-core/src/integrations.rs`) encode exactly these facts — no
+trying harder. The dashboard's read-only `/api/connections` endpoint
+(`crates/trace-daemon/src/health_routes.rs`) and `trc doctor agents` share the
+source-aware detector in `crates/trace-core/src/connections.rs`. The older
+`/api/integrations/coverage` endpoint remains the hook/activity view. No
 integration is ever shown "connected" without a live config-file check, and
-no capability is ever shown "yes" without the grounding cited here.
+no capability is ever shown "available" without the grounding cited here.
 
 Legend: ✅ enforced/full · 🟡 partial or observe-only (real signal, real gaps
 named) · ⛔ unavailable (nothing to see, nothing to show).
@@ -29,6 +30,27 @@ named) · ⛔ unavailable (nothing to see, nothing to show).
 | **OpenCode** | ✅ V1/V2 tool hooks create a run and record completions | ✅ `execute.before`/`tool.execute.before` throws before Bash runs; fails closed if Trace is unavailable | 🟡 edits trigger capture/review after they land | 🟡 deterministic policy engine runs; only `block` is enforced | ⛔ no process-tree capture | 🟡 only when a test runner command is observed | ⛔ no network-call capture |
 | **Codex** | ✅ SessionStart/End + Bash/apply_patch lifecycle events via `~/.codex/hooks.json` | ✅ `PreToolUse` denies dangerous Bash before execution after the hook is trusted; fails closed if the daemon is unavailable | 🟡 file edits are captured and reviewed after the call, not denied before it | 🟡 deterministic policy engine runs over captured commands and the final diff | ⛔ not captured | 🟡 same test-runner-command caveat | ⛔ not captured |
 | **Windsurf** | 🟡 MCP server registered and queryable, but nothing drives it automatically — no hook triggers a timeline entry per action | ⛔ **no command hook of any kind** — no `beforeShellExecution` equivalent exists in this integration. Even when the MCP server is connected, commands are neither observed nor blocked | ⛔ MCP is read-only; no edit hook | ⛔ nothing to run the policy engine against | ⛔ not captured | ⛔ not captured | ⛔ not captured |
+
+## Usage and connection evidence
+
+The Connections page and `trc doctor agents` also report the local source
+format and accounting capabilities. These are format claims, not a promise
+that the current machine has an installed agent or imported rows.
+
+| Agent | Tokens | Cost | Subagents | Tool calls | Command guard | Local source |
+|---|---|---|---|---|---|---|
+| **Claude Code** | available from local importer | partial; provider-reported/verified only | available in documented telemetry/import fields | available through hooks | available | `~/.claude/projects/` |
+| **Codex** | available from rollout `token_usage_record` | not available in inspected local rollout files | partial across rollout versions | available in rollout/hook events | available after hook trust | `$CODEX_HOME/sessions/` or `~/.codex/sessions/` |
+| **OpenCode** | available from assistant SQLite metadata | partial; reported field preserved, missing values unavailable | available from parent sessions | available from message/part metadata | available through plugin | `opencode.db` under the documented data root |
+| **Cursor** | not available from inspected native/transcript files | not available | not available | partial | available through hooks | `~/.cursor/projects/**/agent-transcripts/` plus opaque `store.db` |
+| **Aider** | partial; optional Markdown summary lines | partial; optional explicit summary lines | not available | partial; no stable Markdown tool schema | partial; wrapper only | `.aider.chat.history.md` |
+| **Windsurf** | not available | not available | not available | partial through MCP | not available | MCP config only; no supported local usage importer |
+
+`not available` means Trace has no evidence for that field in the supported
+source format. It is rendered as `not available for this agent`, never as a
+zero. Format-specific evidence and unresolved limitations live in
+[`docs/formats/`](../formats/) and the OTel decision is recorded in
+[`docs/otel-evaluation.md`](../otel-evaluation.md).
 
 ## Reading the table correctly
 

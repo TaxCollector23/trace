@@ -89,6 +89,7 @@ mod tests {
                 agent_name: Some("claude-code".into()),
                 user_prompt: None,
                 starting_commit: None,
+                owner_pid: None,
             })
             .unwrap();
         // Six repeats of the same command -> retry_loop, repeat_count 6 -> High.

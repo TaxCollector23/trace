@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 
 /**
- * The hero visual: an animated, clickable mockup of the Trace desktop app
+ * The hero visual: an animated, clickable mockup of the local Trace dashboard
  * reviewing a single Claude Code session: file list, real diff, cost,
  * risk. Click a file to see its diff; nothing here calls a real API, it's
  * illustrative, but it responds instead of sitting static.

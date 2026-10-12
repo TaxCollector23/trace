@@ -48,9 +48,10 @@ fixtures *and* the adversarial **red-team** corpus — with no setup and no keys
 ./target/debug/trc self-check
 ```
 
-Expected: every policy fixture passes, and the red-team benchmark reports
-**59/59 threats caught, 0 false positives, 100% recall** across the command
-guard, secret detection, and prompt-risk engines.
+Expected: the command prints the current policy-fixture and red-team results,
+including per-engine precision, recall, F1, and false-positive counts. The
+numbers are generated from the checked-out corpus at runtime; they are not a
+fixed marketing result. A regression makes the command exit non-zero.
 
 ---
 

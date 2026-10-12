@@ -1,8 +1,6 @@
 import type { AnchorHTMLAttributes, ReactNode } from "react";
-import { useState } from "react";
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { DOWNLOADS } from "./config";
 
 interface ButtonProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
   variant?: "primary" | "secondary";
@@ -53,102 +51,6 @@ export function Section({
       {lede && <p className="mt-2.5 max-w-[640px] text-text-dim">{lede}</p>}
       <div className="relative mt-8">{children}</div>
     </section>
-  );
-}
-
-// -- Download menu ----------------------------------------------------------
-// Hoverable nav link. Primary click goes to /download; hover reveals a
-// clean, spacious menu with each OS on its own row (macOS/Windows/Linux),
-// plus a "CLI" row to /cli and a "All releases" footer link. No OS
-// detection, no per-row icons, the OS name is the affordance, and hover
-// state is the download hint. A short delay before close prevents the
-// menu vanishing when the cursor briefly crosses a gap.
-
-const OS_ROWS: Array<{ label: string; sub: string; href: string }> = [
-  { label: "macOS", sub: "Apple Silicon · .dmg", href: DOWNLOADS.macOS },
-  { label: "Windows", sub: "x64 · installer .exe", href: DOWNLOADS.windows },
-  { label: "Linux", sub: ".deb  ·  AppImage", href: DOWNLOADS.linuxDeb },
-];
-
-export function DownloadMenu() {
-  const [open, setOpen] = useState(false);
-  // Small close delay so the menu doesn't blink shut when the cursor
-  // travels from the trigger down to the panel (there's a 8px gap the
-  // browser reports as a mouseleave otherwise).
-  const closeTimer = { current: null as ReturnType<typeof setTimeout> | null };
-  const openNow = () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    setOpen(true);
-  };
-  const closeSoon = () => {
-    closeTimer.current = setTimeout(() => setOpen(false), 120);
-  };
-
-  return (
-    <div className="relative" onMouseEnter={openNow} onMouseLeave={closeSoon}>
-      <Link
-        to="/download"
-        className="inline-flex h-9 items-center gap-1.5 rounded-full bg-brand px-4 text-sm font-medium text-white shadow-sm transition-transform hover:-translate-y-[1px]"
-        onFocus={openNow}
-        onBlur={closeSoon}
-      >
-        Download
-        <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden className="opacity-80">
-          <path d="M2 3.5L5 6.5L8 3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </Link>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.12 }}
-            className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-border bg-white shadow-[0_12px_36px_-12px_rgba(0,0,0,0.18)]"
-            onMouseEnter={openNow}
-            onMouseLeave={closeSoon}
-          >
-            <div className="px-5 pt-4 pb-2 text-[10px] font-semibold uppercase tracking-[0.09em] text-text-dim">
-              Desktop app
-            </div>
-            <ul className="px-2 pb-2">
-              {OS_ROWS.map((r) => (
-                <li key={r.label}>
-                  <a
-                    href={r.href}
-                    className="block rounded-lg px-3 py-2.5 transition-colors hover:bg-brand/[0.06]"
-                  >
-                    <div className="text-sm font-medium text-text">{r.label}</div>
-                    <div className="mt-0.5 text-xs text-text-dim">{r.sub}</div>
-                  </a>
-                </li>
-              ))}
-            </ul>
-            <div className="border-t border-border px-5 pt-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.09em] text-text-dim">
-              Command line
-            </div>
-            <div className="px-2 pb-2">
-              <a
-                href="/#install"
-                className="block rounded-lg px-3 py-2.5 transition-colors hover:bg-brand/[0.06]"
-              >
-                <div className="text-sm font-medium text-text">CLI</div>
-                <div className="mt-0.5 text-xs text-text-dim">brew  ·  curl | sh  ·  irm | iex  ·  npm</div>
-              </a>
-            </div>
-            <a
-              href={DOWNLOADS.releases}
-              target="_blank"
-              rel="noreferrer"
-              className="block border-t border-border px-5 py-2.5 text-xs text-text-dim transition-colors hover:bg-black/[0.02] hover:text-text"
-            >
-              All releases · checksums →
-            </a>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
   );
 }
 

@@ -154,6 +154,7 @@ fn import_file(store: &Store, path: &Path, projects_dir: &Path) -> Result<Import
         .and_then(|metadata| metadata.modified().ok())
         .and_then(|modified| modified.duration_since(std::time::UNIX_EPOCH).ok())
         .and_then(|duration| i64::try_from(duration.as_secs()).ok());
+    let new_parse_errors = report.malformed_lines;
     store.record_import_source(
         AGENT,
         &path_string,
@@ -161,9 +162,13 @@ fn import_file(store: &Store, path: &Path, projects_dir: &Path) -> Result<Import
         i64::try_from(file_size).context("Claude Code log size exceeds SQLite range")?,
         file_mtime,
         report.events_inserted,
-        report.malformed_lines,
+        new_parse_errors,
         report.last_event_at.as_deref(),
     )?;
+    // The public report is cumulative for a source. This keeps diagnostics
+    // stable across an idempotent second import while the persisted cursor
+    // still adds only the errors observed during this pass.
+    report.malformed_lines = previous.parse_errors + new_parse_errors;
     Ok(report)
 }
 
@@ -226,6 +231,10 @@ fn parse_line(
     let output_tokens = integer_field(usage, "output_tokens")?;
     let cache_read_tokens = integer_field(usage, "cache_read_input_tokens")?;
     let cache_write_tokens = integer_field(usage, "cache_creation_input_tokens")?;
+    let cache_write_5m_tokens =
+        nested_integer_field(usage, "cache_creation", "ephemeral_5m_input_tokens");
+    let cache_write_1h_tokens =
+        nested_integer_field(usage, "cache_creation", "ephemeral_1h_input_tokens");
     let reasoning_tokens = integer_field(usage, "reasoning_tokens")?
         .or_else(|| nested_integer_field(usage, "output_tokens_details", "reasoning_tokens"))
         .or_else(|| nested_integer_field(usage, "output_tokens_details", "thinking_tokens"));
@@ -265,6 +274,8 @@ fn parse_line(
         output_tokens,
         cache_read_tokens,
         cache_write_tokens,
+        cache_write_5m_tokens,
+        cache_write_1h_tokens,
         reasoning_tokens,
         ts: Some(ts),
         cost_usd,

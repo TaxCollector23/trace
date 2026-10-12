@@ -65,7 +65,10 @@ impl PriceTier {
             Some(ttl) => self
                 .cache_write_per_mtok
                 .get(ttl)
-                .or_else(|| self.cache_write_per_mtok.get(normalize_cache_ttl(ttl)))
+                .or_else(|| {
+                    let normalized = normalize_cache_ttl(ttl);
+                    self.cache_write_per_mtok.get(&normalized)
+                })
                 .copied(),
             None if self.cache_write_per_mtok.len() == 1 => {
                 self.cache_write_per_mtok.values().next().copied()
@@ -416,6 +419,17 @@ pub enum ReconciliationStatus {
     Unavailable,
 }
 
+impl ReconciliationStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Match => "match",
+            Self::Mismatch => "mismatch",
+            Self::ReportedOnly => "reported_only",
+            Self::ComputedOnly => "computed_only",
+            Self::Unavailable => "unavailable",
+        }
+    }
+}
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct CostReconciliation {
     pub status: ReconciliationStatus,
@@ -498,7 +512,7 @@ pub fn compute_usage_event_cost_with_catalog(
 
     let calculation = calculate_cost(catalog, input);
     let (computed, pricing_model, calculation_warning) = match calculation {
-        Ok(result) => (Some(result.0), Some(result.1), None),
+        Ok(result) => (Some(round_computed_cost(result.0)), Some(result.1), None),
         Err(reason) => (None, None, Some(reason)),
     };
     if let Some(reason) = calculation_warning {
@@ -702,6 +716,13 @@ fn per_mtok(tokens: u64, rate: f64) -> f64 {
     tokens as f64 / 1_000_000.0 * rate
 }
 
+fn round_computed_cost(value: f64) -> f64 {
+    // Stable JSON and reconciliation output matter more than carrying binary
+    // floating-point noise into a persisted accounting row. Twelve decimal
+    // places are well below the precision of the published per-million-token
+    // rates while retaining sub-cent token charges.
+    (value * 1_000_000_000_000.0).round() / 1_000_000_000_000.0
+}
 /// Backwards-compatible price shape for older Trace API callers.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct ModelPrice {

@@ -203,6 +203,7 @@ mod tests {
                 agent_name: Some("claude-code".into()),
                 user_prompt: None,
                 starting_commit: None,
+                owner_pid: None,
             })
             .unwrap();
         store
@@ -282,6 +283,7 @@ mod tests {
                 agent_name: None,
                 user_prompt: None,
                 starting_commit: None,
+                owner_pid: None,
             })
             .unwrap();
         assert_eq!(actor_for(&run), "unknown");

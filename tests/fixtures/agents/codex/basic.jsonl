@@ -1,0 +1,5 @@
+{"type":"session_meta","timestamp":"2026-10-12T10:00:00Z","payload":{"id":"codex-session-1","cwd":"/work/trace","cli_version":"0.1.0"}}
+{"type":"response_item","timestamp":"2026-10-12T10:00:01Z","payload":{"type":"function_call","name":"shell"}}
+{"type":"token_usage_record","timestamp":"2026-10-12T10:00:02Z","payload":{"response_id":"codex-response-1","turn_id":"codex-turn-1","session_id":"codex-session-1","usage":{"input_tokens":1200,"cached_input_tokens":300,"cache_write_input_tokens":0,"output_tokens":240,"reasoning_output_tokens":80,"total_tokens":1440}}}
+{"type":"token_usage_record","timestamp":"2026-10-12T10:00:03Z","payload":{"response_id":"codex-response-2","turn_id":"codex-turn-2","session_id":"codex-session-1","is_subagent":true,"subagent_id":"codex-subagent-1","parent_turn_id":"codex-turn-1","usage":{"input_tokens":500,"output_tokens":100,"reasoning_output_tokens":20,"total_tokens":600}}}
+not-json

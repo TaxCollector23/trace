@@ -132,7 +132,7 @@ type ApiResult<T> = Result<T, ApiError>;
 /// NOTE: this is an exclusive `Mutex` lock taken by every handler, so reads
 /// serialize against each other and against writes. See the contention note on
 /// `AppState::store` for why the `RwLock` split (read vs. write guards) was left
-/// for a future atomic change spanning `state.rs`/`server.rs`/`cloud_sync.rs`.
+/// for a future atomic change spanning `state.rs` and `server.rs`.
 fn store(state: &AppState) -> MutexGuard<'_, Store> {
     state.store.lock().unwrap_or_else(|e| e.into_inner())
 }
@@ -144,6 +144,7 @@ async fn state_info(State(state): State<AppState>) -> ApiResult<impl IntoRespons
     let projects = s.list_projects()?;
     Ok(Json(json!({
         "version": trace_core::VERSION,
+        "version_details": trace_core::version_details(),
         "port": state.port,
         "started_at": state.started_at,
         "db_path": state.db_path,
@@ -267,9 +268,6 @@ async fn finish_run(
             body.ending_commit.as_deref(),
         )?;
     }
-    // Opt-in cloud sync (fires only when TRACE_CLOUD_URL + TRACE_CLOUD_TOKEN
-    // are set). Runs on its own thread; never blocks this response.
-    crate::cloud_sync::enqueue(id.clone(), state.store.clone());
     Ok(Json(json!({ "ok": true })))
 }
 
@@ -310,9 +308,23 @@ async fn capture_run(
     store(&state).replace_file_changes(&id, &changes)?;
 
     let run_dir = root.join(".trace").join("runs").join(&id);
-    let diff = git::full_diff(root, starting_commit)?;
+    let diff = trace_core::secrets::redact_text(&git::full_diff(root, starting_commit)?);
+    let (diff_bytes, compression_stats) = trace_core::compress_for_storage(&diff);
     std::fs::create_dir_all(&run_dir).map_err(anyhow::Error::from)?;
-    std::fs::write(run_dir.join("diff.patch"), diff).map_err(anyhow::Error::from)?;
+    std::fs::write(run_dir.join("diff.patch.gz"), diff_bytes).map_err(anyhow::Error::from)?;
+    std::fs::write(
+        run_dir.join("diff.meta.json"),
+        serde_json::to_vec(&json!({
+            "original_bytes": compression_stats.original_bytes,
+            "compressed_bytes": compression_stats.compressed_bytes,
+        }))
+        .map_err(anyhow::Error::from)?,
+    )
+    .map_err(anyhow::Error::from)?;
+    // A capture can be requested for a legacy run that already has a raw
+    // plaintext patch. Once the redacted compressed replacement is durable,
+    // remove that old storage-boundary violation.
+    let _ = std::fs::remove_file(run_dir.join("diff.patch"));
 
     Ok(Json(json!({ "ok": true, "count": changes.len() })))
 }
@@ -369,6 +381,7 @@ async fn run_diff(
     } else {
         std::fs::read_to_string(run_dir.join("diff.patch")).unwrap_or_default()
     };
+    let diff = trace_core::secrets::redact_text(&diff);
 
     // Surface the measured compression effect from the sidecar, when present.
     let compression = std::fs::read_to_string(run_dir.join("diff.meta.json"))
@@ -590,6 +603,7 @@ async fn doctor(State(state): State<AppState>) -> impl IntoResponse {
     let clipboard = trace_core::agents::copy_to_clipboard("").is_ok();
     Json(json!({
         "version": trace_core::VERSION,
+        "version_details": trace_core::version_details(),
         "port": state.port,
         "db_path": state.db_path,
         "clipboard": clipboard,
@@ -1045,6 +1059,7 @@ mod tests {
                 agent_name: None,
                 user_prompt: None,
                 starting_commit: starting_commit.map(|s| s.to_string()),
+                owner_pid: None,
             })
             .unwrap();
         run.id

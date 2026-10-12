@@ -4,8 +4,6 @@ members = [
     "crates/trace-core",
     "crates/trace-daemon",
     "crates/trace-cli",
-    "crates/trace-cloud-api",
-    "apps/desktop/src-tauri",
 ]
 
 [workspace.package]

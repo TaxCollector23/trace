@@ -28,13 +28,15 @@ pub fn rule_count() -> usize {
     rules_pack::active().rule_count()
 }
 
-/// A one-line version summary showing Trace version, rule-pack version, and
-/// rule count together — the single string `--version` and `doctor` share.
+/// A one-line version summary showing Trace version, rule-pack version, rule
+/// count, and active pricing version together — the single string `--version`
+/// and `doctor` share.
 pub fn version_details() -> String {
     format!(
-        "Trace {VERSION} · rule pack {} ({} rules)",
+        "Trace {VERSION} · rule pack {} ({} rules) · pricing {}",
         rule_pack_version(),
-        rule_count()
+        rule_count(),
+        cost::pricing_version()
     )
 }
 
@@ -42,6 +44,7 @@ pub mod adapter;
 pub mod agents;
 pub mod compress;
 pub mod config;
+pub mod connections;
 pub mod cost;
 pub mod db;
 pub mod demo;
@@ -51,6 +54,7 @@ pub mod git;
 pub mod github;
 pub mod guard;
 pub mod ids;
+pub mod importers;
 pub mod integrations;
 pub mod intel;
 pub mod models;
@@ -92,6 +96,7 @@ mod version_tests {
         assert!(d.starts_with("Trace "));
         assert!(d.contains("rule pack"));
         assert!(d.contains("rules"));
+        assert!(d.contains("pricing"));
         assert_eq!(
             super::rule_count(),
             super::rules_pack::active().rule_count()

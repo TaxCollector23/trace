@@ -37,7 +37,7 @@ impl Client {
     pub fn post_json<B: Serialize, T: DeserializeOwned>(&self, path: &str, body: &B) -> Result<T> {
         let resp = ureq::post(&self.url(path))
             .send_json(body)
-            .with_context(|| format!("POST {path}"))?;
+            .map_err(|e| translate_error("POST", path, e))?;
         resp.into_json::<T>()
             .with_context(|| format!("decoding POST {path}"))
     }
@@ -46,7 +46,7 @@ impl Client {
     pub fn post<B: Serialize>(&self, path: &str, body: &B) -> Result<()> {
         ureq::post(&self.url(path))
             .send_json(body)
-            .with_context(|| format!("POST {path}"))?;
+            .map_err(|e| translate_error("POST", path, e))?;
         Ok(())
     }
 

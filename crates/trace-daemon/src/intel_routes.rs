@@ -193,6 +193,7 @@ mod tests {
                 agent_name: Some("claude-code".into()),
                 user_prompt: None,
                 starting_commit: None,
+                owner_pid: None,
             })
             .unwrap();
         for _ in 0..4 {
@@ -370,6 +371,7 @@ mod tests {
                 agent_name: None,
                 user_prompt: None,
                 starting_commit: None,
+                owner_pid: None,
             })
             .unwrap()
         };
@@ -432,6 +434,7 @@ mod tests {
                     agent_name: Some("claude-code".into()),
                     user_prompt: None,
                     starting_commit: None,
+                    owner_pid: None,
                 })
                 .unwrap();
             s.add_command(

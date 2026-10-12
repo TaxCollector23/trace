@@ -32,11 +32,13 @@ use trace_core::Store;
 
 use crate::state::AppState;
 
-/// Build the health-center routes: `/health`, `/integrations/coverage`, and
-/// `/runs/:id/integrity`. Merged into `api::router()` under the `/api` prefix.
+/// Build the read-only health-center routes: `/health`, `/connections`,
+/// `/integrations/coverage`, and `/runs/:id/integrity`. Merged into
+/// `api::router()` under the `/api` prefix.
 pub fn router() -> Router<AppState> {
     Router::new()
         .route("/health", get(health))
+        .route("/connections", get(connections))
         .route("/integrations/coverage", get(coverage))
         .route("/runs/:id/integrity", get(integrity))
 }
@@ -284,6 +286,7 @@ async fn health(State(state): State<AppState>) -> impl IntoResponse {
         "status": overall,
         "service": "trace-daemon",
         "version": trace_core::VERSION,
+        "version_details": trace_core::version_details(),
         "checks": checks,
         "last_event_at": last_event_at,
         "ingestion_delay_seconds": ingestion_delay_seconds,
@@ -346,6 +349,16 @@ async fn coverage(State(state): State<AppState>) -> RouteResult<impl IntoRespons
     }
 
     Ok(Json(out))
+}
+
+// --- /connections ----------------------------------------------------------
+
+/// Detailed, read-only agent source/import/capability status shared with
+/// `trc doctor agents`. It does not trigger an import or mutate agent config.
+async fn connections(State(state): State<AppState>) -> RouteResult<impl IntoResponse> {
+    let context = trace_core::importers::ImportContext::from_environment()?;
+    let rows = trace_core::connections::inspect(&store(&state), &context)?;
+    Ok(Json(rows))
 }
 
 // --- /runs/:id/integrity -----------------------------------------------------
@@ -469,6 +482,7 @@ mod tests {
                     agent_name: Some("claude".into()),
                     user_prompt: None,
                     starting_commit: None,
+                    owner_pid: None,
                 })
                 .unwrap();
             s.add_command(
@@ -516,6 +530,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn connections_route_reports_source_and_capability_rows() {
+        let resp = app(test_state())
+            .oneshot(Request::get("/connections").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let json = body_json(resp).await;
+        let rows = json.as_array().unwrap();
+        assert_eq!(
+            rows.len(),
+            trace_core::connections::SUPPORTED_AGENT_IDS.len()
+        );
+        assert_eq!(rows[0]["id"], "claude");
+        assert_eq!(rows[0]["capabilities"]["tokens"], "available");
+        assert!(rows[0]["action"].is_string());
+    }
+
+    #[tokio::test]
     async fn integrity_route_404s_for_unknown_run_and_200s_for_known() {
         let state = test_state();
         let resp = app(state.clone())
@@ -543,6 +575,7 @@ mod tests {
                 agent_name: None,
                 user_prompt: None,
                 starting_commit: None,
+                owner_pid: None,
             })
             .unwrap()
             .id

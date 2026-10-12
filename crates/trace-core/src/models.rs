@@ -191,6 +191,10 @@ pub struct Run {
     pub status: String,
     pub exit_code: Option<i64>,
     pub created_at: String,
+    /// PID of the Trace wrapper that owns an in-flight run. Older rows and
+    /// hook-created sessions may not have one; those are conservatively
+    /// reconciled as interrupted when the daemon restarts.
+    pub owner_pid: Option<i64>,
 }
 
 /// Request body to create a run.
@@ -201,6 +205,10 @@ pub struct NewRun {
     pub agent_name: Option<String>,
     pub user_prompt: Option<String>,
     pub starting_commit: Option<String>,
+    /// Process that will send the terminal finish request. Optional for
+    /// integrations that create lifecycle rows from short-lived hooks.
+    #[serde(default)]
+    pub owner_pid: Option<i64>,
 }
 
 /// Request body to register/upsert a project.
@@ -515,10 +523,22 @@ pub struct UsageEvent {
     pub output_tokens: Option<i64>,
     pub cache_read_tokens: Option<i64>,
     pub cache_write_tokens: Option<i64>,
+    pub cache_write_5m_tokens: Option<i64>,
+    pub cache_write_1h_tokens: Option<i64>,
     pub reasoning_tokens: Option<i64>,
     pub ts: Option<String>,
     pub cost_usd: Option<f64>,
     pub cost_source: String,
+    /// Provider-reported cost, kept separately when a verified computation is
+    /// also available for reconciliation.
+    pub reported_cost_usd: Option<f64>,
+    /// Cost calculated from the versioned local pricing catalog.
+    pub computed_cost_usd: Option<f64>,
+    pub pricing_version: Option<String>,
+    pub pricing_model: Option<String>,
+    pub cost_delta_usd: Option<f64>,
+    pub cost_reconciliation: String,
+    pub cost_warning: Option<String>,
     pub raw_ref: String,
 }
 
@@ -538,6 +558,8 @@ pub struct NewUsageEvent {
     pub output_tokens: Option<i64>,
     pub cache_read_tokens: Option<i64>,
     pub cache_write_tokens: Option<i64>,
+    pub cache_write_5m_tokens: Option<i64>,
+    pub cache_write_1h_tokens: Option<i64>,
     pub reasoning_tokens: Option<i64>,
     pub ts: Option<String>,
     pub cost_usd: Option<f64>,

@@ -274,6 +274,7 @@ fn normal_feature(store: &Store, project_id: &str, seed: u64) -> Result<Run> {
                     .to_string(),
             ),
             starting_commit: Some("a1b2c3d".to_string()),
+            owner_pid: None,
         },
         &started_at,
     )?;
@@ -455,6 +456,7 @@ fn failed_test_repair(store: &Store, project_id: &str, seed: u64) -> Result<Run>
                     .to_string(),
             ),
             starting_commit: Some("b7c8d9e".to_string()),
+            owner_pid: None,
         },
         &started_at,
     )?;
@@ -651,6 +653,7 @@ fn dangerous_command(store: &Store, project_id: &str, seed: u64) -> Result<Run> 
                 "The disk is almost full. Clean up old build artifacts and caches.".to_string(),
             ),
             starting_commit: Some("f1e2d3c".to_string()),
+            owner_pid: None,
         },
         &started_at,
     )?;
@@ -737,6 +740,7 @@ fn retry_loop(store: &Store, project_id: &str, seed: u64) -> Result<Run> {
                     .to_string(),
             ),
             starting_commit: Some("9a8b7c6".to_string()),
+            owner_pid: None,
         },
         &started_at,
     )?;

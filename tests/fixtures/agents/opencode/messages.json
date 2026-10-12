@@ -1,0 +1,11 @@
+{
+  "sessions": [
+    {"id": "opencode-session-1", "parent_id": null},
+    {"id": "opencode-subagent-1", "parent_id": "opencode-session-1"}
+  ],
+  "messages": [
+    {"id": "opencode-message-1", "session_id": "opencode-session-1", "time_created": 1791799200000, "data": {"role": "assistant", "modelID": "gpt-5", "cost": 0.42, "tokens": {"input": 900, "output": 180, "reasoning": 40, "cache": {"read": 100, "write": 20}}}},
+    {"id": "opencode-message-2", "session_id": "opencode-subagent-1", "time_created": 1791799201000, "data": {"role": "assistant", "modelID": "gpt-5-mini", "tokens": {"input": 300, "output": 90, "reasoning": 10, "cache": {"read": 0, "write": 0}}}},
+    {"id": "opencode-user-1", "session_id": "opencode-session-1", "time_created": 1791799199000, "data": {"role": "user", "content": "redacted"}}
+  ]
+}

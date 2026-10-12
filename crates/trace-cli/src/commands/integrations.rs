@@ -8,13 +8,21 @@ use crate::colors;
 use crate::daemon_ctl;
 
 const INTEGRATIONS: &[(&str, &str, &str)] = &[
-    ("Claude Code", "session + safety checks", "integrations/claude"),
+    (
+        "Claude Code",
+        "session + safety checks",
+        "integrations/claude",
+    ),
     (
         "Codex",
         "lifecycle hooks + wrapper fallback",
         "integrations/codex",
     ),
-    ("Cursor", "session + safety checks + tools", "integrations/cursor"),
+    (
+        "Cursor",
+        "session + safety checks + tools",
+        "integrations/cursor",
+    ),
     ("Windsurf", "activity + tools", "integrations/windsurf"),
     (
         "OpenCode",
@@ -114,7 +122,11 @@ pub fn status(json_output: bool) -> Result<()> {
                 }
             })
             .unwrap_or("activity and edit review");
-        println!("  {:<13} {mark}  {}", connection.display_name, colors::dim(capability));
+        println!(
+            "  {:<13} {mark}  {}",
+            connection.display_name,
+            colors::dim(capability)
+        );
     }
     if any {
         println!("\nNext:");

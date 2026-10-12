@@ -70,6 +70,7 @@ pub fn run(opts: RunOptions) -> Result<()> {
             agent_name: agent_name.clone(),
             user_prompt,
             starting_commit: start_state.commit.clone(),
+            owner_pid: Some(std::process::id() as i64),
         },
     )?;
     let run_id = run.id.clone();
@@ -170,7 +171,7 @@ pub fn run(opts: RunOptions) -> Result<()> {
     }
 
     // 6. Start the file watcher.
-    let watcher = RunWatcher::start(root.clone(), client.clone(), run_id.clone()).ok();
+    let mut watcher = RunWatcher::start(root.clone(), client.clone(), run_id.clone()).ok();
 
     // 7. Execute the wrapped command, teeing output.
     event(
@@ -181,10 +182,44 @@ pub fn run(opts: RunOptions) -> Result<()> {
     );
     let log_dir = paths::run_log_dir(&root, &run_id);
     std::fs::create_dir_all(&log_dir).ok();
-    let (exit_code, output) = exec_tee(&command, &root, &log_dir, &run_id, port)?;
+    let (exit_code, output) = match exec_tee(&command, &root, &log_dir, &run_id, port) {
+        Ok(result) => result,
+        Err(error) => {
+            if let Some(w) = watcher.take() {
+                w.stop();
+            }
+            let _ = client.post(
+                &format!("/api/runs/{run_id}/commands"),
+                &NewCommand {
+                    command: command.clone(),
+                    decision: "aborted".to_string(),
+                    exit_code: None,
+                    stdout_path: Some(log_dir.join("stdout.log").display().to_string()),
+                    stderr_path: Some(log_dir.join("stderr.log").display().to_string()),
+                },
+            );
+            adapter.stop_session().ok();
+            adapter.cleanup().ok();
+            finish(
+                &client,
+                &run_id,
+                RunStatus::Aborted,
+                None,
+                start_state.commit.as_deref(),
+            );
+            let message = error.to_string();
+            event(
+                &client,
+                &run_id,
+                EventType::RunFailed,
+                &format!("Run aborted: {message}"),
+            );
+            return Err(error.context("executing monitored command"));
+        }
+    };
 
     // Stop the watcher before computing the final diff.
-    if let Some(w) = watcher {
+    if let Some(w) = watcher.take() {
         w.stop();
     }
 
@@ -194,7 +229,7 @@ pub fn run(opts: RunOptions) -> Result<()> {
         &NewCommand {
             command: command.clone(),
             decision: "executed".to_string(),
-            exit_code: Some(exit_code as i64),
+            exit_code: exit_code.map(i64::from),
             stdout_path: Some(log_dir.join("stdout.log").display().to_string()),
             stderr_path: Some(log_dir.join("stderr.log").display().to_string()),
         },
@@ -272,7 +307,7 @@ pub fn run(opts: RunOptions) -> Result<()> {
     }
 
     // 11. Deterministic diagnosis when something failed.
-    if exit_code != 0 || checks_failed {
+    if exit_code != Some(0) || checks_failed {
         for hyp in diagnose::diagnose(&changes, &combined_output) {
             event(
                 &client,
@@ -294,16 +329,12 @@ pub fn run(opts: RunOptions) -> Result<()> {
     );
 
     let end_state = git::capture_state(&root);
-    let status = if exit_code == 0 && !checks_failed {
-        RunStatus::Completed
-    } else {
-        RunStatus::Failed
-    };
+    let status = final_run_status(exit_code, checks_failed);
     finish(
         &client,
         &run_id,
         status,
-        Some(exit_code as i64),
+        exit_code.map(i64::from),
         end_state.commit.as_deref(),
     );
     event(
@@ -314,7 +345,13 @@ pub fn run(opts: RunOptions) -> Result<()> {
         } else {
             EventType::RunFailed
         },
-        &format!("Run {} (exit {exit_code})", status.as_str()),
+        &format!(
+            "Run {} ({})",
+            status.as_str(),
+            exit_code
+                .map(|code| format!("exit {code}"))
+                .unwrap_or_else(|| "terminated by signal".to_string())
+        ),
     );
 
     // 13. Summary.
@@ -388,7 +425,7 @@ fn exec_tee(
     log_dir: &std::path::Path,
     run_id: &str,
     daemon_port: u16,
-) -> Result<(i32, String)> {
+) -> Result<(Option<i32>, String)> {
     let mut child = shell_command(command)
         .current_dir(cwd)
         // So the agent's own hooks (e.g. Claude Code's PostToolUse hook,
@@ -426,7 +463,7 @@ fn exec_tee(
     }
 
     let output = collected.lock().unwrap().clone();
-    Ok((status.code().unwrap_or(-1), output))
+    Ok((status.code(), output))
 }
 
 fn tee_stream<R: std::io::Read>(
@@ -719,11 +756,30 @@ fn short(git_ref: &str) -> String {
     git_ref.chars().take(10).collect()
 }
 
-fn print_summary(command: &str, exit_code: i32, changes: &[git::DiffEntry], status: RunStatus) {
+fn print_summary(
+    command: &str,
+    exit_code: Option<i32>,
+    changes: &[git::DiffEntry],
+    status: RunStatus,
+) {
     println!("\n── Trace run summary ──");
     println!("  command: {command}");
-    println!("  status:  {} (exit {exit_code})", status.as_str());
+    println!(
+        "  status:  {} ({})",
+        status.as_str(),
+        exit_code
+            .map(|code| format!("exit {code}"))
+            .unwrap_or_else(|| "terminated by signal".to_string())
+    );
     println!("  changes: {}", diagnose::change_summary(changes));
+}
+
+fn final_run_status(exit_code: Option<i32>, checks_failed: bool) -> RunStatus {
+    match (exit_code, checks_failed) {
+        (None, _) => RunStatus::Interrupted,
+        (Some(0), false) => RunStatus::Completed,
+        (Some(_), _) => RunStatus::Failed,
+    }
 }
 
 fn print_dashboard_hint(port: u16) {
@@ -787,5 +843,25 @@ mod tests {
         let back = trace_core::decompress_stored(&bytes).unwrap();
         assert!(!back.contains(secret_body));
         assert!(back.contains("redacted"));
+    }
+
+    #[test]
+    fn signal_termination_is_interrupted_and_not_failed() {
+        assert_eq!(
+            final_run_status(None, false),
+            RunStatus::Interrupted,
+            "a process without an exit code was terminated by a signal"
+        );
+    }
+
+    #[test]
+    fn successful_command_with_failed_checks_is_failed() {
+        assert_eq!(final_run_status(Some(0), true), RunStatus::Failed);
+    }
+
+    #[test]
+    fn exit_code_controls_completed_vs_failed() {
+        assert_eq!(final_run_status(Some(0), false), RunStatus::Completed);
+        assert_eq!(final_run_status(Some(2), false), RunStatus::Failed);
     }
 }

@@ -67,12 +67,17 @@ pub struct UsageTotals {
     pub cost_source: String,
     pub unavailable_cost_events: i64,
     pub subagent_events: i64,
+    pub pricing_version: Option<String>,
 }
 
 /// One row in a usage breakdown.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UsageBreakdown {
     pub key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub subagent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_message_id: Option<String>,
     #[serde(flatten)]
     pub totals: UsageTotals,
 }

@@ -215,6 +215,7 @@ mod tests {
                 agent_name: agent.map(|a| a.to_string()),
                 user_prompt: None,
                 starting_commit: None,
+                owner_pid: None,
             })
             .unwrap();
         for i in 0..target_command_count {
@@ -242,6 +243,7 @@ mod tests {
                 agent_name: agent.map(|a| a.to_string()),
                 user_prompt: None,
                 starting_commit: None,
+                owner_pid: None,
             })
             .unwrap();
         for i in 0..n_commands {

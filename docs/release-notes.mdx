@@ -41,7 +41,8 @@ description: Trace changelog.
 - **Fixed the CI action's high-severity count** always reporting 0
   (`ci-scan.sh` grepped for `"severity":"high"` but `trc review-diff --json`
   pretty-prints with a space after the colon).
-- **Fixed the GitHub App skeleton** (`integrations/github/app/handler.js`)
+- **Retired the GitHub App skeleton** to `experimental/github-app/`; the
+  supported path is the GitHub Action plus `trc review-diff`/`trc ratify`.
   reading summary field names that no longer match `trace-summary.json`'s
   schema.
 

@@ -56,9 +56,9 @@ fetch_to() { # fetch <url> <out-file>; nonzero on failure
 }
 fetch_text() { # fetch <url> to stdout, quietly; empty on failure
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$1" 2>/dev/null
+    curl -fsSL "$1"
   elif command -v wget >/dev/null 2>&1; then
-    wget -qO- "$1" 2>/dev/null
+    wget -qO- "$1"
   fi
 }
 sha256_of() {
@@ -72,26 +72,23 @@ sha256_of() {
 }
 
 tmp="${BIN}.download.$$"
+trap 'rm -f "$tmp"' EXIT
 fetch_to "$url" "$tmp" || err "download failed from $url"
 
 # Verify the SHA-256 checksum published next to the asset before trusting it.
-# Missing checksum (older releases) is allowed unless TRACE_REQUIRE_CHECKSUM.
-published=$(fetch_text "${url}.sha256" | awk '{print $1}' | head -1)
-if [ -n "$published" ]; then
-  local_sum=$(sha256_of "$tmp")
-  if [ -z "$local_sum" ]; then
-    :
-  elif [ "$local_sum" != "$published" ]; then
-    rm -f "$tmp"
-    err "checksum mismatch for $asset (expected $published, got $local_sum)"
-  else
-    :
-  fi
-elif [ -n "${TRACE_REQUIRE_CHECKSUM:-}" ]; then
-  rm -f "$tmp"
-  err "no checksum published for $asset and TRACE_REQUIRE_CHECKSUM is set"
+if [ "${TRACE_ALLOW_UNSIGNED:-0}" = "1" ]; then
+  printf 'warning: TRACE_ALLOW_UNSIGNED=1; skipping checksum verification\n' >&2
 else
-  :
+  checksum_payload=$(fetch_text "${url}.sha256") || err "checksum download failed for $asset"
+  published=$(printf '%s\n' "$checksum_payload" | awk 'NF { print tolower($1); exit }')
+  printf '%s\n' "$published" | awk 'length($0) == 64 && $0 !~ /[^0-9a-f]/ { found=1 } END { exit(found ? 0 : 1) }' \
+    || err "no valid SHA-256 checksum published for $asset"
+  local_sum=$(sha256_of "$tmp")
+  [ -n "$local_sum" ] || err "no SHA-256 tool available to verify $asset"
+  if [ "$local_sum" != "$published" ]; then
+    err "checksum mismatch for $asset (expected $published, got $local_sum)"
+  fi
+  printf 'Checksum verified.\n'
 fi
 
 chmod +x "$tmp"

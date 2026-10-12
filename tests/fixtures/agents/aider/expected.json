@@ -1,0 +1,12 @@
+{
+  "agent": "aider",
+  "files_scanned": 1,
+  "events_seen": 2,
+  "events_imported": 2,
+  "duplicates": 0,
+  "parse_errors": 0,
+  "events": [
+    {"input_tokens": 1200, "output_tokens": 300, "cost_usd": 0.42, "cost_source": "reported", "ts": null},
+    {"input_tokens": null, "output_tokens": null, "cost_usd": null, "cost_source": "unknown", "ts": null}
+  ]
+}

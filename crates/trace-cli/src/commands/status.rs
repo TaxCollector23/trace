@@ -16,6 +16,7 @@ pub fn run(json_output: bool) -> Result<()> {
     if json_output {
         let value = json!({
             "version": trace_core::VERSION,
+            "version_details": trace_core::version_details(),
             "daemon": {
                 "running": daemon.running,
                 "port": daemon.port,

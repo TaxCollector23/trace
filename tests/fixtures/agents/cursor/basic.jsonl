@@ -1,0 +1,4 @@
+{"message":{"role":"user","content":"redacted"}}
+{"message":{"role":"assistant","id":"cursor-message-1","model":"cursor-model","timestamp":"2026-10-12T11:00:00Z","usage":{"input_tokens":700,"output_tokens":140,"cache":{"read":50,"write":5}}}}
+{"message":{"role":"assistant","id":"cursor-message-2","agent_type":"subagent"}}
+not-json

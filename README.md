@@ -70,6 +70,8 @@ only). Roll back a run's changes with `trc rollback`.
 | `trc rollback` | Restore a checkpoint (Git-based, confirmed; `-y`). |
 | `trc scan` | Detect the project's stack (package manager, framework, tests, git). |
 | `trc doctor` | System checks: toolchain, clipboard, daemon, agents, paths. |
+| `trc doctor agents [--json]` | Inspect installed agents, source paths, imported events, parse errors, and capability evidence. |
+| `trc import [codex\|opencode\|cursor\|aider\|all] [--json]` | Import local agent accounting metadata without transcript content. |
 | `trc status [--json]` | Compact connection snapshot and next action; JSON is script-friendly. |
 | `trc runs` | List recent runs with copyable short IDs. |
 | `trc show <run_id>` | Show a run's summary and timeline; a short ID prefix is enough. |
@@ -136,21 +138,22 @@ fake data in production.
 - Local SQLite history
 - **GitHub repo reading**: reads commits, PRs, and file contents directly from
   your repo (including private repos) via an authenticated, read-only token
-- Cross-platform desktop shell (macOS, Windows, Linux)
+- A browser dashboard served by the local daemon; the old desktop wrapper is
+  retained under `experimental/` and is not a release target
 
 ## Integrations
 
 Each lives under `integrations/` and connects to the local daemon.
 
-- **Claude Code**: session, command, and edit hooks; Bash commands are enforced (`integrations/claude`)
-- **Cursor**: session, command, and edit hooks plus MCP tools; shell commands are enforced (`integrations/cursor`)
-- **OpenCode**: V1/V2 guard plugin plus MCP tools; Bash commands are enforced (`integrations/opencode`)
-- **Codex**: lifecycle hooks for CLI, desktop, and IDE plus a wrapper fallback; Bash commands are enforced after the hook is trusted, while file edits are reviewed after the call (`integrations/codex`)
-- **Windsurf**: MCP server, read-only (`integrations/windsurf`)
-- **Aider**: run through `trc run aider`; no standalone installer is advertised yet
-- **VS Code**: extension, not yet published to the marketplace (`integrations/vscode`)
-- **GitHub**: App + Action running the deterministic policy engine
-  (`trc review-diff`) and posting sanitized summaries (`integrations/github`)
+- **Claude Code**: session, command, and edit hooks; Bash commands are enforced. `trc usage` imports local Claude accounting metadata when present (`integrations/claude`)
+- **Cursor**: session, command, and edit hooks plus MCP tools; shell commands are enforced. Local transcript usage is optional; the native chat database remains opaque (`integrations/cursor`)
+- **OpenCode**: V1/V2 guard plugin plus MCP tools; Bash commands are enforced. `trc import opencode` reads assistant SQLite metadata, preserving reported cost only (`integrations/opencode`)
+- **Codex**: lifecycle hooks for CLI, desktop, and IDE plus a wrapper fallback; Bash commands are enforced after the hook is trusted, while file edits are reviewed after the call. `trc import codex` reads rollout token records; local cost is unavailable (`integrations/codex`)
+- **Windsurf**: MCP server, read-only; no local session importer or command guard (`integrations/windsurf`)
+- **Aider**: `trc import aider` reads optional token/cost summaries from `.aider.chat.history.md`; guarding requires `trc run aider`
+- **VS Code**: extension, not yet published to the marketplace; no supported local usage importer
+- **GitHub**: Action running the deterministic policy engine (`trc
+  review-diff`) and posting sanitized summaries (`integrations/github`)
 
 Run `trc integrations install all` to wire up Claude Code, Codex, Cursor,
 Windsurf, and OpenCode in one step. It starts the local daemon and prints the
@@ -187,7 +190,6 @@ trace
 │   └── trace-core/        # shared logic
 ├── apps/
 │   ├── web/               # React + Vite local dashboard
-│   ├── desktop/           # native desktop shell (Tauri) wrapping the dashboard
 │   ├── landing/           # public landing site (Vercel)
 │   └── docs/              # docs site → GitHub Pages (renders /docs)
 ├── integrations/
@@ -202,7 +204,7 @@ trace
 ├── packages/
 │   └── npm/               # npm wrapper package
 ├── homebrew-trace/        # Homebrew formula (mirrors the tap repo)
-├── firebase/              # optional static mirror / reserved identity
+├── experimental/          # retired desktop, cloud, hosting, and webhook sketches
 ├── scripts/               # install.sh, install.ps1
 └── .github/workflows/     # release.yml, landing-deploy.yml, ci.yml
 ```
@@ -235,8 +237,6 @@ daemon.
   `landing` project at https://trace-landing-blue.vercel.app. Set
   `VITE_MINTLIFY_DOCS_URL` to the deployed docs URL. Alias a `trace`-branded
   custom domain to this project when one is available.
-- **Firebase (optional mirror):** `firebase/` hosts a static reserved page only.
-  Do not add Auth/Firestore/Storage/Functions for the MVP.
 - **GitHub Pages (docs):** `apps/docs` builds a fancy site from `/docs` and the
   `docs-deploy.yml` workflow publishes it to
   `https://taxcollector23.github.io/trace/`. Override the landing's docs
@@ -279,7 +279,9 @@ See [docs/security-model.mdx](docs/security-model.mdx).
 - Ratify reads a repo's PR files via a personal/CLI token, not a GitHub App,
   fine for local, user-triggered ratification; an org-wide automatic version
   would need App infrastructure this doesn't include.
-- Cost is "unavailable" unless usage is routed through a proxy or imported.
+- Imported cost is available only when the agent reports it or Trace has a
+  verified cost source for that event. Missing token/cost fields stay
+  "unavailable"; they are never rendered as zero.
 - Rollback requires a Git repository.
 
 See [docs/limitations.mdx](docs/limitations.mdx).
@@ -290,8 +292,8 @@ See [docs/limitations.mdx](docs/limitations.mdx).
   runtime UI dependency). It is already a serious developer-tool layout;
   Tailwind + shadcn/ui can be adopted later without changing the API.
 - **Diff viewer:** a custom unified-diff renderer (no heavy dependency).
-- **Desktop shell:** Tauri wrapping the existing dashboard build, no second UI
-  to maintain.
+- **Desktop/cloud/webhook sketches:** retained under `experimental/` for
+  reference only; they are not part of the local release or workspace.
 - **Analytics:** none on the landing site by default.
 - **Code signing:** not day-one; macOS/Windows may warn on downloaded binaries
   until notarization/signing is added.

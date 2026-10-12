@@ -135,9 +135,9 @@ pub async fn serve(preferred_port: u16) -> Result<()> {
     let db_path = paths::database_path()?;
     let store = Store::open(&db_path).context("opening database")?;
 
-    // Zombie reconciliation: any run still marked `running` at startup was
-    // orphaned by a wrapper that died without a clean finish. Move it to a
-    // terminal `interrupted` state so it never sits "running forever".
+    // Reconcile only running rows whose wrapper owner is gone. Legacy rows
+    // without an owner PID are conservatively treated as orphaned; a live
+    // `trc run` survives a daemon restart without being falsely interrupted.
     match store.reconcile_zombie_runs() {
         Ok(0) => {}
         Ok(n) => {

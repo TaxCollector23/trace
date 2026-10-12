@@ -94,30 +94,25 @@ export async function ensureBinary({ log } = {}) {
  *
  * - checksum present + matches -> proceed.
  * - checksum present + mismatch -> throw (never write a tampered/corrupt binary).
- * - checksum absent (e.g. an older release, or a fetch error) -> proceed with a
- *   note, UNLESS `TRACE_REQUIRE_CHECKSUM` is set, in which case throw. This keeps
- *   pre-checksum releases installable while verifying every release that ships one.
+ * - checksum absent or malformed -> throw by default.
+ *
+ * Set TRACE_ALLOW_UNSIGNED=1 only when intentionally installing a legacy release
+ * that predates checksum sidecars.
  */
 async function verifyChecksum(url, bytes, log) {
   const sumUrl = `${url}.sha256`;
-  let published;
-  try {
-    const res = await fetch(sumUrl, { redirect: "follow" });
-    if (res.ok) {
-      published = (await res.text()).trim().split(/\s+/)[0]?.toLowerCase();
-    }
-  } catch {
-    // network error fetching the checksum; handled as "absent" below
+  if (process.env.TRACE_ALLOW_UNSIGNED === "1") {
+    log?.write("trc: TRACE_ALLOW_UNSIGNED=1; skipping checksum verification\n");
+    return;
   }
 
-  if (!published) {
-    if (process.env.TRACE_REQUIRE_CHECKSUM) {
-      throw new Error(
-        `no checksum published at ${sumUrl} and TRACE_REQUIRE_CHECKSUM is set`
-      );
-    }
-    log?.write("trc: no checksum published for this release; skipping verification\n");
-    return;
+  const res = await fetch(sumUrl, { redirect: "follow" });
+  if (!res.ok) {
+    throw new Error(`checksum download failed: ${res.status} ${res.statusText} (${sumUrl})`);
+  }
+  const published = (await res.text()).trim().split(/\s+/)[0]?.toLowerCase();
+  if (!published || !/^[0-9a-f]{64}$/.test(published)) {
+    throw new Error(`no valid SHA-256 checksum published at ${sumUrl}`);
   }
 
   const actual = crypto.createHash("sha256").update(bytes).digest("hex");

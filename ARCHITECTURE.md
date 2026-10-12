@@ -31,7 +31,7 @@ API key, ever.**
 16. [The web dashboard](#16-the-web-dashboard)
 17. [The landing site](#17-the-landing-site)
 18. [The desktop app](#18-the-desktop-app)
-19. [`trace-cloud-api` — optional cloud sync](#19-trace-cloud-api--optional-cloud-sync)
+19. [Experimental surfaces](#19-experimental-surfaces)
 20. [The no-API-key guarantee](#20-the-no-api-key-guarantee)
 21. [History: the TraceGuard → Trace → deterministic path](#21-history-the-traceguard--trace--deterministic-path)
 22. [Testing](#22-testing)
@@ -103,12 +103,12 @@ opt into cloud sync.
              depends on   │            │             │          │
               ┌───────────┘            │             │          └────────────┐
               │                        │             │                       │
-     ┌────────────────┐      ┌──────────────────┐    │              ┌─────────────────┐
-     │   trace-cli    │      │   trace-daemon   │    │              │  apps/desktop   │
-     │  (the `trc`    │─────▶│  Axum server on  │    │              │  (Tauri shell)  │
-     │    binary)     │ HTTP │  127.0.0.1:8757  │    │              └─────────────────┘
-     └────────────────┘      │                  │    │
-              │              │  embeds ─────────┼────┘
+             ┌────────────────┐      ┌──────────────────┐
+             │   trace-cli    │      │   trace-daemon   │
+             │  (the `trc`    │─────▶│  Axum server on  │
+             │    binary)     │ HTTP │  127.0.0.1:8757  │
+             └────────────────┘      │                  │
+                      │              │  embeds ─────────┘
               │              │  apps/web/dist   │  (rust_embed, compile time)
               │              └──────────────────┘
               │                        ▲
@@ -119,9 +119,8 @@ opt into cloud sync.
      │ (claude, etc.) │      │  (dashboard SPA) │      │ (marketing site) │
      └────────────────┘      └──────────────────┘      └──────────────────┘
 
-   trace-cloud-api  —  a *separate*, optional hosted service (does not depend
-                       on trace-core); the daemon can push sanitized run
-                       summaries to it if the user opts in.
+   experimental/     —  retired desktop, cloud, hosting, and webhook sketches;
+                       excluded from the workspace and release workflow.
 ```
 
 Data flows one direction on the way in and the reverse on the way out:
@@ -138,25 +137,23 @@ A Cargo workspace (`Cargo.toml` at the root) plus a set of front-end apps.
 
 ```
 trace/
-├── Cargo.toml                 # workspace: 4 Rust crates + the Tauri crate
+├── Cargo.toml                 # workspace: core, daemon, and CLI
 ├── crates/
 │   ├── trace-core/            # the engine — all shared logic, no I/O server
 │   ├── trace-daemon/          # local Axum HTTP server + embedded dashboard
 │   ├── trace-cli/             # the `trc` binary (clap subcommands)
-│   └── trace-cloud-api/       # optional hosted sync service (standalone)
 ├── apps/
 │   ├── web/                   # the dashboard (React SPA, embedded in daemon)
 │   ├── landing/               # public marketing site (React)
-│   ├── desktop/               # Tauri desktop shell (src-tauri = trace-desktop)
 │   └── docs/                  # docs site source (mdx under /docs)
 ├── integrations/
 │   ├── claude/                # PostToolUse/PreToolUse hook for Claude Code
-│   ├── github/                # GitHub Action + App skeleton + ci-scan.sh
+│   ├── github/                # GitHub Action + ci-scan.sh
 │   └── …                      # cursor, windsurf, etc.
 ├── docs/                      # the .mdx documentation pages
 ├── homebrew-trace/            # Homebrew tap formula
 ├── scripts/                   # install.sh / install.ps1 and release tooling
-└── firebase/ , render.yaml    # hosting config for the landing + cloud API
+└── experimental/              # retired surfaces kept for reference only
 ```
 
 The workspace shares one version (`workspace.package.version`) and a release
@@ -295,7 +292,6 @@ open, so a fresh install and an upgrade both just work.
   `rust_embed`. Unknown non-`/api` paths fall back to `index.html` so the SPA's
   client-side routing works. This is why changing the dashboard means rebuilding
   `apps/web/dist` *and then* the daemon.
-- `cloud_sync.rs` — optional push of sanitized summaries to `trace-cloud-api`.
 
 The full route list is in §24. The two review endpoints —
 `POST /runs/:id/analyze` and `POST /runs/:id/hook-check` — run the deterministic
@@ -427,25 +423,18 @@ Trace Analytics, Benchmarks, Rollback Points, Integration Status, and Ratify.
 ## 17. The landing site
 
 `apps/landing/` — the public marketing site (React + Vite, browser-routed,
-Tailwind). Pages under `src/pages/` (Home, About, DesktopDownload, CliDownload,
-HostedDashboard, and a password-gated `Private` page that serves a testing
-guide). `HostedDashboard` can connect to a visitor's own local daemon to show a
-live preview. Install scripts (`install.sh`/`install.ps1`) are served from the
-site's `public/` so the pipe-to-shell one-liner shows a trusted host.
+Tailwind). Pages under `src/pages/` describe the CLI, local dashboard, and
+project. The local dashboard page can connect to a visitor's own daemon; it is
+not a hosted Trace service. Install scripts (`install.sh`/`install.ps1`) are
+served from the site's `public/` so the pipe-to-shell one-liner shows a trusted
+host.
 
-## 18. The desktop app
+## 18. Experimental surfaces
 
-`apps/desktop/` (crate `trace-desktop`, under `src-tauri`) — a Tauri shell that
-bundles the daemon and dashboard into a native macOS/Windows/Linux app. It's a
-packaging layer over the same daemon + web dashboard, not separate logic.
-
-## 19. `trace-cloud-api` — optional cloud sync
-
-`crates/trace-cloud-api/` — a **standalone** hosted service (it does *not*
-depend on `trace-core`). If the user opts in, the daemon (`cloud_sync.rs`)
-pushes **sanitized** run summaries to it for a hosted view across machines.
-`auth.rs`, `routes.rs`, `db.rs`, `main.rs`. Deployed separately (see
-`render.yaml`); the local product works fully without it.
+`experimental/` retains the former Tauri shell, hosted API, hosting scaffolds,
+and GitHub webhook sketch for reference. They are not Cargo workspace members,
+not built by CI, not published by the release workflow, and not required by
+the local CLI/daemon/dashboard product.
 
 ## 20. The no-API-key guarantee
 

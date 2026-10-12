@@ -46,8 +46,26 @@ if command -v trc >/dev/null 2>&1; then
   set -e
 
   if [ -f trace-review.json ]; then
-    POLICY_FINDINGS=$(grep -o '"rule_key"' trace-review.json | wc -l | tr -d ' ')
-    HIGH_SEVERITY=$(grep -o '"severity"[[:space:]]*:[[:space:]]*"high"' trace-review.json | wc -l | tr -d ' ')
+    if command -v jq >/dev/null 2>&1; then
+      POLICY_FINDINGS=$(jq '.policy_findings | length' trace-review.json)
+      HIGH_SEVERITY=$(jq '[.policy_findings[] | select(.severity == "high")] | length' trace-review.json)
+    elif command -v python3 >/dev/null 2>&1; then
+      read -r POLICY_FINDINGS HIGH_SEVERITY <<EOF
+$(python3 - trace-review.json <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    findings = json.load(handle).get("policy_findings", [])
+
+print(len(findings), sum(finding.get("severity") == "high" for finding in findings))
+PY
+)
+EOF
+    else
+      echo "::error::Trace cannot parse trace-review.json: jq or python3 is required."
+      REVIEW_FAILED="true"
+    fi
   fi
   [ "$REVIEW_EXIT" != "0" ] && REVIEW_FAILED="true"
 else

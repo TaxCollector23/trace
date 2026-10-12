@@ -33,25 +33,25 @@ $tmp = "$Bin.download"
 Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing
 
 # Verify the SHA-256 checksum published next to the asset before trusting it.
-# A missing checksum (older releases) is allowed unless TRACE_REQUIRE_CHECKSUM.
-$published = $null
-try {
-    $published = (Invoke-WebRequest -Uri "$url.sha256" -UseBasicParsing).Content.Trim().Split()[0].ToLower()
-} catch {
-    $published = $null
-}
-if ($published) {
+if ($env:TRACE_ALLOW_UNSIGNED -eq "1") {
+    Write-Warning "TRACE_ALLOW_UNSIGNED=1; skipping checksum verification"
+} else {
+    try {
+        $published = (Invoke-WebRequest -Uri "$url.sha256" -UseBasicParsing).Content.Trim().Split()[0].ToLower()
+    } catch {
+        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+        throw "checksum download failed for $asset"
+    }
+    if (-not $published -or $published -notmatch '^[0-9a-f]{64}$') {
+        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
+        throw "no valid SHA-256 checksum published for $asset"
+    }
     $local = (Get-FileHash -Algorithm SHA256 $tmp).Hash.ToLower()
     if ($local -ne $published) {
-        Remove-Item $tmp -Force
+        Remove-Item $tmp -Force -ErrorAction SilentlyContinue
         throw "checksum mismatch for $asset (expected $published, got $local)"
     }
     Write-Host "Checksum verified."
-} elseif ($env:TRACE_REQUIRE_CHECKSUM) {
-    Remove-Item $tmp -Force
-    throw "no checksum published for $asset and TRACE_REQUIRE_CHECKSUM is set"
-} else {
-    Write-Host "note: no checksum published for this release; skipping verification"
 }
 
 Move-Item -Force $tmp $Bin

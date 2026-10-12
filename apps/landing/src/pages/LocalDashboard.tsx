@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
-// Hosted /dashboard.
+// Local /dashboard.
 //
-// Fully client-side, cloud-free: every fetch here targets your OWN local
+// Fully client-side: every fetch here targets your own local
 // daemon at http://127.0.0.1:8757/api/*. Nothing on this page ships your
-// data to Vercel, GitHub, us, or anywhere else, the browser talks
-// directly to your machine.
+// data anywhere; the browser talks directly to your machine.
 //
 // Auto-port discovery: the daemon writes its bound port to
 // ~/.trace/daemon.json, which the browser can't read, so we probe the
@@ -65,7 +64,7 @@ async function findDaemon(): Promise<number | null> {
   return null;
 }
 
-export default function HostedDashboard() {
+export default function LocalDashboard() {
   const [port, setPort] = useState<number | null>(null);
   const [checked, setChecked] = useState(false);
 
@@ -121,7 +120,7 @@ function NoDaemon() {
           <li>
             <div className="font-medium">1. Install the CLI (if you haven&apos;t)</div>
             <pre className="mt-1 overflow-x-auto rounded-lg bg-[#0d0d10] p-3 font-mono text-xs text-white">
-              <span className="text-white/40">$ </span>curl -fsSL https://trace-landing-blue.vercel.app/install.sh | sh
+              <span className="text-white/40">$ </span>npm install -g trace-agent-cli
             </pre>
           </li>
           <li>
@@ -139,15 +138,9 @@ function NoDaemon() {
       <div className="rounded-2xl border border-border bg-white/50 p-8">
         <div className="text-sm font-semibold text-text">Why local-only?</div>
         <p className="mt-2 text-sm text-text-dim leading-relaxed">
-          Trace records diffs of every file your AI agents touch. That&apos;s data you often don&apos;t
-          want in the cloud. The hosted dashboard is a thin viewer, your browser reaches your own
-          machine directly, so the traffic never leaves your device.
-        </p>
-        <p className="mt-3 text-sm text-text-dim leading-relaxed">
-          If you <em>do</em> want cloud sync (share sessions between devices, view from mobile),
-          set <code className="rounded bg-black/5 px-1 py-0.5 text-xs">TRACE_CLOUD_URL</code> +
-          <code className="ml-1 rounded bg-black/5 px-1 py-0.5 text-xs">TRACE_CLOUD_TOKEN</code>
-          on the daemon and use the Ratification dashboard&apos;s Local Trace runs tab.
+          Trace records diffs of every file your AI agents touch. The dashboard
+          stays local too: your browser reaches the daemon on this machine, so
+          project data remains under your control.
         </p>
       </div>
     </div>

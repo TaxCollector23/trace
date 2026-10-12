@@ -239,6 +239,8 @@ pub struct AgentStatus {
     pub surface: String,
     pub category: String,
     pub installed: bool,
+    /// The executable that was found on PATH, when this is a CLI agent.
+    pub path: Option<String>,
     pub version: Option<String>,
     pub url: Option<String>,
     pub install_hint: Option<String>,
@@ -268,10 +270,30 @@ fn which(bin: &str) -> Option<std::path::PathBuf> {
 
 /// Best-effort version string from `<bin> --version`.
 fn detect_version(bin: &str) -> Option<String> {
-    let out = std::process::Command::new(bin)
+    // Some GUI-backed shims do not return from `--version`. Doctor is a
+    // diagnostic surface, so a broken agent must not hang the whole report.
+    let mut child = std::process::Command::new(bin)
         .arg("--version")
-        .output()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
         .ok()?;
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if std::time::Instant::now() < deadline => {
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+            Ok(None) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+            Err(_) => return None,
+        }
+    }
+    let out = child.wait_with_output().ok()?;
     if !out.status.success() {
         return None;
     }
@@ -318,6 +340,7 @@ pub fn status(agent: &Agent) -> AgentStatus {
         surface: surface_str(agent.surface).to_string(),
         category: category_str(agent.category).to_string(),
         installed,
+        path: installed_path.map(|p| p.display().to_string()),
         version,
         url: agent.url.map(|u| u.to_string()),
         install_hint: agent.install_hint.map(|h| h.to_string()),

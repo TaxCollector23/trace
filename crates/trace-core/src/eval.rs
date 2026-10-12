@@ -84,7 +84,11 @@ fn fixtures() -> Vec<Fixture> {
             name: "Stripe secret key in added line (unified secret engine — was missed by the diff scanner)",
             expected_rule: Some("secret-in-diff"),
             diff: FileDiff {
-                filename: "src/payments.ts".into(),
+                // Keep this fixture focused on secret detection. The payment
+                // test-presence rule is covered separately; combining the two
+                // labels would turn a valid companion finding into a claimed
+                // benchmark false positive.
+                filename: "src/secrets.ts".into(),
                 status: "modified".into(),
                 additions: 1,
                 deletions: 0,

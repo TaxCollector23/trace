@@ -1,0 +1,12 @@
+{
+  "agent": "cursor",
+  "files_scanned": 1,
+  "events_seen": 2,
+  "events_imported": 2,
+  "duplicates": 0,
+  "parse_errors": 1,
+  "events": [
+    {"message_id": "cursor-message-1", "input_tokens": 700, "output_tokens": 140, "cache_read_tokens": 50, "cost_source": "unknown", "is_subagent": false},
+    {"message_id": "cursor-message-2", "input_tokens": null, "output_tokens": null, "cost_source": "unknown", "is_subagent": true}
+  ]
+}

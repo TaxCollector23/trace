@@ -26,8 +26,8 @@ export default function About() {
       </motion.p>
 
       <Prose title="This is the new normal">
-        Companies are handing every engineer an enterprise subscription to an
-        autonomous coding agent and telling them to move faster. Those agents
+        Companies are handing every engineer an autonomous coding agent and
+        telling them to move faster. Those agents
         don't just suggest code anymore. They have a shell. They install
         packages, rewrite configs, run migrations, delete files, and push
         branches, all on a real machine with real credentials. Multiply that by a
@@ -75,8 +75,9 @@ export default function About() {
             diff are caught and redacted before they're stored or shipped.
           </li>
           <li>
-            <b>Cost, per session.</b> Token usage and spend, broken down by model,
-            so an agent burning money in a loop is visible immediately.
+            <b>Usage, with provenance.</b> Imported token counts are grouped by
+            model, session, day, agent, or project. Reported and computed costs
+            stay distinct, and unavailable values remain visible.
           </li>
           <li>
             <b>PR ratification.</b> Run the exact same checks over a pull request, from the dashboard or in CI, and get a clear <b>pass / review / block</b>{" "}
@@ -94,7 +95,7 @@ export default function About() {
         normalized-command lookup, a secret detector. There is <b>no LLM in the
         guard path and no API key</b>, so a verdict is instant, free, and identical
         on every machine. A guardrail you can trust in the tool-call path cannot
-        depend on a slow, paid, non-deterministic third party. And it's measured,
+        depend on a slow, remote, non-deterministic third party. And it's measured,
         not asserted: Trace ships a labeled red-team corpus of dangerous commands,
         planted secrets, and unsafe prompts, and you can reproduce every detection
         number yourself. It all runs on <code>127.0.0.1</code>. Your code, diffs,

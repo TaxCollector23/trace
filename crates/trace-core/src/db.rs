@@ -6,6 +6,7 @@
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 
+use crate::cost::{compute_usage_event_cost, UsageEventCostInput};
 use crate::ids::new_id;
 use crate::models::*;
 use crate::time::now_rfc3339;
@@ -40,7 +41,8 @@ CREATE TABLE IF NOT EXISTS runs (
     ending_commit   TEXT,
     status          TEXT NOT NULL,
     exit_code       INTEGER,
-    created_at      TEXT NOT NULL
+    created_at      TEXT NOT NULL,
+    owner_pid       INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS events (
@@ -112,10 +114,19 @@ CREATE TABLE IF NOT EXISTS usage_events (
     output_tokens       INTEGER,
     cache_read_tokens   INTEGER,
     cache_write_tokens  INTEGER,
+    cache_write_5m_tokens INTEGER,
+    cache_write_1h_tokens INTEGER,
     reasoning_tokens    INTEGER,
     ts                  TEXT,
     cost_usd            REAL,
     cost_source         TEXT NOT NULL DEFAULT 'unknown',
+    reported_cost_usd   REAL,
+    computed_cost_usd   REAL,
+    pricing_version     TEXT,
+    pricing_model       TEXT,
+    cost_delta_usd      REAL,
+    cost_reconciliation TEXT NOT NULL DEFAULT 'unavailable',
+    cost_warning        TEXT,
     raw_ref             TEXT NOT NULL,
     UNIQUE (agent, session_id, message_id)
 );
@@ -185,6 +196,51 @@ pub struct Store {
     conn: Connection,
 }
 
+/// Apply additive migrations that cannot be expressed by
+/// `CREATE TABLE IF NOT EXISTS`. The owner PID was added after Trace had
+/// already shipped databases, so existing stores need the column before the
+/// run queries below select it.
+fn ensure_schema_migrations(conn: &Connection) -> Result<()> {
+    let columns: Vec<String> = conn
+        .prepare("PRAGMA table_info(runs)")?
+        .query_map([], |row| row.get(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    if !columns.iter().any(|name| name == "owner_pid") {
+        conn.execute("ALTER TABLE runs ADD COLUMN owner_pid INTEGER", [])?;
+    }
+
+    let usage_columns: Vec<String> = conn
+        .prepare("PRAGMA table_info(usage_events)")?
+        .query_map([], |row| row.get(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let additive_columns = [
+        ("reported_cost_usd", "ALTER TABLE usage_events ADD COLUMN reported_cost_usd REAL"),
+        ("computed_cost_usd", "ALTER TABLE usage_events ADD COLUMN computed_cost_usd REAL"),
+        (
+            "cache_write_5m_tokens",
+            "ALTER TABLE usage_events ADD COLUMN cache_write_5m_tokens INTEGER",
+        ),
+        (
+            "cache_write_1h_tokens",
+            "ALTER TABLE usage_events ADD COLUMN cache_write_1h_tokens INTEGER",
+        ),
+        ("pricing_version", "ALTER TABLE usage_events ADD COLUMN pricing_version TEXT"),
+        ("pricing_model", "ALTER TABLE usage_events ADD COLUMN pricing_model TEXT"),
+        ("cost_delta_usd", "ALTER TABLE usage_events ADD COLUMN cost_delta_usd REAL"),
+        (
+            "cost_reconciliation",
+            "ALTER TABLE usage_events ADD COLUMN cost_reconciliation TEXT NOT NULL DEFAULT 'unavailable'",
+        ),
+        ("cost_warning", "ALTER TABLE usage_events ADD COLUMN cost_warning TEXT"),
+    ];
+    for (name, statement) in additive_columns {
+        if !usage_columns.iter().any(|column| column == name) {
+            conn.execute(statement, [])?;
+        }
+    }
+    Ok(())
+}
+
 impl Store {
     /// Open (creating if needed) the database at `path` and apply the schema.
     pub fn open(path: &std::path::Path) -> Result<Self> {
@@ -195,6 +251,7 @@ impl Store {
         let conn = Connection::open(path)
             .with_context(|| format!("opening sqlite db {}", path.display()))?;
         conn.execute_batch(SCHEMA).context("applying schema")?;
+        ensure_schema_migrations(&conn)?;
         Ok(Store { conn })
     }
 
@@ -202,6 +259,7 @@ impl Store {
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(SCHEMA).context("applying schema")?;
+        ensure_schema_migrations(&conn)?;
         Ok(Store { conn })
     }
 
@@ -277,19 +335,21 @@ impl Store {
         // (`export API_KEY=…`, `curl -H "Authorization: Bearer …"`). Scrub it
         // before it is persisted so the raw secret never hits the DB.
         let command = crate::secrets::redact_text(&new.command);
+        let user_prompt = new.user_prompt.as_deref().map(crate::secrets::redact_text);
         self.conn.execute(
             "INSERT INTO runs (id, project_id, command, agent_name, user_prompt, started_at,
-                ending_commit, starting_commit, status, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?8, ?6)",
+                ending_commit, starting_commit, status, created_at, owner_pid)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, NULL, ?7, ?8, ?6, ?9)",
             params![
                 id,
                 new.project_id,
                 command,
                 new.agent_name,
-                new.user_prompt,
+                user_prompt,
                 at,
                 new.starting_commit,
                 RunStatus::Running.as_str(),
+                new.owner_pid,
             ],
         )?;
         self.run_by_id(&id)?.context("run vanished after insert")
@@ -299,7 +359,7 @@ impl Store {
         self.conn
             .query_row(
                 "SELECT id, project_id, command, agent_name, user_prompt, started_at, ended_at,
-                    starting_commit, ending_commit, status, exit_code, created_at
+                    starting_commit, ending_commit, status, exit_code, created_at, owner_pid
                  FROM runs WHERE id = ?1",
                 params![id],
                 map_run,
@@ -311,7 +371,7 @@ impl Store {
     pub fn list_runs(&self, limit: i64) -> Result<Vec<Run>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, project_id, command, agent_name, user_prompt, started_at, ended_at,
-                starting_commit, ending_commit, status, exit_code, created_at
+                starting_commit, ending_commit, status, exit_code, created_at, owner_pid
              FROM runs ORDER BY started_at DESC LIMIT ?1",
         )?;
         let rows = stmt.query_map(params![limit], map_run)?;
@@ -325,7 +385,7 @@ impl Store {
     pub fn list_runs_for_project(&self, project_id: &str, limit: i64) -> Result<Vec<Run>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, project_id, command, agent_name, user_prompt, started_at, ended_at,
-                starting_commit, ending_commit, status, exit_code, created_at
+                starting_commit, ending_commit, status, exit_code, created_at, owner_pid
              FROM runs WHERE project_id = ?1 ORDER BY started_at DESC LIMIT ?2",
         )?;
         let rows = stmt.query_map(params![project_id, limit], map_run)?;
@@ -355,7 +415,8 @@ impl Store {
         ended_at: &str,
     ) -> Result<()> {
         self.conn.execute(
-            "UPDATE runs SET status = ?1, exit_code = ?2, ending_commit = ?3, ended_at = ?4 WHERE id = ?5",
+            "UPDATE runs SET status = ?1, exit_code = ?2, ending_commit = ?3,
+                ended_at = ?4, owner_pid = NULL WHERE id = ?5",
             params![status.as_str(), exit_code, ending_commit, ended_at, run_id],
         )?;
         Ok(())
@@ -363,7 +424,9 @@ impl Store {
 
     pub fn set_run_status(&self, run_id: &str, status: RunStatus) -> Result<()> {
         self.conn.execute(
-            "UPDATE runs SET status = ?1 WHERE id = ?2",
+            "UPDATE runs SET status = ?1,
+                owner_pid = CASE WHEN ?1 = 'running' THEN owner_pid ELSE NULL END
+             WHERE id = ?2",
             params![status.as_str(), run_id],
         )?;
         Ok(())
@@ -372,20 +435,35 @@ impl Store {
     /// Reconcile zombie runs on daemon startup.
     ///
     /// The daemon is the single long-lived owner of run state. If it has just
-    /// started, any run still marked `running` was orphaned by a wrapper that
-    /// died without a clean finish (Ctrl-C, crash, reboot) — its process is
-    /// provably gone, because a live `trc run` keeps its own process, not the
-    /// daemon's. Such runs are moved to `Interrupted` (a terminal state) and
-    /// stamped with `ended_at`, so they never sit "running forever". Returns the
-    /// number of runs reconciled. This is deterministic bookkeeping, not a
-    /// guess: `Interrupted` precisely means "did not finish cleanly".
+    /// started, reconcile rows still marked `running` only when their wrapper
+    /// owner is gone. A live `trc run` records its own PID, so restarting the
+    /// daemon does not falsely terminate a still-running session. Legacy rows
+    /// and hook-created sessions without an owner PID are conservatively
+    /// treated as orphaned because there is no process identity to verify.
+    /// Such rows are moved to `Interrupted` and stamped with `ended_at`, so
+    /// they never sit "running forever". Returns the number reconciled.
     pub fn reconcile_zombie_runs(&self) -> Result<usize> {
-        let n = self.conn.execute(
-            "UPDATE runs SET status = ?1, ended_at = COALESCE(ended_at, ?2)
-             WHERE status = 'running'",
-            params![RunStatus::Interrupted.as_str(), now_rfc3339()],
-        )?;
-        Ok(n)
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, owner_pid FROM runs WHERE status = 'running'")?;
+        let candidates: Vec<(String, Option<i64>)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        drop(stmt);
+
+        let mut reconciled = 0;
+        for (run_id, owner_pid) in candidates {
+            if owner_pid.is_some_and(process_is_alive) {
+                continue;
+            }
+            let updated = self.conn.execute(
+                "UPDATE runs SET status = ?1, ended_at = COALESCE(ended_at, ?2), owner_pid = NULL
+                 WHERE id = ?3 AND status = 'running'",
+                params![RunStatus::Interrupted.as_str(), now_rfc3339(), run_id],
+            )?;
+            reconciled += updated;
+        }
+        Ok(reconciled)
     }
 
     // --- Local-data reset -------------------------------------------------
@@ -448,24 +526,23 @@ impl Store {
     /// [`create_run_at`](Self::create_run_at) for why this exists).
     pub fn add_event_at(&self, run_id: &str, new: &NewEvent, at: &str) -> Result<Event> {
         let id = new_id();
+        let event_type = crate::secrets::redact_text(&new.event_type);
+        let message = crate::secrets::redact_text(&new.message);
+        let metadata_json = new
+            .metadata_json
+            .as_deref()
+            .map(crate::secrets::redact_text);
         self.conn.execute(
             "INSERT INTO events (id, run_id, type, message, metadata_json, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                id,
-                run_id,
-                new.event_type,
-                new.message,
-                new.metadata_json,
-                at
-            ],
+            params![id, run_id, event_type, message, metadata_json, at],
         )?;
         Ok(Event {
             id,
             run_id: run_id.to_string(),
-            event_type: new.event_type.clone(),
-            message: new.message.clone(),
-            metadata_json: new.metadata_json.clone(),
+            event_type,
+            message,
+            metadata_json,
             created_at: at.to_string(),
         })
     }
@@ -489,6 +566,7 @@ impl Store {
     /// explicit `created_at` instead of "now" (see
     /// [`create_run_at`](Self::create_run_at) for why this exists).
     pub fn add_file_change_at(&self, run_id: &str, new: &NewFileChange, at: &str) -> Result<()> {
+        let diff_summary = new.diff_summary.as_deref().map(crate::secrets::redact_text);
         self.conn.execute(
             "INSERT INTO file_changes (id, run_id, path, change_type, diff_summary, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -497,7 +575,7 @@ impl Store {
                 run_id,
                 new.path,
                 new.change_type,
-                new.diff_summary,
+                diff_summary,
                 at
             ],
         )?;
@@ -545,6 +623,9 @@ impl Store {
         // pending row instead of creating a second, misleading "executed"
         // command row. If a caller has no pending row, retain the old insert
         // behavior as a safe compatibility fallback.
+        let decision = crate::secrets::redact_text(&new.decision);
+        let stdout_path = new.stdout_path.as_deref().map(crate::secrets::redact_text);
+        let stderr_path = new.stderr_path.as_deref().map(crate::secrets::redact_text);
         if new.decision == "executed" && new.exit_code.is_some() {
             let updated = self.conn.execute(
                 "UPDATE commands
@@ -555,13 +636,7 @@ impl Store {
                      AND decision != 'executed' AND exit_code IS NULL
                    ORDER BY rowid DESC LIMIT 1
                  )",
-                params![
-                    new.exit_code,
-                    new.stdout_path,
-                    new.stderr_path,
-                    run_id,
-                    command
-                ],
+                params![new.exit_code, stdout_path, stderr_path, run_id, command],
             )?;
             if updated > 0 {
                 return Ok(());
@@ -570,7 +645,7 @@ impl Store {
         self.conn.execute(
             "INSERT INTO commands (id, run_id, command, decision, exit_code, stdout_path, stderr_path, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-            params![new_id(), run_id, command, new.decision, new.exit_code, new.stdout_path, new.stderr_path, at],
+            params![new_id(), run_id, command, decision, new.exit_code, stdout_path, stderr_path, at],
         )?;
         Ok(())
     }
@@ -587,10 +662,11 @@ impl Store {
     // --- Secrets ----------------------------------------------------------
 
     pub fn add_secret(&self, run_id: &str, new: &NewSecret) -> Result<()> {
+        let redacted_value = crate::secrets::redact_text(&new.redacted_value);
         self.conn.execute(
             "INSERT INTO secrets (id, run_id, file_path, secret_type, redacted_value, action_taken, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            params![new_id(), run_id, new.file_path, new.secret_type, new.redacted_value, new.action_taken, now_rfc3339()],
+            params![new_id(), run_id, new.file_path, new.secret_type, redacted_value, new.action_taken, now_rfc3339()],
         )?;
         Ok(())
     }
@@ -641,8 +717,11 @@ impl Store {
         let mut stmt = self.conn.prepare(
             "SELECT id, run_id, agent, session_id, message_id, parent_message_id,
                     is_subagent, subagent_id, model, input_tokens, output_tokens,
-                    cache_read_tokens, cache_write_tokens, reasoning_tokens, ts,
-                    cost_usd, cost_source, raw_ref
+                    cache_read_tokens, cache_write_tokens, cache_write_5m_tokens,
+                    cache_write_1h_tokens, reasoning_tokens, ts,
+                    cost_usd, cost_source, reported_cost_usd, computed_cost_usd,
+                    pricing_version, pricing_model, cost_delta_usd,
+                    cost_reconciliation, cost_warning, raw_ref
              FROM usage_events
              WHERE (?1 IS NULL OR agent = ?1)
              ORDER BY ts ASC, rowid ASC",
@@ -751,6 +830,27 @@ impl Store {
         ) {
             anyhow::bail!("invalid usage cost source: {}", event.cost_source);
         }
+        let computed = compute_usage_event_cost(&UsageEventCostInput {
+            agent: Some(event.agent.clone()),
+            model: event.model.clone(),
+            input_tokens: event.input_tokens,
+            output_tokens: event.output_tokens,
+            cache_read_tokens: event.cache_read_tokens,
+            cache_write_tokens: event.cache_write_tokens,
+            cache_write_tokens_by_ttl: [
+                ("5m".to_string(), event.cache_write_5m_tokens),
+                ("1h".to_string(), event.cache_write_1h_tokens),
+            ]
+            .into_iter()
+            .filter_map(|(ttl, tokens)| tokens.map(|tokens| (ttl, tokens)))
+            .collect(),
+            reasoning_tokens: event.reasoning_tokens,
+            ts: event.ts.clone().unwrap_or_default(),
+            reported_cost_usd: (event.cost_source == "reported")
+                .then_some(event.cost_usd)
+                .flatten(),
+            ..UsageEventCostInput::default()
+        });
         let exists: bool = self.conn.query_row(
             "SELECT EXISTS(
                 SELECT 1 FROM usage_events
@@ -763,11 +863,15 @@ impl Store {
             "INSERT INTO usage_events (
                 id, run_id, agent, session_id, message_id, parent_message_id,
                 is_subagent, subagent_id, model, input_tokens, output_tokens,
-                cache_read_tokens, cache_write_tokens, reasoning_tokens, ts,
-                cost_usd, cost_source, raw_ref
+                cache_read_tokens, cache_write_tokens, cache_write_5m_tokens,
+                cache_write_1h_tokens, reasoning_tokens, ts,
+                cost_usd, cost_source, reported_cost_usd, computed_cost_usd,
+                pricing_version, pricing_model, cost_delta_usd,
+                cost_reconciliation, cost_warning, raw_ref
              ) VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
-                ?14, ?15, ?16, ?17, ?18
+                ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25,
+                ?26, ?27
              )
              ON CONFLICT(agent, session_id, message_id) DO UPDATE SET
                 run_id = COALESCE(excluded.run_id, usage_events.run_id),
@@ -779,12 +883,27 @@ impl Store {
                 output_tokens = COALESCE(excluded.output_tokens, usage_events.output_tokens),
                 cache_read_tokens = COALESCE(excluded.cache_read_tokens, usage_events.cache_read_tokens),
                 cache_write_tokens = COALESCE(excluded.cache_write_tokens, usage_events.cache_write_tokens),
+                cache_write_5m_tokens = COALESCE(excluded.cache_write_5m_tokens, usage_events.cache_write_5m_tokens),
+                cache_write_1h_tokens = COALESCE(excluded.cache_write_1h_tokens, usage_events.cache_write_1h_tokens),
                 reasoning_tokens = COALESCE(excluded.reasoning_tokens, usage_events.reasoning_tokens),
                 ts = excluded.ts,
                 cost_usd = COALESCE(excluded.cost_usd, usage_events.cost_usd),
                 cost_source = CASE
                     WHEN excluded.cost_usd IS NOT NULL THEN excluded.cost_source
                     ELSE usage_events.cost_source
+                END,
+                reported_cost_usd = COALESCE(excluded.reported_cost_usd, usage_events.reported_cost_usd),
+                computed_cost_usd = COALESCE(excluded.computed_cost_usd, usage_events.computed_cost_usd),
+                pricing_version = COALESCE(excluded.pricing_version, usage_events.pricing_version),
+                pricing_model = COALESCE(excluded.pricing_model, usage_events.pricing_model),
+                cost_delta_usd = COALESCE(excluded.cost_delta_usd, usage_events.cost_delta_usd),
+                cost_reconciliation = CASE
+                    WHEN excluded.cost_reconciliation != 'unavailable' THEN excluded.cost_reconciliation
+                    ELSE usage_events.cost_reconciliation
+                END,
+                cost_warning = CASE
+                    WHEN excluded.cost_reconciliation != 'unavailable' THEN excluded.cost_warning
+                    ELSE usage_events.cost_warning
                 END,
                 raw_ref = excluded.raw_ref",
             params![
@@ -801,10 +920,19 @@ impl Store {
                 event.output_tokens,
                 event.cache_read_tokens,
                 event.cache_write_tokens,
+                event.cache_write_5m_tokens,
+                event.cache_write_1h_tokens,
                 event.reasoning_tokens,
                 event.ts,
-                event.cost_usd,
-                event.cost_source,
+                computed.cost_usd,
+                computed.cost_source.as_str(),
+                computed.reported_cost_usd,
+                computed.computed_cost_usd,
+                computed.pricing_version,
+                computed.pricing_model,
+                computed.reconciliation.delta_usd,
+                computed.reconciliation.status.as_str(),
+                computed.warning,
                 event.raw_ref,
             ],
         )?;
@@ -850,7 +978,8 @@ impl Store {
             "WITH filtered AS (
                 SELECT {expression} AS grouping_key, input_tokens, output_tokens,
                        cache_read_tokens, cache_write_tokens, reasoning_tokens,
-                       cost_usd, cost_source, is_subagent, session_id
+                       cost_usd, cost_source, pricing_version, is_subagent, session_id,
+                       parent_message_id, subagent_id
                 FROM usage_events
                 WHERE (?1 IS NULL OR ts >= ?1)
              )
@@ -861,7 +990,13 @@ impl Store {
                     CASE WHEN MIN(cost_source) = MAX(cost_source) THEN MIN(cost_source)
                          ELSE 'mixed' END,
                     COALESCE(SUM(CASE WHEN cost_source = 'unknown' OR cost_usd IS NULL THEN 1 ELSE 0 END), 0),
-                    COALESCE(SUM(is_subagent), 0), COUNT(DISTINCT session_id)
+                    COALESCE(SUM(is_subagent), 0),
+                    CASE WHEN COUNT(pricing_version) = COUNT(*)
+                              AND MIN(pricing_version) = MAX(pricing_version)
+                         THEN MIN(pricing_version) ELSE NULL END,
+                    COUNT(DISTINCT session_id),
+                    MAX(CASE WHEN is_subagent = 1 THEN parent_message_id END),
+                    MAX(CASE WHEN is_subagent = 1 THEN subagent_id END)
              FROM filtered
              GROUP BY grouping_key
              ORDER BY grouping_key ASC"
@@ -871,6 +1006,8 @@ impl Store {
             .query_map(params![since], |row| {
                 Ok(UsageBreakdown {
                     key: row.get(0)?,
+                    subagent_id: row.get(14)?,
+                    parent_message_id: row.get(13)?,
                     totals: map_usage_totals(row, 1)?,
                 })
             })?
@@ -898,7 +1035,10 @@ impl Store {
                              WHEN MIN(cost_source) = MAX(cost_source) THEN MIN(cost_source)
                              ELSE 'mixed' END,
                         COALESCE(SUM(CASE WHEN cost_source = 'unknown' OR cost_usd IS NULL THEN 1 ELSE 0 END), 0),
-                        COALESCE(SUM(is_subagent), 0)
+                        COALESCE(SUM(is_subagent), 0),
+                        CASE WHEN COUNT(pricing_version) = COUNT(*)
+                                  AND MIN(pricing_version) = MAX(pricing_version)
+                             THEN MIN(pricing_version) ELSE NULL END
                  FROM usage_events
                  WHERE (?1 IS NULL OR ts >= ?1)",
                 params![since],
@@ -983,24 +1123,19 @@ impl Store {
     pub fn add_checkpoint(&self, run_id: &str, new: &NewCheckpoint) -> Result<Checkpoint> {
         let id = new_id();
         let now = now_rfc3339();
+        let git_ref = new.git_ref.as_deref().map(crate::secrets::redact_text);
+        let checkpoint_type = crate::secrets::redact_text(&new.checkpoint_type);
         self.conn.execute(
             "INSERT INTO checkpoints (id, run_id, project_id, git_ref, checkpoint_type, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                id,
-                run_id,
-                new.project_id,
-                new.git_ref,
-                new.checkpoint_type,
-                now
-            ],
+            params![id, run_id, new.project_id, git_ref, checkpoint_type, now],
         )?;
         Ok(Checkpoint {
             id,
             run_id: run_id.to_string(),
             project_id: new.project_id.clone(),
-            git_ref: new.git_ref.clone(),
-            checkpoint_type: new.checkpoint_type.clone(),
+            git_ref,
+            checkpoint_type,
             created_at: now,
         })
     }
@@ -1034,17 +1169,15 @@ impl Store {
     /// explicit `created_at` instead of "now" (see
     /// [`create_run_at`](Self::create_run_at) for why this exists).
     pub fn add_test_result_at(&self, run_id: &str, new: &NewTestResult, at: &str) -> Result<()> {
+        let command = crate::secrets::redact_text(&new.command);
+        let output_summary = new
+            .output_summary
+            .as_deref()
+            .map(crate::secrets::redact_text);
         self.conn.execute(
             "INSERT INTO test_results (id, run_id, command, status, output_summary, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![
-                new_id(),
-                run_id,
-                new.command,
-                new.status,
-                new.output_summary,
-                at
-            ],
+            params![new_id(), run_id, command, new.status, output_summary, at],
         )?;
         Ok(())
     }
@@ -1175,6 +1308,11 @@ impl Store {
         findings: &[crate::policy::PolicyFinding],
     ) -> Result<()> {
         for f in findings {
+            let rule_key = crate::secrets::redact_text(&f.rule_key);
+            let title = crate::secrets::redact_text(&f.title);
+            let description = crate::secrets::redact_text(&f.description);
+            let file_path = f.file_path.as_deref().map(crate::secrets::redact_text);
+            let source = crate::secrets::redact_text(&f.source);
             let already: bool = self
                 .conn
                 .query_row(
@@ -1182,7 +1320,7 @@ impl Store {
                      WHERE run_id = ?1 AND rule_key = ?2
                        AND IFNULL(file_path, '') = IFNULL(?3, '') AND title = ?4
                      LIMIT 1",
-                    params![run_id, f.rule_key, f.file_path, f.title],
+                    params![run_id, rule_key, file_path, title],
                     |_| Ok(true),
                 )
                 .optional()?
@@ -1196,13 +1334,13 @@ impl Store {
                 params![
                     new_id(),
                     run_id,
-                    f.rule_key,
-                    f.title,
-                    f.description,
-                    f.file_path,
+                    rule_key,
+                    title,
+                    description,
+                    file_path,
                     f.severity.as_str(),
                     f.confidence,
-                    f.source,
+                    source,
                     now_rfc3339()
                 ],
             )?;
@@ -1480,6 +1618,45 @@ fn scan_rows_for_issues(
     issues
 }
 
+/// Return whether a process with `pid` is currently alive.
+///
+/// The check is deliberately small and dependency-free. On Unix, `kill(pid,
+/// 0)` distinguishes a live process (including one we cannot signal) from a
+/// missing one. Windows has no equivalent in the standard library, so use the
+/// platform's existing `tasklist` utility. Unknown/invalid PIDs are never
+/// treated as live.
+#[cfg(unix)]
+fn process_is_alive(pid: i64) -> bool {
+    if pid <= 0 || pid > i32::MAX as i64 {
+        return false;
+    }
+    extern "C" {
+        fn kill(pid: i32, signal: i32) -> i32;
+    }
+    // Signal 0 performs permission/existence checks without sending a signal.
+    let result = unsafe { kill(pid as i32, 0) };
+    result == 0 || std::io::Error::last_os_error().raw_os_error() == Some(1) // EPERM
+}
+
+#[cfg(windows)]
+fn process_is_alive(pid: i64) -> bool {
+    if pid <= 0 {
+        return false;
+    }
+    let Ok(output) = std::process::Command::new("tasklist")
+        .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+        .output()
+    else {
+        return false;
+    };
+    output.status.success() && String::from_utf8_lossy(&output.stdout).contains(&pid.to_string())
+}
+
+#[cfg(not(any(unix, windows)))]
+fn process_is_alive(_pid: i64) -> bool {
+    false
+}
+
 // --- Row mappers ----------------------------------------------------------
 
 fn map_project(row: &rusqlite::Row) -> rusqlite::Result<Project> {
@@ -1507,6 +1684,7 @@ fn map_run(row: &rusqlite::Row) -> rusqlite::Result<Run> {
         status: row.get(9)?,
         exit_code: row.get(10)?,
         created_at: row.get(11)?,
+        owner_pid: row.get(12)?,
     })
 }
 
@@ -1587,11 +1765,20 @@ fn map_usage_event(row: &rusqlite::Row) -> rusqlite::Result<UsageEvent> {
         output_tokens: row.get(10)?,
         cache_read_tokens: row.get(11)?,
         cache_write_tokens: row.get(12)?,
-        reasoning_tokens: row.get(13)?,
-        ts: row.get(14)?,
-        cost_usd: row.get(15)?,
-        cost_source: row.get(16)?,
-        raw_ref: row.get(17)?,
+        cache_write_5m_tokens: row.get(13)?,
+        cache_write_1h_tokens: row.get(14)?,
+        reasoning_tokens: row.get(15)?,
+        ts: row.get(16)?,
+        cost_usd: row.get(17)?,
+        cost_source: row.get(18)?,
+        reported_cost_usd: row.get(19)?,
+        computed_cost_usd: row.get(20)?,
+        pricing_version: row.get(21)?,
+        pricing_model: row.get(22)?,
+        cost_delta_usd: row.get(23)?,
+        cost_reconciliation: row.get(24)?,
+        cost_warning: row.get(25)?,
+        raw_ref: row.get(26)?,
     })
 }
 
@@ -1620,6 +1807,7 @@ fn map_usage_totals(row: &rusqlite::Row, offset: usize) -> rusqlite::Result<Usag
         cost_source: row.get(offset + 7)?,
         unavailable_cost_events: row.get(offset + 8)?,
         subagent_events: row.get(offset + 9)?,
+        pricing_version: row.get(offset + 10)?,
     })
 }
 
@@ -1682,6 +1870,7 @@ mod tests {
                 agent_name: None,
                 user_prompt: None,
                 starting_commit: Some("abc123".into()),
+                owner_pid: None,
             })
             .unwrap();
         assert_eq!(run.status, "running");
@@ -1725,6 +1914,7 @@ mod tests {
                 agent_name: None,
                 user_prompt: None,
                 starting_commit: None,
+                owner_pid: None,
             })
             .unwrap();
         (store, project.id, run.id)
@@ -1747,6 +1937,60 @@ mod tests {
 
         // Idempotent: a second pass finds no more zombies.
         assert_eq!(store.reconcile_zombie_runs().unwrap(), 0);
+    }
+
+    #[test]
+    fn reconcile_preserves_a_running_owner_process() {
+        let store = Store::open_in_memory().unwrap();
+        let project = store
+            .upsert_project(&NewProject {
+                name: "App".into(),
+                path: "/tmp/live-owner".into(),
+                config_path: "/tmp/live-owner/.trace/config.toml".into(),
+            })
+            .unwrap();
+        let run = store
+            .create_run(&NewRun {
+                project_id: project.id,
+                command: "sleep 1".into(),
+                agent_name: None,
+                user_prompt: None,
+                starting_commit: None,
+                owner_pid: Some(std::process::id() as i64),
+            })
+            .unwrap();
+
+        assert_eq!(store.reconcile_zombie_runs().unwrap(), 0);
+        let current = store.run_by_id(&run.id).unwrap().unwrap();
+        assert_eq!(current.status, "running");
+        assert_eq!(current.owner_pid, Some(std::process::id() as i64));
+    }
+
+    #[test]
+    fn reconcile_interrupts_a_missing_owner_process() {
+        let store = Store::open_in_memory().unwrap();
+        let project = store
+            .upsert_project(&NewProject {
+                name: "App".into(),
+                path: "/tmp/dead-owner".into(),
+                config_path: "/tmp/dead-owner/.trace/config.toml".into(),
+            })
+            .unwrap();
+        let run = store
+            .create_run(&NewRun {
+                project_id: project.id,
+                command: "sleep 1".into(),
+                agent_name: None,
+                user_prompt: None,
+                starting_commit: None,
+                owner_pid: Some(i64::MAX),
+            })
+            .unwrap();
+
+        assert_eq!(store.reconcile_zombie_runs().unwrap(), 1);
+        let current = store.run_by_id(&run.id).unwrap().unwrap();
+        assert_eq!(current.status, "interrupted");
+        assert_eq!(current.owner_pid, None);
     }
 
     #[test]
@@ -1883,6 +2127,81 @@ mod tests {
     }
 
     #[test]
+    fn free_form_child_records_are_redacted_at_the_db_boundary() {
+        let raw = concat!("Authorization: Bearer ", "abcdef0123456789ABCDEFxyzTOKEN");
+        let secret_body = "abcdef0123456789ABCDEFxyzTOKEN";
+        let (store, _pid, run_id) = store_with_run("safe command");
+
+        store
+            .add_event(
+                &run_id,
+                &NewEvent {
+                    event_type: "note".into(),
+                    message: raw.into(),
+                    metadata_json: Some(format!(r#"{{"output":"{raw}"}}"#)),
+                },
+            )
+            .unwrap();
+        store
+            .add_file_change(
+                &run_id,
+                &NewFileChange {
+                    path: "src/config.rs".into(),
+                    change_type: "modified".into(),
+                    diff_summary: Some(raw.into()),
+                },
+            )
+            .unwrap();
+        store
+            .add_test_result(
+                &run_id,
+                &NewTestResult {
+                    command: "cargo test".into(),
+                    status: "failed".into(),
+                    output_summary: Some(raw.into()),
+                },
+            )
+            .unwrap();
+        store
+            .add_secret(
+                &run_id,
+                &NewSecret {
+                    file_path: Some("src/config.rs".into()),
+                    secret_type: "token".into(),
+                    redacted_value: raw.into(),
+                    action_taken: "warned".into(),
+                },
+            )
+            .unwrap();
+
+        let persisted = [
+            store.list_events(&run_id).unwrap()[0].message.clone(),
+            store.list_events(&run_id).unwrap()[0]
+                .metadata_json
+                .clone()
+                .unwrap(),
+            store.list_file_changes(&run_id).unwrap()[0]
+                .diff_summary
+                .clone()
+                .unwrap(),
+            store.list_test_results(&run_id).unwrap()[0]
+                .output_summary
+                .clone()
+                .unwrap(),
+            store.list_secrets(&run_id).unwrap()[0]
+                .redacted_value
+                .clone(),
+        ];
+        for value in persisted {
+            assert!(
+                !value.contains(secret_body),
+                "raw secret persisted: {value}"
+            );
+            assert!(value.contains("redacted"), "redaction missing: {value}");
+        }
+    }
+
+    #[test]
     fn completing_a_command_updates_the_live_decision_row() {
         let (store, _pid, run_id) = store_with_run("npm test");
         store
@@ -1938,6 +2257,7 @@ mod tests {
                 agent_name: None,
                 user_prompt: None,
                 starting_commit: None,
+                owner_pid: None,
             })
             .unwrap();
 
@@ -1987,6 +2307,7 @@ mod tests {
                 agent_name: agent.map(|a| a.to_string()),
                 user_prompt: None,
                 starting_commit: None,
+                owner_pid: None,
             })
             .unwrap()
             .id
@@ -2294,6 +2615,7 @@ mod tests {
                     agent_name: agent.map(|a| a.to_string()),
                     user_prompt: None,
                     starting_commit: None,
+                    owner_pid: None,
                 })
                 .unwrap();
             for i in 0..n_commands {
