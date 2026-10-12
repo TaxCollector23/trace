@@ -1,0 +1,31 @@
+{
+  "fixture": "cache-tokens",
+  "agent": "claude",
+  "parse_errors": 0,
+  "events": 1,
+  "subagent_events": 0,
+  "totals": {
+    "input_tokens": 100,
+    "output_tokens": 20,
+    "cache_read_tokens": 30,
+    "cache_write_tokens": 40,
+    "reasoning_tokens": 0,
+    "cost_usd": "0.00079275",
+    "cost_source": "computed",
+    "pricing_version": "official-2026-10-12"
+  },
+  "by_model": {
+    "claude-sonnet-4-6": {
+      "input_tokens": 100,
+      "output_tokens": 20,
+      "cache_read_tokens": 30,
+      "cache_write_tokens": 40,
+      "reasoning_tokens": 0,
+      "cost_usd": "0.00079275",
+      "cost_source": "computed",
+      "pricing_version": "official-2026-10-12"
+    }
+  },
+  "subagents": [],
+  "arithmetic": "100*3/1000000 + 20*15/1000000 + 30*0.30/1000000 + 25*3.75/1000000 + 15*6/1000000 = 0.00079275"
+}

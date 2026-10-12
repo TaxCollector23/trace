@@ -1,0 +1,55 @@
+{
+  "fixture": "subagents",
+  "agent": "claude",
+  "parse_errors": 0,
+  "events": 2,
+  "subagent_events": 1,
+  "totals": {
+    "input_tokens": 280,
+    "output_tokens": 30,
+    "cache_read_tokens": 0,
+    "cache_write_tokens": 0,
+    "reasoning_tokens": 0,
+    "cost_usd": "0.00103000",
+    "cost_source": "computed",
+    "pricing_version": "official-2026-10-12"
+  },
+  "by_model": {
+    "claude-sonnet-4-6": {
+      "input_tokens": 200,
+      "output_tokens": 20,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "cost_usd": "0.00090000",
+      "cost_source": "computed",
+      "pricing_version": "official-2026-10-12"
+    },
+    "claude-haiku-4-5-20251001": {
+      "input_tokens": 80,
+      "output_tokens": 10,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "cost_usd": "0.00013000",
+      "cost_source": "computed",
+      "pricing_version": "official-2026-10-12"
+    }
+  },
+  "subagents": [
+    {
+      "subagent_id": "agent-child-01",
+      "session_id": "session-child",
+      "parent_message_id": "msg-parent-1",
+      "input_tokens": 80,
+      "output_tokens": 10,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "cost_usd": "0.00013000",
+      "cost_source": "computed",
+      "pricing_version": "official-2026-10-12"
+    }
+  ],
+  "arithmetic": "parent=(200*3 + 20*15)/1000000 = 0.00090000; child=(80*1 + 10*5)/1000000 = 0.00013000; total=0.00103000"
+}
