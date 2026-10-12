@@ -8,8 +8,8 @@ export function stagger(index: number, stepMs = 30, maxMs = 240): CSSProperties 
   return { "--d": `${Math.min(index * stepMs, maxMs)}ms` } as CSSProperties;
 }
 
-/** Minimal data-fetching hook with loading + error states. */
-export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []): {
+/** Fetch once, or keep a local dashboard surface fresh without a page reload. */
+export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = [], pollMs?: number): {
   data: T | null;
   error: string | null;
   loading: boolean;
@@ -22,16 +22,27 @@ export function useAsync<T>(fn: () => Promise<T>, deps: unknown[] = []): {
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
-    fn()
-      .then((d) => alive && (setData(d), setError(null)))
-      .catch((e) => alive && setError(String(e)))
-      .finally(() => alive && setLoading(false));
+    let firstLoad = true;
+    const load = () => {
+      if (firstLoad) setLoading(true);
+      fn()
+        .then((d) => alive && (setData(d), setError(null)))
+        .catch((e) => alive && setError(String(e)))
+        .finally(() => {
+          if (alive) {
+            firstLoad = false;
+            setLoading(false);
+          }
+        });
+    };
+    load();
+    const timer = pollMs ? window.setInterval(load, pollMs) : undefined;
     return () => {
       alive = false;
+      if (timer) window.clearInterval(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, nonce]);
+  }, [...deps, nonce, pollMs]);
 
   return { data, error, loading, reload: () => setNonce((n) => n + 1) };
 }

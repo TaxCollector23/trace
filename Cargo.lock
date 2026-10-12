@@ -1854,6 +1854,7 @@ dependencies = [
  "trace-core",
  "tracing",
  "tracing-subscriber",
+ "ureq",
 ]
 
 [[package]]
