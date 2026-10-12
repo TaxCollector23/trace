@@ -44,7 +44,8 @@ fn help_styles() -> Styles {
     disable_version_flag = true,
     about = "Trace — the trust layer for AI software engineering.",
     long_about = "Trace records what AI coding agents change, run, cost, and break, \
-                  and helps you roll back. It is local-first: all data stays on your machine."
+                  and helps you roll back. It is local-first: all data stays on your machine.",
+    after_help = "Quick start:\n  trc init\n  trc integrations install all\n  trc dashboard\n\nRun `trc <command> --help` for advanced commands."
 )]
 struct Cli {
     #[command(subcommand)]
@@ -84,6 +85,7 @@ enum Commands {
     Dashboard,
 
     /// Start/attach to the loopback provider proxy and print its client setup.
+    #[command(hide = true)]
     Proxy {
         /// Provider to proxy: openai, anthropic, or google.
         #[arg(value_name = "PROVIDER", default_value = "openai")]
@@ -97,12 +99,14 @@ enum Commands {
     },
 
     /// Run system checks (toolchain, clipboard, daemon, agents, paths).
+    #[command(hide = true)]
     Doctor {
         #[command(subcommand)]
         action: Option<DoctorAction>,
     },
 
     /// Show a compact connection snapshot and the next useful action.
+    #[command(hide = true)]
     Status {
         /// Print machine-readable JSON for scripts and support bundles.
         #[arg(long)]
@@ -113,6 +117,7 @@ enum Commands {
     /// `trc dashboard` has something to show without a real coding agent
     /// running. Use `trc demo list` to see available scenarios. Rows are
     /// tagged synthetic and removable with `trc reset --local-data`.
+    #[command(hide = true)]
     Demo {
         /// Scenario name (see `trc demo list`), or "list" to print them.
         scenario: String,
@@ -131,15 +136,18 @@ enum Commands {
     /// Runs the same command guard and secret scanner used at runtime, and
     /// exits non-zero on a require_approval/block finding — usable as a CI
     /// gate. Use `-` to read from stdin.
+    #[command(hide = true)]
     Check {
         /// Path to the file to scan, or `-` for stdin.
         file: String,
     },
 
     /// List recent runs.
+    #[command(hide = true)]
     Runs,
 
     /// Import and summarize local Claude Code token usage.
+    #[command(hide = true)]
     Usage {
         /// Group rows by model, session, day, agent, or project.
         #[arg(long, value_parser = ["model", "session", "day", "agent", "project"], default_value = "model")]
@@ -153,6 +161,7 @@ enum Commands {
     },
 
     /// Show a run's summary and timeline.
+    #[command(hide = true)]
     Show { run_id: String },
 
     /// Replay a run's events, commands, and file changes in the order they
@@ -179,6 +188,7 @@ enum Commands {
 
     /// Import local usage metadata from a supported agent without importing
     /// prompt, response, tool arguments, or tool output content.
+    #[command(hide = true)]
     Import {
         /// One of: codex, opencode, cursor, aider, all.
         #[arg(default_value = "all")]
@@ -189,6 +199,7 @@ enum Commands {
     },
 
     /// Verify one local usage day against the provider's console figure.
+    #[command(hide = true)]
     Verify {
         /// Calendar day in YYYY-MM-DD form.
         #[arg(long)]
@@ -207,6 +218,7 @@ enum Commands {
     },
 
     /// Show or update the versioned provider pricing catalog.
+    #[command(hide = true)]
     Pricing {
         #[command(subcommand)]
         action: PricingAction,
@@ -292,6 +304,7 @@ enum Commands {
     },
 
     /// Manage the local daemon.
+    #[command(hide = true)]
     Daemon {
         #[command(subcommand)]
         action: DaemonAction,

@@ -58,6 +58,11 @@ Move-Item -Force $tmp $Bin
 
 Write-Host ""
 Write-Host "Installed trc to $InstallDir"
+Write-Host ""
+Write-Host "Next steps:"
+Write-Host "  1. trc integrations install all"
+Write-Host "  2. Restart the agents you use (Codex may ask you to approve /hooks)"
+Write-Host "  3. trc dashboard"
 
 # --- Update user PATH if needed ---
 $userPath = [Environment]::GetEnvironmentVariable("Path", "User")

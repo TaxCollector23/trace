@@ -105,6 +105,11 @@ if [ ! -f "${HOME}/.trace/install-banner-shown" ]; then
   printf '  ───────────────────────────────\n'
 fi
 printf 'to install all integrations, run trc integrations install all\n'
+printf 'then start the dashboard with trc dashboard\n'
+printf '\nNext steps:\n'
+printf '  1. trc integrations install all\n'
+printf '  2. Restart the agents you use (Codex may ask you to approve /hooks)\n'
+printf '  3. trc dashboard\n'
 if [ -f "${HOME}/.trace/daemon.json" ]; then
   port=$(sed -n 's/.*"port"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p' "${HOME}/.trace/daemon.json")
   [ -n "$port" ] && printf 'dashboard: http://127.0.0.1:%s\n' "$port"
