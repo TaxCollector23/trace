@@ -109,6 +109,30 @@ The active override is local and versioned as a whole. A malformed override is
 ignored in favor of the pinned catalog. `trc --version` and `trc doctor` expose
 the active `pricing_version` so a cost can be reproduced.
 
+## Opt-in provider proxy
+
+For clients that do not expose usable local usage logs, Trace includes a
+loopback-only proxy. It forwards requests to a fixed HTTPS allowlist and
+captures only provider-reported usage metadata:
+
+```text
+AI client -> http://127.0.0.1:<port>/proxy/<provider> -> provider API
+```
+
+Start it with `trc proxy openai`, `trc proxy anthropic`, or `trc proxy google`.
+Use `--json` for the base URL and attribution header in scripts. Add
+`X-Trace-Run-ID` when the client supports custom headers; without a valid run
+id, the response still passes through but no run attribution is invented.
+
+The upstream host is fixed to the selected provider, redirects are disabled,
+and request/response bodies are bounded and buffered so JSON and SSE usage can
+be read. Credentials and content stay in memory and are never logged or
+stored. Trace stores model, token counts, latency, and the computed amount only.
+The amount is an API list-rate estimate from the active catalog, not an invoice,
+subscription value, or account-specific charge. The response includes
+`X-Trace-*` usage headers so a real provider response can be compared directly
+with the selected pricing version.
+
 ## Reconciliation and local models
 
 When a valid provider-reported amount exists, Trace exposes it as `cost_usd`

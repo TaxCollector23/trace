@@ -8,6 +8,7 @@ pub mod api;
 pub mod assets;
 pub mod health_routes;
 pub mod intel_routes;
+pub mod proxy;
 pub mod server;
 pub mod state;
 
