@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("usage overview renders verified totals and partial pricing", async ({ page }) => {
   await page.goto("/#/usage");
-  await expect(page.getByRole("heading", { name: "Usage" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Usage", exact: true })).toBeVisible();
   await expect(page.getByTestId("cost-30d")).toContainText("$12.40");
   await expect(page.getByText("2 of 4 sessions", { exact: false }).first()).toBeVisible();
   await expect(page.getByText("computed", { exact: true }).first()).toBeVisible();
