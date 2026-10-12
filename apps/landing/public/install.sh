@@ -90,6 +90,10 @@ chmod +x "$tmp"
 mv "$tmp" "$BIN"
 
 printf '\nInstalled trc to %s\n' "$BIN"
+printf '\nNext steps:\n'
+printf '  1. trc integrations install all\n'
+printf '  2. Restart the agents you use (Codex may ask you to approve /hooks)\n'
+printf '  3. trc dashboard\n'
 
 # --- PATH guidance ---
 case ":${PATH}:" in
