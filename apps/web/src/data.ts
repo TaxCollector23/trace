@@ -141,6 +141,23 @@ export interface IntegrationCoverage {
   file_review: boolean | null;
   status: string;
   note?: string | null;
+  display_name?: string | null;
+  installed?: boolean | null;
+  connected?: boolean | null;
+  receiving_events?: boolean | null;
+  last_event_at?: string | null;
+  session_data_path?: string | null;
+  data_path?: string | null;
+  events_imported?: number | null;
+  parse_errors?: number | null;
+  capabilities?: {
+    tokens?: boolean | null;
+    cost?: boolean | null;
+    subagents?: boolean | null;
+    tool_calls?: boolean | null;
+    command_guard?: boolean | null;
+  } | null;
+  coverage?: Record<string, unknown> | null;
 }
 
 // --- Resource envelope -----------------------------------------------------
@@ -323,6 +340,17 @@ export const v4 = {
   coverage: (signal?: AbortSignal) =>
     fetchResource<IntegrationCoverage[]>("/integrations/coverage", {
       validate: validators.coverage,
+      signal,
+    }),
+
+  /**
+   * Read-only usage aggregate/event contract. The backend owns aggregation and
+   * pagination; the web client never scans a 100k-event store itself.
+   */
+  usage: (query: string, signal?: AbortSignal) =>
+    fetchResource<unknown>(`/usage${query ? `?${query}` : ""}`, {
+      validate: (v: unknown): v is Record<string, unknown> => isObject(v),
+      emptyIsEmpty: false,
       signal,
     }),
 

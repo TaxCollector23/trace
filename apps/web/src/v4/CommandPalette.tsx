@@ -17,15 +17,16 @@ interface Item {
 
 const NAV: [string, string][] = [
   ["/", "Control Room"],
+  ["/usage", "Usage"],
+  ["/connections", "Connections"],
   ["/run", "Run Page (latest)"],
   ["/timeline", "Session Timeline"],
   ["/patch", "Patch Review"],
-  ["/risk", "Command Risk"],
-  ["/usage", "Token Usage"],
+  ["/risk", "Safety · Guard"],
   ["/benchmarks", "Benchmarks"],
-  ["/rollback", "Rollback Points"],
+  ["/rollback", "Safety · Rollback"],
   ["/github", "GitHub"],
-  ["/ratify", "Ratify"],
+  ["/ratify", "Safety · Ratify"],
   ["/system", "System & Integrations"],
 ];
 

@@ -8,6 +8,7 @@ import SystemPage from "./pages/SystemPage";
 import RunTimeline from "./pages/RunTimeline";
 import PatchReview from "./pages/PatchReview";
 import Usage from "./pages/Usage";
+import Connections from "./pages/Connections";
 import RiskCenter from "./pages/RiskCenter";
 import RollbackCenter from "./pages/RollbackCenter";
 import GitHub from "./pages/GitHub";
@@ -34,6 +35,7 @@ const router = createHashRouter([
       { path: "patch/:runId", element: <PatchReview /> },
       { path: "usage", element: <Usage /> },
       { path: "usage/:runId", element: <Usage /> },
+      { path: "connections", element: <Connections /> },
       { path: "risk", element: <RiskCenter /> },
       { path: "risk/:runId", element: <RiskCenter /> },
       { path: "benchmarks", element: <Benchmarks /> },

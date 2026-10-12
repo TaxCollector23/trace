@@ -105,6 +105,97 @@ export interface CostResponse {
   has_unavailable: boolean;
 }
 
+// Canonical usage contract. The daemon's usage importer owns these values;
+// the web app only renders them. Keep null distinct from zero: null means the
+// source did not provide the value, while zero is a recorded zero.
+export type CostSource = "reported" | "computed" | "unknown" | "mixed";
+
+export interface UsageTokens {
+  input_tokens: number | null;
+  output_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_write_tokens: number | null;
+  reasoning_tokens: number | null;
+}
+
+export interface UsageTotals extends UsageTokens {
+  cost_usd: number | null;
+  cost_source: CostSource;
+  event_count: number | null;
+  priced_event_count: number | null;
+  unknown_event_count: number | null;
+  session_count: number | null;
+  priced_session_count: number | null;
+  unknown_session_count: number | null;
+}
+
+export interface UsageBreakdown extends UsageTotals {
+  key: string;
+  label: string;
+  event_ids: string[];
+}
+
+export interface UsageSeriesPoint extends UsageTotals {
+  bucket: string;
+  label: string;
+}
+
+export interface UsageSubagent extends UsageBreakdown {
+  subagent_id: string;
+  parent_subagent_id: string | null;
+  children: UsageSubagent[];
+}
+
+export interface UsageSession extends UsageTotals {
+  session_id: string;
+  run_id: string | null;
+  project_id: string | null;
+  project_name: string | null;
+  agent: string | null;
+  model: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  subagents: UsageSubagent[];
+  event_ids: string[];
+}
+
+export interface UsageEvent extends UsageTokens {
+  id: string;
+  run_id: string | null;
+  agent: string | null;
+  session_id: string | null;
+  message_id: string | null;
+  parent_message_id: string | null;
+  is_subagent: boolean;
+  subagent_id: string | null;
+  model: string | null;
+  ts: string | null;
+  cost_usd: number | null;
+  cost_source: Exclude<CostSource, "mixed">;
+  raw_ref: string | null;
+}
+
+export interface UsagePagination {
+  page_size: number | null;
+  total_events: number | null;
+  has_more: boolean;
+  next_cursor: string | null;
+}
+
+export interface UsageResponse {
+  range: "today" | "7d" | "30d" | string;
+  source: "live" | "legacy" | "synthetic";
+  totals: UsageTotals;
+  by_agent: UsageBreakdown[];
+  by_model: UsageBreakdown[];
+  by_project: UsageBreakdown[];
+  over_time: UsageSeriesPoint[];
+  sessions: UsageSession[];
+  events: UsageEvent[];
+  pagination: UsagePagination;
+  warning: string | null;
+}
+
 export interface Checkpoint {
   id: string;
   run_id: string;

@@ -77,18 +77,34 @@ function ThemeToggle() {
   );
 }
 
-const links: [string, string][] = [
-  ["/", "Overview"],
-  ["/run", "Current run"],
-  ["/timeline", "Timeline"],
-  ["/patch", "Changes"],
-  ["/risk", "Safety"],
-  ["/usage", "Spend"],
-  ["/benchmarks", "Benchmarks"],
-  ["/rollback", "Undo changes"],
-  ["/github", "GitHub"],
-  ["/ratify", "Review a PR"],
-  ["/system", "Connection"],
+const navGroups: Array<{ label: string; links: [string, string][] }> = [
+  {
+    label: "Observe",
+    links: [
+      ["/", "Overview"],
+      ["/usage", "Usage"],
+      ["/connections", "Connections"],
+      ["/run", "Current run"],
+      ["/timeline", "Timeline"],
+      ["/patch", "Changes"],
+    ],
+  },
+  {
+    label: "Safety",
+    links: [
+      ["/risk", "Guard"],
+      ["/rollback", "Rollback"],
+      ["/ratify", "Ratify"],
+    ],
+  },
+  {
+    label: "System",
+    links: [
+      ["/benchmarks", "Benchmarks"],
+      ["/github", "GitHub"],
+      ["/system", "Daemon health"],
+    ],
+  },
 ];
 
 // Apply the saved theme as early as possible to avoid a flash of the wrong palette.
@@ -114,10 +130,15 @@ export default function App() {
           Trace
         </div>
         <nav className="nav" aria-label="Primary">
-          {links.map(([to, label]) => (
-            <NavLink key={to} to={to} end={to === "/"}>
-              {label}
-            </NavLink>
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <div className="nav-group-label">{group.label}</div>
+              {group.links.map(([to, label]) => (
+                <NavLink key={to} to={to} end={to === "/"}>
+                  {label}
+                </NavLink>
+              ))}
+            </div>
           ))}
         </nav>
         <ThemeToggle />
