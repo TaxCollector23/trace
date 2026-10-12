@@ -83,6 +83,19 @@ enum Commands {
     /// Open the local dashboard in your browser (starts the daemon if needed).
     Dashboard,
 
+    /// Start/attach to the loopback provider proxy and print its client setup.
+    Proxy {
+        /// Provider to proxy: openai, anthropic, or google.
+        #[arg(value_name = "PROVIDER", default_value = "openai")]
+        provider: String,
+        /// Optional run id used for metadata-only attribution instructions.
+        #[arg(long)]
+        run_id: Option<String>,
+        /// Print the setup as machine-readable JSON.
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Run system checks (toolchain, clipboard, daemon, agents, paths).
     Doctor {
         #[command(subcommand)]
@@ -495,6 +508,11 @@ fn real_main() -> Result<()> {
             yes,
         }),
         Commands::Dashboard => commands::dashboard::run(),
+        Commands::Proxy {
+            provider,
+            run_id,
+            json,
+        } => commands::proxy::run(&provider, run_id.as_deref(), json),
         Commands::Doctor { action } => match action {
             Some(DoctorAction::Agents { json }) => commands::doctor::agents(json),
             None => commands::doctor::run(),

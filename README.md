@@ -77,6 +77,7 @@ only). Roll back a run's changes with `trc rollback`.
 | `trc patch <run_id>` | Show the changed files for a run. |
 | `trc risks <run_id>` | Show guarded commands and secret warnings for a run. |
 | `trc costs <run_id>` | Show API usage and estimated cost for a run. |
+| `trc proxy [provider]` | Start/attach to the loopback provider proxy and print SDK setup (`openai`, `anthropic`, `google`). |
 | `trc checkpoints` | List checkpoints across recent runs. |
 | `trc config show \| set` | View or change project configuration. |
 | `trc integrations [status]` | List integrations or check what is live; `status --json` is script-friendly. |
@@ -131,6 +132,9 @@ fake data in production.
   automatically
 - Local secret detection with redaction (raw secrets are never stored)
 - Cost/token tracking with honest partial-data handling
+- Opt-in loopback provider proxy that captures response token metadata without
+  storing prompts, responses, or API keys; dollar values are API-equivalent
+  list-rate estimates, never invoices
 - Build/test result recording and deterministic failure diagnosis
 - Rollback center backed by Git
 - Local SQLite history

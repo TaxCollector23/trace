@@ -65,7 +65,7 @@ impl PriceTier {
             Some(ttl) => self
                 .cache_write_per_mtok
                 .get(ttl)
-                .or_else(|| self.cache_write_per_mtok.get(normalize_cache_ttl(ttl)))
+                .or_else(|| self.cache_write_per_mtok.get(&normalize_cache_ttl(ttl)))
                 .copied(),
             None if self.cache_write_per_mtok.len() == 1 => {
                 self.cache_write_per_mtok.values().next().copied()

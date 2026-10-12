@@ -148,6 +148,20 @@ trc daemon stop     # stop it
 trc daemon status   # running?, port, url, pid, database path, active projects
 ```
 
+### `trc proxy [provider]`
+
+Start or attach to the local provider proxy and print the endpoint, active
+pricing version, official pricing source, and the optional `X-Trace-Run-ID`
+attribution header. Supported providers are `openai`, `anthropic`, and
+`google`; add `--json` for scripts. The proxy forwards credentials and content
+in memory only and stores provider-reported token metadata, never prompts or
+responses.
+
+```bash
+trc proxy openai
+trc proxy google --json
+```
+
 ## Reviewing runs
 
 ### `trc runs`

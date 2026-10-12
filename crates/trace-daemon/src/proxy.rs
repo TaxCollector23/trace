@@ -15,8 +15,10 @@ use axum::{
     routing::any,
     Router,
 };
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use trace_core::cost::UsageEventCostInput;
 use trace_core::models::NewApiUsage;
 
 use crate::state::AppState;
@@ -24,6 +26,9 @@ use crate::state::AppState;
 const OPENAI_ORIGIN: &str = "https://api.openai.com";
 const ANTHROPIC_ORIGIN: &str = "https://api.anthropic.com";
 const GOOGLE_ORIGIN: &str = "https://generativelanguage.googleapis.com";
+const OPENAI_PRICING: &str = "https://developers.openai.com/api/docs/pricing";
+const ANTHROPIC_PRICING: &str = "https://platform.claude.com/docs/en/about-claude/pricing";
+const GOOGLE_PRICING: &str = "https://ai.google.dev/gemini-api/docs/pricing";
 
 /// Request and response limits keep the local proxy bounded.  These are large
 /// enough for normal chat requests while ensuring a provider cannot make the
@@ -67,13 +72,21 @@ impl Provider {
             Self::Google => "google",
         }
     }
+
+    fn pricing_source(self) -> &'static str {
+        match self {
+            Self::OpenAi => OPENAI_PRICING,
+            Self::Anthropic => ANTHROPIC_PRICING,
+            Self::Google => GOOGLE_PRICING,
+        }
+    }
 }
 
 /// Provider-reported token usage plus Trace's local price-table estimate.
 ///
 /// Provider-reported usage is telemetry, not an invoice.  The estimate is
-/// calculated locally from `trace_core::cost::estimate_cost`; it is not a
-/// provider bill, subscription charge, or guarantee of what was charged.
+/// calculated locally from Trace's active, versioned pricing catalog; it is
+/// not a provider bill, subscription charge, or guarantee of what was charged.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UsageCapture {
     pub provider: String,
@@ -82,6 +95,8 @@ pub struct UsageCapture {
     pub output_tokens: Option<i64>,
     pub cached_tokens: Option<i64>,
     pub trace_estimated_cost_usd: Option<f64>,
+    pub trace_pricing_version: Option<String>,
+    pub trace_pricing_model: Option<String>,
 }
 
 /// Build the router to mount below `/proxy` in the daemon's loopback router.
@@ -141,7 +156,7 @@ pub async fn handler(
         persist_capture(&state, run_id, capture, started.elapsed().as_millis());
     }
 
-    provider_response(upstream)
+    provider_response(provider, upstream, capture.as_ref())
 }
 
 #[derive(Debug)]
@@ -157,7 +172,9 @@ fn send_upstream(
     headers: Vec<(String, String)>,
     body: Vec<u8>,
 ) -> Result<UpstreamResponse, ()> {
-    let agent = ureq::AgentBuilder::new().build();
+    // Provider redirects are intentionally disabled. Following a redirect
+    // here could turn a fixed-host provider adapter into an open proxy.
+    let agent = ureq::AgentBuilder::new().redirects(0).build();
     let mut request = agent.request(method.as_str(), url);
     for (name, value) in headers {
         request = request.set(&name, &value);
@@ -188,7 +205,11 @@ fn read_upstream_response(response: ureq::Response) -> Result<UpstreamResponse, 
     })
 }
 
-fn provider_response(upstream: UpstreamResponse) -> Response {
+fn provider_response(
+    provider: Provider,
+    upstream: UpstreamResponse,
+    capture: Option<&UsageCapture>,
+) -> Response {
     let status = StatusCode::from_u16(upstream.status).unwrap_or(StatusCode::BAD_GATEWAY);
     let mut response = Response::new(Body::from(upstream.body));
     *response.status_mut() = status;
@@ -197,7 +218,66 @@ fn provider_response(upstream: UpstreamResponse) -> Response {
             response.headers_mut().insert(header::CONTENT_TYPE, value);
         }
     }
+    set_trace_header(&mut response, "x-trace-provider", provider.canonical_name());
+    set_trace_header(&mut response, "x-trace-usage-source", "provider-response");
+    set_trace_header(
+        &mut response,
+        "x-trace-pricing-source",
+        provider.pricing_source(),
+    );
+    let pricing_version = capture
+        .and_then(|capture| capture.trace_pricing_version.clone())
+        .unwrap_or_else(trace_core::cost::pricing_version);
+    set_trace_header(&mut response, "x-trace-pricing-version", &pricing_version);
+    set_trace_header(
+        &mut response,
+        "x-trace-cost-basis",
+        "api-list-rate-estimate",
+    );
+    set_trace_header(
+        &mut response,
+        "x-trace-usage-available",
+        if capture.is_some() { "true" } else { "false" },
+    );
+    if let Some(capture) = capture {
+        if let Some(model) = capture.model.as_deref() {
+            set_trace_header(&mut response, "x-trace-model", model);
+        }
+        if let Some(pricing_model) = capture.trace_pricing_model.as_deref() {
+            set_trace_header(&mut response, "x-trace-pricing-model", pricing_model);
+        }
+        set_trace_token_header(&mut response, "x-trace-input-tokens", capture.input_tokens);
+        set_trace_token_header(
+            &mut response,
+            "x-trace-output-tokens",
+            capture.output_tokens,
+        );
+        set_trace_token_header(
+            &mut response,
+            "x-trace-cached-tokens",
+            capture.cached_tokens,
+        );
+        if let Some(cost) = capture.trace_estimated_cost_usd {
+            set_trace_header(
+                &mut response,
+                "x-trace-estimated-cost-usd",
+                &format!("{cost:.12}"),
+            );
+        }
+    }
     response
+}
+
+fn set_trace_token_header(response: &mut Response, name: &'static str, value: Option<i64>) {
+    if let Some(value) = value {
+        set_trace_header(response, name, &value.to_string());
+    }
+}
+
+fn set_trace_header(response: &mut Response, name: &'static str, value: &str) {
+    if let Ok(value) = HeaderValue::from_str(value) {
+        response.headers_mut().insert(name, value);
+    }
 }
 
 fn json_error(status: StatusCode, code: &'static str) -> Response {
@@ -209,7 +289,7 @@ fn upstream_url(provider: Provider, path: &str, uri: &Uri) -> Option<String> {
         return None;
     }
     let path = path.trim_start_matches('/');
-    if path.is_empty() {
+    if path.is_empty() || path.split('/').any(|segment| matches!(segment, "." | "..")) {
         return None;
     }
     let mut url = format!("{}/{}", provider.origin(), path);
@@ -235,8 +315,11 @@ pub fn safe_request_headers(headers: &HeaderMap) -> Vec<(String, String)> {
         "anthropic-version",
         "authorization",
         "content-type",
+        "openai-organization",
+        "openai-project",
         "x-api-key",
         "x-goog-api-key",
+        "x-goog-user-project",
     ];
 
     ALLOWED
@@ -321,6 +404,8 @@ pub fn capture_usage(
         output_tokens: None,
         cached_tokens: None,
         trace_estimated_cost_usd: None,
+        trace_pricing_version: None,
+        trace_pricing_model: None,
     };
 
     for value in &values {
@@ -340,14 +425,31 @@ pub fn capture_usage(
     {
         return None;
     }
-    capture.trace_estimated_cost_usd = trace_core::cost::estimate_cost(
-        &capture.provider,
-        capture.model.as_deref().unwrap_or("unknown"),
-        capture.input_tokens,
-        capture.output_tokens,
-        capture.cached_tokens,
-    );
+    let priced = trace_core::cost::compute_usage_event_cost(&UsageEventCostInput {
+        provider: Some(capture.provider.clone()),
+        model: capture.model.clone(),
+        // OpenAI and Google report total prompt tokens with cache reads as a
+        // subset. Anthropic reports uncached input separately.
+        input_tokens: uncached_input_tokens(provider, &capture),
+        output_tokens: capture.output_tokens,
+        cache_read_tokens: capture.cached_tokens,
+        ts: Utc::now().to_rfc3339(),
+        ..UsageEventCostInput::default()
+    });
+    capture.trace_estimated_cost_usd = priced.computed_cost_usd;
+    capture.trace_pricing_version = priced.pricing_version;
+    capture.trace_pricing_model = priced.pricing_model;
     Some(capture)
+}
+
+fn uncached_input_tokens(provider: Provider, capture: &UsageCapture) -> Option<i64> {
+    let input = capture.input_tokens?;
+    match provider {
+        Provider::Anthropic => Some(input),
+        Provider::OpenAi | Provider::Google => {
+            input.checked_sub(capture.cached_tokens.unwrap_or(0))
+        }
+    }
 }
 
 fn model_from_response(provider: Provider, value: &Value) -> Option<String> {
@@ -373,10 +475,13 @@ fn apply_openai_usage(capture: &mut UsageCapture, value: &Value) {
     let Some(usage) = value.get("usage") else {
         return;
     };
-    capture.input_tokens = number(usage, "prompt_tokens").or_else(|| number(usage, "input_tokens"));
-    capture.output_tokens =
-        number(usage, "completion_tokens").or_else(|| number(usage, "output_tokens"));
-    capture.cached_tokens = usage
+    capture.input_tokens = number(usage, "prompt_tokens")
+        .or_else(|| number(usage, "input_tokens"))
+        .or(capture.input_tokens);
+    capture.output_tokens = number(usage, "completion_tokens")
+        .or_else(|| number(usage, "output_tokens"))
+        .or(capture.output_tokens);
+    let cached_tokens = usage
         .get("prompt_tokens_details")
         .and_then(|details| number(details, "cached_tokens"))
         .or_else(|| {
@@ -384,6 +489,7 @@ fn apply_openai_usage(capture: &mut UsageCapture, value: &Value) {
                 .get("input_token_details")
                 .and_then(|details| number(details, "cached_tokens"))
         });
+    capture.cached_tokens = cached_tokens.or(capture.cached_tokens);
 }
 
 fn apply_anthropic_usage(capture: &mut UsageCapture, value: &Value) {
@@ -464,6 +570,7 @@ mod tests {
         assert!(Provider::parse("example.com").is_none());
         assert_eq!(Provider::OpenAi.origin(), OPENAI_ORIGIN);
         assert_eq!(Provider::Google.origin(), GOOGLE_ORIGIN);
+        assert_eq!(Provider::Anthropic.pricing_source(), ANTHROPIC_PRICING);
     }
 
     #[test]
@@ -537,5 +644,13 @@ mod tests {
         assert_eq!(anthropic_capture.output_tokens, Some(3));
         assert_eq!(anthropic_capture.cached_tokens, Some(2));
         assert_eq!(anthropic_capture.model.as_deref(), Some("claude-haiku"));
+    }
+
+    #[test]
+    fn rejects_path_traversal_before_building_provider_url() {
+        let uri = Uri::from_static("/proxy/openai/../admin");
+        assert!(upstream_url(Provider::OpenAi, "../admin", &uri).is_none());
+        assert!(upstream_url(Provider::OpenAi, "v1/./admin", &uri).is_none());
+        assert!(upstream_url(Provider::OpenAi, "v1/chat/completions", &uri).is_some());
     }
 }

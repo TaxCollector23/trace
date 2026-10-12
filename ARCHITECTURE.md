@@ -287,6 +287,11 @@ open, so a fresh install and an upgrade both just work.
 - `server.rs` — builds the router, binds an available port, writes
   `~/.trace/daemon.json` (pid/port/started_at) on start and clears it on
   shutdown, applies a CORS layer and security headers.
+- `proxy.rs` — an opt-in loopback provider proxy for OpenAI, Anthropic, and
+  Google. It uses a fixed HTTPS upstream allowlist, bounded buffering, and
+  response-only usage extraction; credentials and prompt/response content are
+  never logged or stored. Captured estimates include the active pricing
+  version and official source URL in response metadata.
 - `state.rs` — `AppState`: an `Arc<Mutex<Store>>` plus port/started_at/db_path.
   (It used to also hold global judge config and a judge-call cooldown map; both
   are gone now that review is deterministic-only.)
@@ -318,6 +323,7 @@ lives in `commands/`. The binary is named `trc`.
 | `trc self-check` | Run the policy + red-team benchmarks and print the report. |
 | `trc scan` | Detect and print the current project's stack. |
 | `trc dashboard` | Open the local dashboard (starts the daemon if needed). |
+| `trc proxy [provider]` | Print loopback proxy setup for OpenAI, Anthropic, or Google. |
 | `trc doctor` | Health checks: toolchain, clipboard, daemon, agents, paths, policy self-check. |
 | `trc runs` / `show` / `patch` / `risks` / `costs` / `checkpoints` / `replay` | Query recorded runs. |
 | `trc rollback` | Roll back to the most recent git checkpoint. |
@@ -495,7 +501,7 @@ files/commits from `api.github.com` — never a model provider.
 
 ### CLI commands
 `init`, `run`, `check`, `ratify`, `review-diff`, `self-check`, `scan`,
-`dashboard`, `doctor`, `runs`, `show`, `patch`, `risks`, `costs`,
+`dashboard`, `proxy`, `doctor`, `runs`, `show`, `patch`, `risks`, `costs`,
 `checkpoints`, `replay`, `rollback`, `config {show,set}`,
 `integrations {status,install}`, `github {status,commits,pulls,cat}`, `update`,
 `daemon {start,stop,status}`, `__serve` (hidden).

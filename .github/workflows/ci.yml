@@ -72,6 +72,20 @@ jobs:
           fi
           "$trc" self-check | grep -q "All fixtures and red-team threats passed."
 
+  vision-check:
+    name: North-star vision check
+    runs-on: ubuntu-latest
+    needs: [fmt, clippy, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: run disposable vision checks
+        run: ./scripts/vision-check.sh
+
   release-smoke:
     name: Release usage smoke
     runs-on: ubuntu-latest

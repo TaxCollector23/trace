@@ -123,6 +123,9 @@ fn build_router(state: AppState) -> Router {
         .allow_headers(tower_http::cors::AllowHeaders::any());
     Router::new()
         .nest("/api", api::router().merge(crate::health_routes::router()))
+        // The proxy is deliberately outside /api so provider SDK base URLs
+        // can be pointed at /proxy/<provider> without an API envelope.
+        .nest("/proxy", crate::proxy::router())
         .fallback(assets::static_handler)
         .layer(cors)
         .layer(middleware::from_fn(security_headers))

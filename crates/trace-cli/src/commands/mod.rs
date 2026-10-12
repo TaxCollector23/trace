@@ -13,6 +13,7 @@ pub mod install;
 pub mod integrations;
 pub mod pricing;
 pub mod query;
+pub mod proxy;
 pub mod ratify;
 pub mod replay;
 pub mod usage;
