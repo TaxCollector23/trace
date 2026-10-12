@@ -69,6 +69,22 @@ Each failing check prints an actionable fix.
 trc doctor
 ```
 
+### `trc pricing show` and `trc pricing update`
+
+Inspect the active versioned provider pricing catalog or refresh the local
+override from the structurally validated LiteLLM update source.
+
+```bash
+trc pricing show
+trc pricing show --json
+trc pricing update
+```
+
+The catalog reports official provider source URLs, retrieval dates, model
+aliases, cache/reasoning rules, and long-context tiers. A failed or malformed
+update keeps the embedded catalog and prints a warning. `trc --version` and
+`trc doctor` include the active `pricing_version`.
+
 ### `trc status`
 
 Show the short answer to “is Trace connected?” without the longer diagnostic

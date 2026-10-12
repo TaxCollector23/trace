@@ -48,6 +48,13 @@ pub fn database_path() -> Result<PathBuf> {
     Ok(home()?.join("trace.db"))
 }
 
+/// Path to the optional local pricing catalog override: `<home>/pricing.json`.
+/// The embedded catalog is always available when this file is missing or
+/// invalid, so a broken update cannot make cost computation silently zero.
+pub fn pricing_path() -> Result<PathBuf> {
+    Ok(home()?.join("pricing.json"))
+}
+
 /// Read an env var as a non-empty path, trimming surrounding whitespace.
 fn env_path(var: &str) -> Option<PathBuf> {
     std::env::var(var)

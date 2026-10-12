@@ -135,8 +135,8 @@ fn retries_an_unterminated_final_record_after_newline_arrives() {
     fs::create_dir_all(&project).expect("temporary project directory");
     let path = project.join("session.jsonl");
     let source = fixture_root().join("project-alpha/session-main.jsonl");
-    let assistant_line = fs::read_to_string(source)
-        .expect("fixture transcript")
+    let transcript = fs::read_to_string(source).expect("fixture transcript");
+    let assistant_line = transcript
         .lines()
         .nth(1)
         .expect("assistant fixture line");

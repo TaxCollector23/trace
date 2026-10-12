@@ -29,7 +29,7 @@ For those records, the observed accounting fields were:
 | --- | --- |
 | record | sessionId, timestamp, parentUuid, isSidechain, agentId |
 | message | id, model, usage |
-| message.usage | input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens, output_tokens_details, and other provider fields |
+| message.usage | input_tokens, output_tokens, cache_read_input_tokens, cache_creation_input_tokens, output_tokens_details (including observed thinking_tokens), and other provider fields |
 
 Observed model labels included claude-opus-4-6,
 claude-sonnet-5, claude-haiku-4-5-20251001, and <synthetic>. The

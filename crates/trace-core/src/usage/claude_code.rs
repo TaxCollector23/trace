@@ -227,7 +227,8 @@ fn parse_line(
     let cache_read_tokens = integer_field(usage, "cache_read_input_tokens")?;
     let cache_write_tokens = integer_field(usage, "cache_creation_input_tokens")?;
     let reasoning_tokens = integer_field(usage, "reasoning_tokens")?
-        .or_else(|| nested_integer_field(usage, "output_tokens_details", "reasoning_tokens"));
+        .or_else(|| nested_integer_field(usage, "output_tokens_details", "reasoning_tokens"))
+        .or_else(|| nested_integer_field(usage, "output_tokens_details", "thinking_tokens"));
 
     let subagent_id = object
         .get("agentId")

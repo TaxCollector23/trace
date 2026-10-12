@@ -1,89 +1,129 @@
 ---
 title: Cost Tracking
-description: Track AI/API usage and cost, with honest partial-data support.
+description: Versioned AI usage pricing with reported-versus-computed reconciliation.
 ---
 
-Trace tracks AI/API usage when the data is available, and is honest when it is
-not. It never guesses a number it cannot compute.
+Trace computes a cost only when the event contains enough trustworthy usage
+data and the active catalog has an effective, cited rate. Unknown models,
+missing required token counts, unsupported cache tiers, invalid timestamps, and
+unverified historical prices remain unavailable. They are never converted to
+`0.00`.
 
-## What it records
+## Canonical usage-event seam
 
-For each usage record: provider, model, input tokens, output tokens, cached
-tokens (when available), estimated cost, latency, timestamp, and run id. The
-**Cost Center** displays these per run, and `trc costs <run_id>` prints them in
-the terminal.
+The pricing API consumes this compatible additive `usage_events` shape. An
+importer or storage adapter can map its existing fields into it without
+changing transcript parsing:
 
-## How cost is computed
+| Field | Meaning |
+| --- | --- |
+| `provider` | Optional provider name. Trace also infers it from `agent` and model prefixes. |
+| `agent` | Importer/agent identity, such as `claude-code` or `codex`. |
+| `model` | Provider model id or a dated snapshot/alias. Missing means unavailable. |
+| `input_tokens` | Uncached input tokens. Cache-read and cache-write tokens are separate billable classes. |
+| `output_tokens` | Total output tokens. Provider-reported reasoning tokens are a detail of this value. |
+| `cache_read_tokens` | Optional cached-input token count. |
+| `cache_write_tokens` | Optional cache-creation token count. |
+| `reasoning_tokens` | Optional detail used for validation, never added to output again. |
+| `ts` | RFC3339 event timestamp used for effective pricing. |
+| `cost_usd`/`cost_source` | Provider-reported cost when `cost_source` is `reported`; importers do not calculate it. |
 
-Cost is derived from published per-million-token pricing. Cached input tokens are
-billed at the cached rate and are treated as a subset of the input tokens, so the
-formula is:
+The pricing result is an additive interface for storage/API consumers:
+`reported_cost_usd`, `computed_cost_usd`, `cost_usd`, `cost_source`,
+`pricing_version`, and reconciliation `{ status, delta_usd }`. The current
+importer/storage contract can map `UsageEvent` into
+`trace_core::cost::UsageEventCostInput` without changing transcript parsing.
+Anthropic's 5-minute and 1-hour cache-write prices require the optional
+`cache_write_tokens_by_ttl` detail; an aggregate write count without a TTL is
+unavailable when more than one write tier exists.
 
-```text
-cost = (input - cached)/1e6 * input_price
-     + cached/1e6           * cached_price
-     + output/1e6           * output_price
-```
+## Formula
 
-Model matching is prefix/substring based, so a dated model id such as
-`claude-sonnet-4-20250514` still resolves to the `claude-sonnet` price. The
-current built-in pricing table (USD per million tokens):
-
-| Model match | Input | Output | Cached input |
-| --- | --- | --- | --- |
-| `claude-opus` | 15.00 | 75.00 | 1.50 |
-| `claude-sonnet` | 3.00 | 15.00 | 0.30 |
-| `claude-haiku` | 0.80 | 4.00 | 0.08 |
-| `gpt-4o-mini` | 0.15 | 0.60 | 0.075 |
-| `gpt-4o` | 2.50 | 10.00 | 1.25 |
-| `gpt-4.1` | 2.00 | 8.00 | 0.50 |
-| `o1` | 15.00 | 60.00 | 7.50 |
-| `gemini-1.5-pro` | 1.25 | 5.00 | 0.3125 |
-| `gemini-1.5-flash` | 0.075 | 0.30 | 0.01875 |
-| `gemini` (other) | 0.50 | 1.50 | 0.125 |
-
-More specific matches are tried before generic ones, so `gemini-1.5-flash`
-resolves before the generic `gemini` fallback.
-
-## Local models are free
-
-Local providers are treated as zero cost, since there is no metered API bill.
-Providers recognized as local: `local`, `ollama`, `llamacpp`, and `lmstudio`
-(Ollama, llama.cpp, LM Studio, and the generic local label).
-
-## How usage is captured
-
-The preferred mechanism is a **local HTTP proxy**:
+Rates are USD per million tokens. `input_tokens` is already the uncached input
+class, so cache classes are added rather than subtracted:
 
 ```text
-AI client / tool  ->  Trace local proxy  ->  provider API
+cost = input_tokens/1e6       * input_price
+     + cache_read_tokens/1e6  * cache_read_price
+     + cache_write_tokens/1e6 * cache_write_price
+     + output_tokens/1e6       * output_price
 ```
 
-The proxy observes request/response token counts and attributes them to the
-active run. You can also ingest usage records directly through the local API:
+Provider reasoning documentation says reasoning tokens are included in output
+billing. Trace validates that `reasoning_tokens <= output_tokens` and does not
+charge them a second time.
+
+Long-context tier selection uses the total prompt-side token count represented
+by the event: uncached input plus cache reads and cache writes. This avoids
+silently applying a short-context rate to a request whose cached context pushes
+it over the provider threshold.
+
+## Versioned catalog and sources
+
+The pinned catalog is [crates/trace-core/data/pricing.json](https://github.com/TaxCollector23/trace/blob/main/crates/trace-core/data/pricing.json)
+and is compiled into the binary. The current pinned version is
+`official-2026-10-12`, with rows effective from `2026-10-12T00:00:00Z`.
+That date is the retrieval/effectivity boundary for this release, not a claim
+that an older provider price was historically identical. Events before the
+boundary remain unavailable unless a later catalog adds a verified historical
+row.
+
+The pinned data cites the official pages inspected on 2026-10-12:
+
+- [Anthropic Claude pricing](https://platform.claude.com/docs/en/about-claude/pricing)
+  and [extended thinking](https://platform.claude.com/docs/en/build-with-claude/thinking).
+- [OpenAI API pricing](https://developers.openai.com/api/docs/pricing),
+  [prompt caching](https://developers.openai.com/api/docs/guides/prompt-caching),
+  [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol),
+  [GPT-5.6 Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol),
+  [GPT-5.4](https://developers.openai.com/api/docs/models/gpt-5.4), and
+  [Agents API observability](https://developers.openai.com/api/docs/guides/agents-api/observability).
+- [Google Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing)
+  and [context caching](https://ai.google.dev/gemini-api/docs/caching).
+
+Anthropic cache-write TTLs, OpenAI cached-input/long-context rows, Google
+long-context rows, and the provider reasoning-billing rules are represented
+explicitly. Google cache storage is an hourly resource charge, not a token
+count, so Trace does not invent a storage cost from `cache_write_tokens`.
+
+## Inspect and update pricing
 
 ```bash
-POST /api/runs/<run_id>/cost
-{
-  "provider": "anthropic",
-  "model": "claude-sonnet-4",
-  "input_tokens": 12000,
-  "output_tokens": 3000,
-  "cached_tokens": 8000
-}
+trc pricing show
+trc pricing show --json
+trc pricing update
+trc --version
+trc doctor
 ```
 
-Trace computes `estimated_cost` from the pricing table above.
+`trc pricing show` prints the active version, source, citations, and all tiers.
+`trc pricing update` reads the community [LiteLLM model price
+file](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json),
+converts only structurally valid rows, requires usable Anthropic/OpenAI/Google
+coverage, and writes `TRACE_HOME/pricing.json`. LiteLLM is an update aid, not
+an official provider source; verify any new row against the provider before
+shipping it. Network, parse, validation, and write failures keep the embedded
+catalog and print a warning.
+
+The active override is local and versioned as a whole. A malformed override is
+ignored in favor of the pinned catalog. `trc --version` and `trc doctor` expose
+the active `pricing_version` so a cost can be reproduced.
+
+## Reconciliation and local models
+
+When a valid provider-reported amount exists, Trace exposes it as `cost_usd`
+with `cost_source: "reported"`, retains `computed_cost_usd`, and reports
+`match` or `mismatch` plus the signed delta. A reported value without enough
+data for computation is `reported_only`; a calculation without a report is
+`computed_only`. A hosted event with neither is `unavailable`.
+
+`local`, `ollama`, `llamacpp`, and `lmstudio` are an explicit unmetered policy,
+so a valid local event may compute to zero. This exception does not apply to
+unknown hosted models.
 
 ## Partial data is labeled, not faked
 
-Cost estimation needs at least a known model and an input token count. When
-either is missing, `estimate_cost` returns nothing rather than inventing a
-figure, and the dashboard says so:
-
-- **Cost unavailable** when there is no usage data or the model is unknown, or
-- **Estimated cost** when token counts are known but pricing is approximate.
-
-If a tool does not route through the proxy and no usage is imported, Trace does
-not know the cost, and it says the cost is unavailable. Trace does not lie about
-precision. See [Limitations](/limitations).
+If an agent does not provide usage, or its model/rate/cache tier is not in the
+effective catalog, Trace keeps the event and token fields but leaves its cost
+unavailable. Aggregates must preserve that unknown count instead of summing it
+as zero. See [Limitations](/limitations).
