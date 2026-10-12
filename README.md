@@ -1,318 +1,284 @@
 # Trace
 
-**Git stores commits. Trace stores execution.**
+Your AI can code. Trace shows what it did.
 
-AI coding agents now write, run, and ship code on real machines. Trace gives
-every session a complete local record of what changed, what ran, what it cost,
-and what looked risky, plus a one-click way to roll it back.
+Trace is free and open source. It watches AI coding sessions on your computer,
+records commands and file changes, stops commands it recognizes as dangerous,
+and gives you a local dashboard to review or undo the work.
 
-It is **local-first**: the daemon and dashboard bind only to `127.0.0.1`, there
-is no account, and your project data stays on your machine by default.
+Trace is local-first. The daemon and dashboard bind to `127.0.0.1`, there is no
+account, and your project data stays on your machine by default.
 
-- **Landing:** https://trace-landing-blue.vercel.app
-- **Docs:** https://taxcollector23.github.io/trace/
-- **Repo:** https://github.com/TaxCollector23/trace
-
-## Why it exists
-
-Companies now give every engineer an autonomous coding agent, and those agents
-have a shell. They install packages, rewrite configs, run migrations, delete
-files, and push branches on real machines with real credentials, often faster
-than a person can read what scrolled past.
-
-Most of the time that is fine. The failure cases are the problem: a session
-wipes the wrong directory while cleaning up, force-pushes over a branch, deletes
-a failing test instead of fixing the bug, commits an API key, or runs a piped
-shell installer. By the time anyone looks, the change has landed and the context
-is gone.
-
-Trace makes every session something you can **see, stop, and undo**:
-
-- **A git checkpoint before anything changes**, so rollback is one click and the safety net is already in place.
-- **Every file change as a diff you can read**: the authoritative patch, reviewed like a pull request.
-- **A guard on every command**, classified in real time as allow, warn, require-approval, or block. Destructive commands (`rm -rf`, force-push, piped shell installers, raw disk writes) are stopped before they run.
-- **Secret scanning** that catches and redacts keys and tokens in a diff.
-- **Cost per session**, token spend by model, so a runaway loop is visible immediately.
-- **PR ratification**: the same checks over a pull request, in the dashboard or in CI, with a clear `pass` / `review` / `block` verdict.
-
-Every check is deterministic pattern matching, with no LLM in the guard path and
-no API key, so verdicts are instant, free, and identical on every machine. The
-detection is measured against a labeled red-team corpus you can reproduce
-yourself, and everything runs on `127.0.0.1`. Your code never leaves your
-machine.
+- Landing page: https://trace-landing-blue.vercel.app
+- Documentation: https://taxcollector23.github.io/trace/
+- Source code: https://github.com/TaxCollector23/trace
 
 ## Install
+
+Install the `trc` command on macOS, Linux, or Windows:
 
 ```bash
 npm install -g trace-agent-cli
 ```
 
-This installs the `trc` command on macOS, Linux, and Windows.
+The install scripts verify the downloaded binary with SHA-256 before placing it
+on your machine.
 
-## Quickstart
+## Quick start
 
 ```bash
 trc init
-trc run "<your agent>"
+trc integrations install all
 trc dashboard
 ```
 
-The dashboard opens locally at `http://127.0.0.1:<port>` (binds to `127.0.0.1`
-only). Roll back a run's changes with `trc rollback`.
+Restart the agents you use. Trace starts the local dashboard and prints its
+address in the terminal. You can also watch one command directly:
+
+```bash
+trc run "your agent command"
+```
+
+The dashboard is local and normally opens at `http://127.0.0.1:8757`.
+
+## What Trace does
+
+Trace turns every session into something you can see, stop, and undo:
+
+- **A checkpoint before anything changes.** Trace saves your Git state before a
+  run starts, so you have a safety net before the first edit lands.
+- **Every file change as a diff you can read.** Review the real additions and
+  deletions instead of trusting a summary.
+- **A guard on every command.** Commands are classified as allow, warn, require
+  approval, or block. Destructive commands are stopped before they run.
+- **Secret scanning.** Keys, tokens, and credentials in a diff are caught and
+  redacted before they are stored.
+- **Usage and cost with provenance.** Imported token counts are grouped by
+  model, session, day, agent, or project. Reported and computed costs stay
+  distinct, and unavailable values remain visible.
+- **Pull request checks.** Run the same checks over a pull request and get a
+  clear `pass`, `review`, or `block` verdict.
+- **One-click rollback.** Restore a checkpoint when a run went somewhere you
+  did not want it to go.
+
+Every safety check is deterministic pattern matching. There is no LLM in the
+guard path and no API key is required, so the result is instant, free, and the
+same on every machine. Trace includes labeled dangerous commands, planted
+secrets, and unsafe prompts so you can reproduce the detection results.
+
+## The local dashboard
+
+Open it with:
+
+```bash
+trc dashboard
+```
+
+The dashboard shows the current run first: which agent is working, where it is
+working, what it costs, what passed, and what Trace stopped. You can then follow
+the timeline, file changes, safety decisions, token spend, benchmarks, and undo
+points.
+
+The public landing page also has a `/dashboard` route, but that page is only a
+browser frontend. It connects to a Trace daemon running on your own computer;
+it does not host your data.
 
 ## CLI commands
 
-| Command | Description |
-| --- | --- |
-| `trc init` | Initialize Trace in the current project. |
-| `trc run <command>` | Run a command under monitoring (`--no-checks`, `-y`). |
-| `trc dashboard` | Start the daemon if needed and open the dashboard. |
-| `trc rollback` | Restore a checkpoint (Git-based, confirmed; `-y`). |
-| `trc scan` | Detect the project's stack (package manager, framework, tests, git). |
-| `trc doctor` | System checks: toolchain, clipboard, daemon, agents, paths. |
-| `trc doctor agents [--json]` | Inspect installed agents, source paths, imported events, parse errors, and capability evidence. |
-| `trc import [codex\|opencode\|cursor\|aider\|all] [--json]` | Import local agent accounting metadata without transcript content. |
-| `trc status [--json]` | Compact connection snapshot and next action; JSON is script-friendly. |
-| `trc runs` | List recent runs with copyable short IDs. |
-| `trc show <run_id>` | Show a run's summary and timeline; a short ID prefix is enough. |
-| `trc replay <run_id>` | Replay a run's events, commands, and file changes in order, paced by their real timestamps (`-y`/`--fast` to skip pacing). |
-| `trc patch <run_id>` | Show the changed files for a run. |
-| `trc risks <run_id>` | Show guarded commands and secret warnings for a run. |
-| `trc costs <run_id>` | Show API usage and estimated cost for a run. |
-| `trc proxy [provider]` | Start/attach to the loopback provider proxy and print SDK setup (`openai`, `anthropic`, `google`). |
-| `trc checkpoints` | List checkpoints across recent runs. |
-| `trc config show \| set` | View or change project configuration. |
-| `trc integrations [status]` | List integrations or check what is live; `status --json` is script-friendly. |
-| `trc github <status\|commits\|pulls\|cat>` | Read directly from the repo (incl. private). |
-| `trc check <file>` | Run a file (or `-` for stdin) through the command guard + secret scanner; non-zero exit on require_approval/block. A CI gate for scripts. |
-| `trc ratify <pr> [--fail-on-risky]` | Ratify a GitHub pull request against the policy engine, no daemon, no `trc init`, no API key. |
-| `trc review-diff [--range] [--fail-on-risky] [--json]` | Review a diff range with the policy engine, no daemon or `trc init` required. What CI uses. |
-| `trc self-check [--json]` | Run the policy + red-team benchmarks; optionally export one machine-readable report. |
-| `trc update` | Update the `trc` binary to the latest release. |
-| `trc daemon start \| stop \| status` | Manage the local daemon. |
-| `trc --help` / `trc --version` | Help and version. |
+### Start and inspect Trace
 
-## Local dashboard
-
-Served by the Rust daemon at `http://127.0.0.1:<port>` (prefers `8757`, falls
-back to the next free port). Sections: **Dashboard** (with a live status strip
-for the policy + red-team benchmarks and Ratify), **Session Timeline**,
-**Patch Review** (with a Git diff view), **Token Spend**, **Command Risk**
-(command decisions, policy findings, secret warnings), **Trace Analytics**,
-**Benchmarks**, **Rollback Points**, **Integration Status**, and **Ratify**
-(deterministic PR review against a connected GitHub repo). It has clean
-empty/loading/error states, status badges, and a clear local-only notice. No
-fake data in production.
-
-## Features
-
-- Complete execution trace: prompts, commands, file changes, and cost tied to
-  one run
-- Agent run timeline and Git checkpointing
-- Patch review grounded in the real Git diff
-- File-change tracking with a debounced watcher
-- **Rule-based command guarding** (allow / warn / require approval / block),
-  understands evasions the naive blocklist misses: pipe-to-shell
-  (`curl ... | sudo bash`), download-then-exec, base64-decoded payloads,
-  `find ... -delete`, raw block-device writes, DB drops
-- **Deterministic policy engine**: secret detection, missing tests on
-  sensitive paths, swallowed errors, hardcoded localhost, dependency/lockfile
-  changes, and more, with a real labeled-fixture benchmark (`trc self-check`
-  / the dashboard's **Benchmarks** page) proving precision and recall rather
-  than asserting it. **No API key required, it's pure pattern matching.**
-- **Red-team benchmark**: an adversarial corpus (dangerous commands incl.
-  evasions, planted API keys, unsafe prompts) run through the *real* engines
-  and scored for recall and false positives, surfaced in `trc self-check`,
-  the API, and the dashboard
-- **Ratify**: run the policy engine over a GitHub pull request's files and get
-  a `pass` / `review` / `block` verdict, from the dashboard, `trc ratify <pr>`,
-  or the API. No key.
-- **`trc check`**: scan any file or script through the guard + secret
-  scanner without executing it; non-zero exit for CI gating
-- **CI review**: `trc review-diff` runs the same deterministic engine from a
-  bare git checkout, no daemon needed; the GitHub Action installs and runs it
-  automatically
-- Local secret detection with redaction (raw secrets are never stored)
-- Cost/token tracking with honest partial-data handling
-- Opt-in loopback provider proxy that captures response token metadata without
-  storing prompts, responses, or API keys; dollar values are API-equivalent
-  list-rate estimates, never invoices
-- Build/test result recording and deterministic failure diagnosis
-- Rollback center backed by Git
-- Local SQLite history
-- **GitHub repo reading**: reads commits, PRs, and file contents directly from
-  your repo (including private repos) via an authenticated, read-only token
-- A browser dashboard served by the local daemon; the old desktop wrapper is
-  retained under `experimental/` and is not a release target
-
-## Integrations
-
-Each lives under `integrations/` and connects to the local daemon.
-
-- **Claude Code**: session, command, and edit hooks; Bash commands are enforced. `trc usage` imports local Claude accounting metadata when present (`integrations/claude`)
-- **Cursor**: session, command, and edit hooks plus MCP tools; shell commands are enforced. Local transcript usage is optional; the native chat database remains opaque (`integrations/cursor`)
-- **OpenCode**: V1/V2 guard plugin plus MCP tools; Bash commands are enforced. `trc import opencode` reads assistant SQLite metadata, preserving reported cost only (`integrations/opencode`)
-- **Codex**: lifecycle hooks for CLI, desktop, and IDE plus a wrapper fallback; Bash commands are enforced after the hook is trusted, while file edits are reviewed after the call. `trc import codex` reads rollout token records; local cost is unavailable (`integrations/codex`)
-- **Windsurf**: MCP server, read-only; no local session importer or command guard (`integrations/windsurf`)
-- **Aider**: `trc import aider` reads optional token/cost summaries from `.aider.chat.history.md`; guarding requires `trc run aider`
-- **VS Code**: extension, not yet published to the marketplace; no supported local usage importer
-- **GitHub**: Action running the deterministic policy engine (`trc
-  review-diff`) and posting sanitized summaries (`integrations/github`)
-
-Run `trc integrations install all` to wire up Claude Code, Codex, Cursor,
-Windsurf, and OpenCode in one step. It starts the local daemon and prints the
-dashboard link. Restart the running agents; Codex also needs `/hooks` approval
-before its command guard becomes active.
-
-GUI tools are observed via file changes and Git diffs; full command guarding
-requires supported hooks or running through `trc run`.
-
-## Architecture
-
-- **CLI** (`trc`) handles user commands, runs the wrapped command, and hosts
-  the daemon in a detached child process.
-- **Daemon** (Axum) owns the local API, SQLite persistence, and dashboard
-  serving, bound to `127.0.0.1` only.
-- **Core** holds shared models, guard rules, the deterministic policy engine,
-  the secret scanner, the Ratify verdict logic, the benchmark corpora, cost
-  estimation, git/GitHub inspection, and the database schema. All deterministic.
-- **Web** is visualization only.
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the full, module-by-module reference.
-- **SQLite** (`~/.trace/trace.db`) stores local history.
-- **Git** provides checkpoints and rollback.
-
-## Repository structure
-
-```
-trace
-├── README.md
-├── docs/                  # Markdown docs (single source)
-├── crates/
-│   ├── trace-cli/         # Rust CLI (binary: trc; hosts the daemon)
-│   ├── trace-daemon/      # Rust local API + localhost GUI server
-│   └── trace-core/        # shared logic
-├── apps/
-│   ├── web/               # React + Vite local dashboard
-│   ├── landing/           # public landing site (Vercel)
-│   └── docs/              # docs site → GitHub Pages (renders /docs)
-├── integrations/
-│   ├── github/            # GitHub App / Actions
-│   ├── vscode/            # VS Code extension
-│   ├── cursor/            # Cursor MCP server + hook
-│   ├── windsurf/          # Windsurf MCP server
-│   ├── opencode/          # OpenCode plugin
-│   ├── shared/            # Claude/Cursor lifecycle hook
-│   ├── claude/            # Claude Code hooks adapter
-│   ├── codex/             # Codex CLI adapter
-├── packages/
-│   └── npm/               # npm wrapper package
-├── homebrew-trace/        # Homebrew formula (mirrors the tap repo)
-├── experimental/          # retired desktop, cloud, hosting, and webhook sketches
-├── scripts/               # install.sh, install.ps1
-└── .github/workflows/     # release.yml, landing-deploy.yml, ci.yml
+```text
+trc init                         Set up Trace in the current project
+trc run <command>                Run a command under Trace monitoring
+trc dashboard                   Start the daemon and open the local dashboard
+trc status [--json]              Show the local connection status
+trc doctor                      Check the toolchain, daemon, agents, and paths
+trc doctor agents [--json]      Show installed agents and integration evidence
+trc integrations status         Show which integrations are live
+trc integrations install all    Connect supported agents in one command
+trc daemon start|stop|status    Manage the local daemon
 ```
 
-## Development setup
+### Review runs
+
+```text
+trc runs                         List recent runs
+trc show <run-id>                Show a run summary and timeline
+trc replay <run-id>              Replay events, commands, and file changes
+trc patch <run-id>               Show changed files
+trc risks <run-id>               Show command decisions and secret warnings
+trc costs <run-id>               Show usage and estimated cost
+trc checkpoints                  List saved rollback points
+trc rollback                     Restore the latest checkpoint
+```
+
+### Usage and pricing
+
+Trace imports local accounting metadata without importing prompts, responses,
+tool arguments, or tool output content:
 
 ```bash
-# Rust
-cargo build
-cargo test
-
-# Dashboard (embedded by the daemon in release builds)
-cd apps/web && npm ci && npm run dev   # or: npm run build
-
-# Landing site
-cd apps/landing && npm ci && npm run dev
-
-# Run the daemon / CLI directly
-cargo run -p trace-daemon
-cargo run -p trace-cli -- --help
+trc import claude --json
+trc import codex --json
+trc import cursor --json
+trc import opencode --json
+trc import aider --json
+trc import all --json
+trc usage --by model --json
+trc usage --by day --since 2026-10-12 --json
+trc verify --day 2026-10-12
 ```
 
-## Deploying the public surfaces
+`trc verify` places Trace’s local accounting beside the provider’s own usage
+page. It does not pretend that an estimate is an invoice. Unknown models and
+missing provider data stay unavailable instead of becoming zero.
 
-The public surfaces are marketing/onboarding only and never touch the local
-daemon.
+Inspect or refresh the versioned pricing catalog with:
 
-- **Vercel (landing):** deployed from `apps/landing` (Root Directory
-  `apps/landing`, build command `npm run build`, output `dist`) to the
-  `landing` project at https://trace-landing-blue.vercel.app. Set
-  `VITE_MINTLIFY_DOCS_URL` to the deployed docs URL. Alias a `trace`-branded
-  custom domain to this project when one is available.
-- **GitHub Pages (docs):** `apps/docs` builds a fancy site from `/docs` and the
-  `docs-deploy.yml` workflow publishes it to
-  `https://taxcollector23.github.io/trace/`. Override the landing's docs
-  link with `VITE_DOCS_URL` if needed.
-- **Homebrew tap:** the formula lives in `homebrew-trace/Formula/trace.rb`,
-  mirrored to `TaxCollector23/homebrew-trace` (tapped as
-  `TaxCollector23/trace`, Homebrew's `homebrew-` prefix is implicit).
+```bash
+trc pricing show
+trc pricing show --json
+trc pricing update
+```
 
-## Security model
+### Connect API usage without storing content
 
-- The local daemon binds only to `127.0.0.1`, never the local network.
-- CORS is an explicit origin allow-list (the Vite dev server only), not a
-  wildcard, a permissive policy on a localhost daemon able to trigger
-  rollbacks would let *any webpage the user has open* script requests against
-  it. Same-origin requests (the packaged app itself) don't need a CORS grant.
-- **No AI/LLM API key is ever required or stored.** Every detection is
-  deterministic pattern matching; no request path calls a model provider.
-- Raw secrets are never stored; detected secrets are redacted at the point of
-  detection.
-- No cloud upload by default; project data stays on your machine.
-- **GitHub token** (for `trc github`, `trc ratify`, and the CI action) is
-  read-only, resolved from an env var / the `gh` CLI / `~/.trace/github.json`,
-  and only ever sent to `api.github.com`. Nothing is written back to GitHub.
-- GitHub integration uploads only sanitized summaries, never raw files,
-  secrets, or the local SQLite database.
-- Git is required for reliable checkpoints and rollback.
+The optional loopback proxy captures provider-reported token metadata while
+passing requests through. It does not store prompts, responses, or API keys.
 
-See [docs/security-model.mdx](docs/security-model.mdx).
+```bash
+trc proxy openai
+trc proxy anthropic
+trc proxy google
+trc proxy openai --run-id <run-id> --json
+```
 
-## Limitations
+Trace’s dollar value is an API-equivalent price-table estimate, not an invoice
+or subscription bill. The proxy is local and opt-in.
 
-- Full command guarding and run attribution require the `trc run` wrapper or
-  supported hooks. GUI tools are otherwise observed only via file changes and
-  Git diffs.
-- **Live agent feedback** depends on the agent's hook surface. Claude Code,
-  Cursor, OpenCode, and Codex can receive an enforced command decision through
-  their supported hooks. Windsurf and the VS Code/Copilot bridge are
-  observe-only for agent activity; Aider is available through the wrapper but
-  is not part of `trc integrations install all`.
-- Ratify reads a repo's PR files via a personal/CLI token, not a GitHub App,
-  fine for local, user-triggered ratification; an org-wide automatic version
-  would need App infrastructure this doesn't include.
-- Imported cost is available only when the agent reports it or Trace has a
-  verified cost source for that event. Missing token/cost fields stay
-  "unavailable"; they are never rendered as zero.
-- Rollback requires a Git repository.
+### Safety and CI
 
-See [docs/limitations.mdx](docs/limitations.mdx).
+Scan a file or script without executing it:
 
-## Engineering decisions
+```bash
+trc check script.sh
+cat script.sh | trc check -
+```
 
-- **UI library:** the local dashboard uses a small custom CSS design system (no
-  runtime UI dependency). It is already a serious developer-tool layout;
-  Tailwind + shadcn/ui can be adopted later without changing the API.
-- **Diff viewer:** a custom unified-diff renderer (no heavy dependency).
-- **Desktop/cloud/webhook sketches:** retained under `experimental/` for
-  reference only; they are not part of the local release or workspace.
-- **Analytics:** none on the landing site by default.
-- **Code signing:** not day-one; macOS/Windows may warn on downloaded binaries
-  until notarization/signing is added.
-- **License:** MIT.
+Review a diff in CI, with no daemon and no API key:
 
-## Roadmap
+```bash
+trc review-diff --range origin/main...HEAD --fail-on-risky
+trc ratify 123 --fail-on-risky
+trc self-check --json
+```
 
-- Live agent-feedback delivery for adapters beyond Claude Code, bounded by
-  what each tool's own hook/plugin surface actually exposes
-- GitHub App-based Ratify for org-wide, automatic PR checks
-- Transparent local cost proxy for live token capture
-- Signed release artifacts and notarized desktop builds
-- Optional (explicitly requested) enterprise features: org policy files, central
-  policy management, team dashboards, SSO, audit exports
+`trc self-check` runs the policy and red-team fixtures shipped with Trace.
+Those fixtures cover dangerous commands, evasions, secrets, and unsafe prompts.
+
+### Local data
+
+Trace stores local history in SQLite under the active Trace home. To inspect
+what a local reset would remove:
+
+```bash
+trc reset --local-data --dry-run
+trc reset --local-data
+```
+
+Reset is explicit and asks for confirmation. It removes local telemetry, not
+your project files or Git history.
+
+## Supported agents
+
+Trace shows what your coding agent did, what it changed, and whether it tried
+something risky.
+
+| Agent | What Trace can do |
+| --- | --- |
+| Claude Code | Hooks for sessions, commands, and edits; command enforcement; local usage import |
+| Codex | Lifecycle hooks and wrapper fallback; command enforcement after hooks; usage import |
+| Cursor | Hooks and MCP tools; command enforcement; optional local usage import |
+| OpenCode | Guard plugin and MCP tools; command enforcement; local usage import |
+| Aider | Local usage import; run through `trc run aider` for guarding |
+| Windsurf | Activity and file changes through the read-only integration; no command hook |
+| GitHub Copilot | File changes through the supported observation path |
+
+GUI tools can always be observed through file changes and Git diffs. Full
+command guarding requires a supported hook or running the agent through
+`trc run`.
+
+## Privacy and security
+
+- The daemon binds to `127.0.0.1`, not the local network.
+- Trace does not require an AI or LLM API key for its safety checks.
+- Prompts, responses, tool arguments, and tool output are not imported by the
+  usage importers.
+- Secrets found in diffs are redacted before storage.
+- Provider proxy requests are forwarded in memory; only usage metadata is
+  captured.
+- GitHub access is opt-in and uses the connection you provide.
+- Cost values are estimates unless a provider reports the value directly.
+
+Read the full policies in [`docs/privacy.md`](docs/privacy.md) and
+[`SECURITY.md`](SECURITY.md).
+
+## Repository layout
+
+```text
+crates/trace-core/       Shared models, policy rules, pricing, importers, and storage
+crates/trace-daemon/     Local API, SQLite history, proxy, and dashboard server
+crates/trace-cli/        The `trc` command
+apps/web/                Local dashboard UI
+apps/landing/            Public landing page
+apps/docs/               Documentation site
+integrations/            Agent and GitHub integrations
+packages/npm/            npm wrapper and installers
+experimental/            Retired desktop, cloud, hosting, and webhook sketches
+scripts/                 Installer and verification scripts
+```
+
+The supported product is the local CLI, daemon, and browser dashboard.
+Experimental directories are retained for reference and are not release
+targets.
+
+## Development
+
+Requirements: Rust, Node.js, npm, and Git.
+
+```bash
+cargo build
+cargo test --workspace
+cargo fmt --all -- --check
+
+cd apps/web
+npm ci
+npm run build
+
+cd ../landing
+npm ci
+npm run build
+```
+
+Run the CLI directly during development:
+
+```bash
+cargo run -p trace-cli -- --help
+cargo run -p trace-cli -- self-check
+```
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md), [`ARCHITECTURE.md`](ARCHITECTURE.md),
+and the [`docs/`](docs/) directory for project conventions and deeper guides.
+
+## Public surfaces
+
+- Landing page: Vercel deploy from `apps/landing`.
+- Documentation: GitHub Pages from `apps/docs` and `/docs`.
+- Releases: GitHub Actions builds the CLI and publishes checksums.
+
+The public landing page is for explanation and onboarding. It does not receive
+your local Trace data.
 
 ## License
 
-MIT
+See [`LICENSE`](LICENSE).
