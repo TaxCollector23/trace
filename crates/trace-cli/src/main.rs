@@ -84,7 +84,10 @@ enum Commands {
     Dashboard,
 
     /// Run system checks (toolchain, clipboard, daemon, agents, paths).
-    Doctor,
+    Doctor {
+        #[command(subcommand)]
+        action: Option<DoctorAction>,
+    },
 
     /// Show a compact connection snapshot and the next useful action.
     Status {
@@ -161,6 +164,24 @@ enum Commands {
     #[command(hide = true)]
     Costs { run_id: String },
 
+    /// Import local usage metadata from a supported agent without importing
+    /// prompt, response, tool arguments, or tool output content.
+    Import {
+        /// One of: codex, opencode, cursor, aider, all.
+        #[arg(default_value = "all")]
+        agent: String,
+        /// Print machine-readable import reports.
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Verify one local usage day against the provider's console figure.
+    Verify {
+        /// Calendar day in YYYY-MM-DD form.
+        #[arg(long)]
+        day: String,
+    },
+
     /// List checkpoints across recent runs.
     #[command(hide = true)]
     Checkpoints,
@@ -170,6 +191,12 @@ enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigAction,
+    },
+
+    /// Show or update the versioned provider pricing catalog.
+    Pricing {
+        #[command(subcommand)]
+        action: PricingAction,
     },
 
     /// Connect Trace to your coding agents. `trc integrations install all`
@@ -268,6 +295,29 @@ enum ConfigAction {
     Show,
     /// Set a config key.
     Set { key: String, value: String },
+}
+
+#[derive(Subcommand)]
+enum DoctorAction {
+    /// Inspect installed agents, local session sources, imported events, and
+    /// the evidence-backed capability matrix.
+    Agents {
+        /// Print machine-readable JSON for scripts and support bundles.
+        #[arg(long)]
+        json: bool,
+    },
+}
+
+#[derive(Subcommand)]
+enum PricingAction {
+    /// Show the active catalog, source citations, and model tiers.
+    Show {
+        /// Print the complete catalog as JSON.
+        #[arg(long)]
+        json: bool,
+    },
+    /// Refresh the local catalog from the structural LiteLLM update source.
+    Update,
 }
 
 #[derive(Subcommand)]
@@ -445,21 +495,31 @@ fn real_main() -> Result<()> {
             yes,
         }),
         Commands::Dashboard => commands::dashboard::run(),
-        Commands::Doctor => commands::doctor::run(),
+        Commands::Doctor { action } => match action {
+            Some(DoctorAction::Agents { json }) => commands::doctor::agents(json),
+            None => commands::doctor::run(),
+        },
         Commands::Status { json } => commands::status::run(json),
         Commands::Demo { scenario, seed } => commands::demo::run(&scenario, seed),
         Commands::Scan => commands::scan_cmd::run(),
         Commands::Check { file } => commands::check::run(&file),
         Commands::Runs => commands::query::runs(),
+        Commands::Usage { by, since, json } => commands::usage::run(&by, since.as_deref(), json),
         Commands::Show { run_id } => commands::query::show(&run_id),
         Commands::Replay { run_id, fast } => commands::replay::run(&run_id, fast),
         Commands::Patch { run_id } => commands::query::patch(&run_id),
         Commands::Risks { run_id } => commands::query::risks(&run_id),
         Commands::Costs { run_id } => commands::query::costs(&run_id),
+        Commands::Import { agent, json } => commands::imports::run(&agent, json),
+        Commands::Verify { day } => commands::verify::run(&day),
         Commands::Checkpoints => commands::query::checkpoints(),
         Commands::Config { action } => match action {
             ConfigAction::Show => commands::config_cmd::show(),
             ConfigAction::Set { key, value } => commands::config_cmd::set(&key, &value),
+        },
+        Commands::Pricing { action } => match action {
+            PricingAction::Show { json } => commands::pricing::show(json),
+            PricingAction::Update => commands::pricing::update(),
         },
         Commands::Integrations { action } => match action {
             Some(IntegrationsAction::Status { json }) => commands::integrations::status(json),
