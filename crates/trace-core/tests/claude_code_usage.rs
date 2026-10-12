@@ -136,10 +136,7 @@ fn retries_an_unterminated_final_record_after_newline_arrives() {
     let path = project.join("session.jsonl");
     let source = fixture_root().join("project-alpha/session-main.jsonl");
     let transcript = fs::read_to_string(source).expect("fixture transcript");
-    let assistant_line = transcript
-        .lines()
-        .nth(1)
-        .expect("assistant fixture line");
+    let assistant_line = transcript.lines().nth(1).expect("assistant fixture line");
     fs::write(&path, assistant_line).expect("partial transcript");
 
     let store = Store::open_in_memory().expect("in-memory store");
