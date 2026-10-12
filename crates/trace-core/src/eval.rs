@@ -11,6 +11,7 @@
 //! for a tool that's going to interrupt someone's work on a false positive.
 
 use serde::Serialize;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::policy::{run_policy_checks, FileDiff};
 
@@ -590,7 +591,39 @@ pub struct PolicyEvalReport {
     /// True positives / (true positives + false negatives) — of everything
     /// that should have fired, how much actually did.
     pub recall: f64,
+    /// Harmonic mean of precision and recall.
+    pub f1: f64,
+    /// Confusion-matrix metrics for every rule represented by the corpus.
+    /// Extra findings on a positive fixture are false positives for the rule
+    /// that fired; they are never treated as an allowed companion.
+    pub per_rule: Vec<RuleMetric>,
     pub results: Vec<FixtureResult>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RuleMetric {
+    pub rule_key: String,
+    pub true_positives: usize,
+    pub false_positives: usize,
+    pub false_negatives: usize,
+    pub precision: f64,
+    pub recall: f64,
+    pub f1: f64,
+}
+
+fn f1(precision: f64, recall: f64) -> f64 {
+    if precision + recall == 0.0 {
+        0.0
+    } else {
+        2.0 * precision * recall / (precision + recall)
+    }
+}
+
+#[derive(Default)]
+struct RuleCounts {
+    true_positives: usize,
+    false_positives: usize,
+    false_negatives: usize,
 }
 
 /// Runs every fixture through the real policy engine and scores it. No
@@ -599,27 +632,40 @@ pub struct PolicyEvalReport {
 pub fn run_policy_eval() -> PolicyEvalReport {
     let mut results = Vec::new();
     let (mut tp, mut fp, mut fn_) = (0usize, 0usize, 0usize);
+    let mut rule_counts: BTreeMap<String, RuleCounts> = BTreeMap::new();
 
     for fixture in fixtures() {
         let findings = run_policy_checks(std::slice::from_ref(&fixture.diff));
-        let fired_rules: Vec<String> = findings.iter().map(|f| f.rule_key.clone()).collect();
+        let fired_rules: Vec<String> = findings
+            .iter()
+            .map(|f| f.rule_key.clone())
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
 
         let passed = match &fixture.expected_rule {
             Some(expected) => {
                 let hit = fired_rules.iter().any(|r| r == expected);
                 if hit {
                     tp += 1;
+                    rule_counts
+                        .entry((*expected).to_string())
+                        .or_default()
+                        .true_positives += 1;
                 } else {
                     fn_ += 1;
+                    rule_counts
+                        .entry((*expected).to_string())
+                        .or_default()
+                        .false_negatives += 1;
                 }
-                // Keep collateral findings explicit. New accidental findings
-                // must lower precision instead of being hidden by a
-                // permissive benchmark.
-                let allowed = allowed_companion_rules(&fixture);
-                let extras = fired_rules
-                    .iter()
-                    .filter(|r| *r != expected && !allowed.iter().any(|a| a == *r))
-                    .count();
+                // Every other finding is a false positive for the rule that
+                // fired. This includes the historical Stripe/payment
+                // companion finding; positive fixtures do not get a free pass.
+                let extras = fired_rules.iter().filter(|r| *r != expected).count();
+                for rule in fired_rules.iter().filter(|r| *r != expected) {
+                    rule_counts.entry(rule.clone()).or_default().false_positives += 1;
+                }
                 fp += extras;
                 hit && extras == 0
             }
@@ -627,6 +673,9 @@ pub fn run_policy_eval() -> PolicyEvalReport {
                 let clean = fired_rules.is_empty();
                 if !clean {
                     fp += fired_rules.len();
+                    for rule in &fired_rules {
+                        rule_counts.entry(rule.clone()).or_default().false_positives += 1;
+                    }
                 }
                 clean
             }
@@ -650,6 +699,33 @@ pub fn run_policy_eval() -> PolicyEvalReport {
     } else {
         1.0
     };
+    let overall_f1 = f1(precision, recall);
+    let per_rule = rule_counts
+        .into_iter()
+        .map(|(rule_key, counts)| {
+            let precision = if counts.true_positives + counts.false_positives > 0 {
+                counts.true_positives as f64
+                    / (counts.true_positives + counts.false_positives) as f64
+            } else {
+                1.0
+            };
+            let recall = if counts.true_positives + counts.false_negatives > 0 {
+                counts.true_positives as f64
+                    / (counts.true_positives + counts.false_negatives) as f64
+            } else {
+                1.0
+            };
+            RuleMetric {
+                rule_key,
+                true_positives: counts.true_positives,
+                false_positives: counts.false_positives,
+                false_negatives: counts.false_negatives,
+                precision,
+                recall,
+                f1: f1(precision, recall),
+            }
+        })
+        .collect();
     let passed = results.iter().filter(|r| r.passed).count();
 
     PolicyEvalReport {
@@ -660,17 +736,63 @@ pub fn run_policy_eval() -> PolicyEvalReport {
         false_negatives: fn_,
         precision,
         recall,
+        f1: overall_f1,
+        per_rule,
         results,
     }
 }
 
-/// Findings that are expected collateral for a particular labeled fixture.
-/// This is deliberately narrow so the precision score remains meaningful as
-/// the policy pack grows.
-fn allowed_companion_rules(fixture: &Fixture) -> &'static [&'static str] {
-    if fixture.name.starts_with("Stripe secret key") {
-        &["missing-tests-for-payments-paths"]
-    } else {
-        &[]
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn f1_is_the_harmonic_mean() {
+        let score = f1(0.75, 0.5);
+        assert!((score - 0.6).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn report_exposes_per_rule_confusion_metrics() {
+        let report = run_policy_eval();
+        assert!(!report.per_rule.is_empty());
+        assert!((0.0..=1.0).contains(&report.precision));
+        assert!((0.0..=1.0).contains(&report.recall));
+        assert!((0.0..=1.0).contains(&report.f1));
+        for metric in &report.per_rule {
+            assert!((0.0..=1.0).contains(&metric.precision));
+            assert!((0.0..=1.0).contains(&metric.recall));
+            assert!((0.0..=1.0).contains(&metric.f1));
+            assert_eq!(
+                metric.f1,
+                f1(metric.precision, metric.recall),
+                "{} has inconsistent F1",
+                metric.rule_key
+            );
+        }
+    }
+
+    #[test]
+    fn positive_fixture_extras_are_counted_as_false_positives() {
+        let report = run_policy_eval();
+        let stripe = report
+            .results
+            .iter()
+            .find(|result| result.name.starts_with("Stripe secret key"))
+            .expect("Stripe fixture is part of the benchmark corpus");
+        let expected = stripe
+            .expected_rule
+            .as_deref()
+            .expect("Stripe fixture is positive");
+        let extras = stripe
+            .fired_rules
+            .iter()
+            .filter(|rule| rule.as_str() != expected)
+            .count();
+        assert_eq!(
+            stripe.passed,
+            extras == 0 && stripe.fired_rules.iter().any(|rule| rule == expected)
+        );
+        assert!(report.false_positives >= extras);
     }
 }

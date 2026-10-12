@@ -27,13 +27,14 @@ pub fn run(json_output: bool) -> Result<()> {
 
     println!("{}", colors::bold("Trace policy engine self-check"));
     println!(
-        "  {} / {} fixtures passed  ·  {} false positive(s)  ·  {} missed  ·  precision {:.0}%  ·  recall {:.0}%\n",
+        "  {} / {} fixtures passed  ·  {} false positive(s)  ·  {} missed  ·  precision {:.0}%  ·  recall {:.0}%  ·  F1 {:.0}%\n",
         report.passed,
         report.total,
         report.false_positives,
         report.false_negatives,
         report.precision * 100.0,
-        report.recall * 100.0
+        report.recall * 100.0,
+        report.f1 * 100.0
     );
 
     for r in &report.results {
@@ -49,14 +50,30 @@ pub fn run(json_output: bool) -> Result<()> {
         );
     }
 
+    println!("\n{}", colors::bold("Per-rule confusion matrix"));
+    for metric in &report.per_rule {
+        println!(
+            "  {:<38} TP {:>3}  FP {:>3}  FN {:>3}  precision {:.0}%  recall {:.0}%  F1 {:.0}%",
+            metric.rule_key,
+            metric.true_positives,
+            metric.false_positives,
+            metric.false_negatives,
+            metric.precision * 100.0,
+            metric.recall * 100.0,
+            metric.f1 * 100.0,
+        );
+    }
+
     // --- Red-team detection benchmark (guard / secrets / prompt) ---
     println!("\n{}", colors::bold("Trace red-team detection benchmark"));
     println!(
-        "  {}/{} threats caught  ·  {} false positive(s)  ·  recall {:.0}%\n",
+        "  {}/{} threats caught  ·  {} false positive(s)  ·  precision {:.0}%  ·  recall {:.0}%  ·  F1 {:.0}%\n",
         rt.total_caught(),
         rt.total_threats(),
         rt.total_false_positives(),
-        rt.overall_recall() * 100.0
+        rt.overall_precision() * 100.0,
+        rt.overall_recall() * 100.0,
+        rt.overall_f1() * 100.0
     );
     for e in &rt.engines {
         let clean = e.missed == 0 && e.downgraded == 0 && e.false_positives == 0;
@@ -66,8 +83,17 @@ pub fn run(json_output: bool) -> Result<()> {
             colors::red("FAIL")
         };
         println!(
-            "  [{status}] {:<16} {}/{} caught, {} missed, {} downgraded, {} false+ ({} benign)",
-            e.name, e.caught, e.threats, e.missed, e.downgraded, e.false_positives, e.benign
+            "  [{status}] {:<16} {}/{} caught, {} missed, {} downgraded, {} false+ ({} benign) · P {:.0}% R {:.0}% F1 {:.0}%",
+            e.name,
+            e.caught,
+            e.threats,
+            e.missed,
+            e.downgraded,
+            e.false_positives,
+            e.benign,
+            e.precision * 100.0,
+            e.recall * 100.0,
+            e.f1 * 100.0
         );
     }
     println!(
