@@ -83,7 +83,7 @@ pub const INTEGRATIONS: &[IntegrationDef] = &[
         display_name: "Windsurf",
         how: "MCP server",
         config_rel: &[".codeium", "windsurf", "mcp_config.json"],
-        needle: ".trace/integrations/windsurf",
+        needle: "integrations/windsurf/",
         existence_only: false,
         command_enforcement: Some(false),
         file_review: Some(false),
@@ -113,22 +113,19 @@ pub const INTEGRATIONS: &[IntegrationDef] = &[
     },
 ];
 
-fn config_text(rel: &[&str]) -> Option<String> {
-    let mut p: PathBuf = dirs::home_dir()?;
-    for seg in rel {
-        p.push(seg);
-    }
-    fs::read_to_string(p).ok()
-}
-
-fn config_exists(rel: &[&str]) -> bool {
-    let Some(mut p) = dirs::home_dir() else {
-        return false;
+fn config_path(def: &IntegrationDef) -> Option<PathBuf> {
+    let (mut path, relative_parts) = if def.id == "opencode" {
+        match std::env::var_os("XDG_CONFIG_HOME") {
+            Some(xdg) => (PathBuf::from(xdg), &def.config_rel[1..]),
+            None => (dirs::home_dir()?, def.config_rel),
+        }
+    } else {
+        (dirs::home_dir()?, def.config_rel)
     };
-    for seg in rel {
-        p.push(seg);
+    for segment in relative_parts {
+        path.push(segment);
     }
-    p.exists()
+    Some(path)
 }
 
 /// Real, live check: is Trace's hook/plugin actually wired into this agent's
@@ -136,9 +133,10 @@ fn config_exists(rel: &[&str]) -> bool {
 /// installer patches, so this can never disagree with what was installed.
 pub fn is_connected(def: &IntegrationDef) -> bool {
     if def.existence_only {
-        return config_exists(def.config_rel);
+        return config_path(def).is_some_and(|path| path.exists());
     }
-    config_text(def.config_rel)
+    config_path(def)
+        .and_then(|path| fs::read_to_string(path).ok())
         .map(|s| s.contains(def.needle))
         .unwrap_or(false)
 }

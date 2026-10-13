@@ -74,10 +74,10 @@ Open it with:
 trc dashboard
 ```
 
-The dashboard shows the current run first: which agent is working, where it is
-working, what it costs, what passed, and what Trace stopped. You can then follow
-the timeline, file changes, safety decisions, token spend, benchmarks, and undo
-points.
+The dashboard shows the current recorded run first: which agent is working,
+where it is working, file and command counts, secret warnings, and estimated
+cost when available. It also explains whether agent integrations are configured
+and links to the timeline, usage, safety decisions, benchmarks, and rollback.
 
 The public landing page also has a `/dashboard` route, but that page is only a
 browser frontend. It connects to a Trace daemon running on your own computer;

@@ -46,6 +46,7 @@ pub fn run() -> Result<()> {
         println!("Trace is already initialized here ({project_name}).");
         println!("  {}", colors::dim(&config_path.display().to_string()));
         println!("  Project registry refreshed for the active Trace database.");
+        print_next_steps();
         return Ok(());
     }
 
@@ -141,13 +142,22 @@ pub fn run() -> Result<()> {
         );
     }
 
-    println!(
-        "\nNext:\n  1. {}  connect your agent\n  2. {}  run it under Trace\n  3. {}  watch it live",
-        colors::bold("trc install agents"),
-        colors::bold("trc run \"<your agent command>\""),
-        colors::bold("trc dashboard"),
-    );
+    print_next_steps();
     Ok(())
+}
+
+fn print_next_steps() {
+    println!("\nNext:");
+    println!("  {}  check your connections", colors::bold("trc status"));
+    println!(
+        "  {}  connect the agent you use",
+        colors::bold("trc integrations install <agent>")
+    );
+    println!(
+        "  {}  monitor a CLI session",
+        colors::bold("trc run claude")
+    );
+    println!("  {}  see local activity", colors::bold("trc dashboard"));
 }
 
 /// Count workflow files in `.github/workflows/`, if the directory exists.

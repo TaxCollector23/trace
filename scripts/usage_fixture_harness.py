@@ -291,6 +291,11 @@ def expected_projection(expected: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def stable_import_projection(actual: dict[str, Any]) -> dict[str, Any]:
+    """Fields that should not change when a source is imported a second time."""
+    return {key: value for key, value in actual.items() if key != "parse_errors"}
+
+
 def materialize_case(case: Path, root: Path, mutation: str | None = None, seed: int = 0) -> None:
     destination = root / "home" / ".claude" / "projects" / "-fixture-project"
     destination.mkdir(parents=True, exist_ok=True)
@@ -335,7 +340,12 @@ def materialize_case(case: Path, root: Path, mutation: str | None = None, seed: 
 
 
 @contextmanager
-def isolated_case(case: Path, mutation: str | None = None, seed: int = 0) -> Iterator[tuple[Path, dict[str, str]]]:
+def isolated_case(
+    case: Path,
+    binary: Path,
+    mutation: str | None = None,
+    seed: int = 0,
+) -> Iterator[tuple[Path, dict[str, str]]]:
     with tempfile.TemporaryDirectory(prefix="trace-usage-fixture-") as temporary:
         root = Path(temporary)
         materialize_case(case, root, mutation=mutation, seed=seed)
@@ -354,7 +364,33 @@ def isolated_case(case: Path, mutation: str | None = None, seed: int = 0) -> Ite
                 "NO_COLOR": "1",
             }
         )
-        yield root, env
+        try:
+            yield root, env
+        finally:
+            state_path = trace_home / "daemon.json"
+            daemon_pid: int | None = None
+            try:
+                daemon_pid = int(json.loads(state_path.read_text(encoding="utf-8"))["pid"])
+            except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError):
+                pass
+            subprocess.run(
+                [str(binary), "daemon", "stop"],
+                cwd=root,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if daemon_pid is not None:
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    try:
+                        os.kill(daemon_pid, 0)
+                    except ProcessLookupError:
+                        break
+                    except PermissionError:
+                        pass
+                    time.sleep(0.05)
 
 
 def invoke(binary: Path, root: Path, env: dict[str, str], extra: list[str] | None = None) -> dict[str, Any]:
@@ -390,10 +426,10 @@ def normalized_case_output(binary: Path, root: Path, env: dict[str, str]) -> dic
 
 def run_golden(binary: Path, case: Path) -> dict[str, Any]:
     expected = expected_projection(validate_case(case))
-    with isolated_case(case) as (root, env):
+    with isolated_case(case, binary) as (root, env):
         first = normalized_case_output(binary, root, env)
         second = normalized_case_output(binary, root, env)
-        if first != second:
+        if stable_import_projection(first) != stable_import_projection(second):
             raise HarnessError(f"{case.name}: re-import changed the result\nfirst={first}\nsecond={second}")
         if first != expected:
             raise HarnessError(
@@ -406,7 +442,7 @@ def run_golden(binary: Path, case: Path) -> dict[str, Any]:
 def run_properties(binary: Path, case: Path, seed: int, fuzz_rounds: int) -> None:
     expected = expected_projection(validate_case(case))
     for mutation in ("duplicate", "unknown-fields", "shuffle", "large"):
-        with isolated_case(case, mutation=mutation, seed=seed) as (root, env):
+        with isolated_case(case, binary, mutation=mutation, seed=seed) as (root, env):
             started = time.monotonic()
             actual = normalized_case_output(binary, root, env)
             elapsed = time.monotonic() - started
@@ -417,25 +453,26 @@ def run_properties(binary: Path, case: Path, seed: int, fuzz_rounds: int) -> Non
             if mutation == "large" and elapsed > 30:
                 raise HarnessError(f"{case.name}/large: importer took {elapsed:.1f}s (>30s)")
 
-    with isolated_case(case, mutation="truncate", seed=seed) as (root, env):
+    with isolated_case(case, binary, mutation="truncate", seed=seed) as (root, env):
         # A torn final JSON line is recoverable input. The importer must not
         # crash; it may report a parse error and a partial total.
         normalize_output(invoke(binary, root, env))
 
     for fuzz_seed in range(seed, seed + fuzz_rounds):
-        with isolated_case(case, mutation="fuzz", seed=fuzz_seed) as (root, env):
+        with isolated_case(case, binary, mutation="fuzz", seed=fuzz_seed) as (root, env):
             first = normalized_case_output(binary, root, env)
             second = normalized_case_output(binary, root, env)
-            if first != second:
+            if stable_import_projection(first) != stable_import_projection(second):
                 raise HarnessError(
-                    f"{case.name}/fuzz seed {fuzz_seed}: re-import changed the result"
+                    f"{case.name}/fuzz seed {fuzz_seed}: re-import changed the result\n"
+                    f"first={first}\nsecond={second}"
                 )
             if first["events"] != expected["events"]:
                 raise HarnessError(
                     f"{case.name}/fuzz seed {fuzz_seed}: duplicate/malformed input changed event count"
                 )
 
-    with isolated_case(case, seed=seed) as (root, env):
+    with isolated_case(case, binary, seed=seed) as (root, env):
         daemon = subprocess.run([str(binary), "daemon", "start"], cwd=root, env=env, text=True, capture_output=True)
         if daemon.returncode != 0:
             raise HarnessError(f"{case.name}/concurrency: daemon start failed: {daemon.stderr.strip()}")

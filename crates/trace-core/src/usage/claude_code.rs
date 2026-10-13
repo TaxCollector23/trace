@@ -165,10 +165,6 @@ fn import_file(store: &Store, path: &Path, projects_dir: &Path) -> Result<Import
         new_parse_errors,
         report.last_event_at.as_deref(),
     )?;
-    // The public report is cumulative for a source. This keeps diagnostics
-    // stable across an idempotent second import while the persisted cursor
-    // still adds only the errors observed during this pass.
-    report.malformed_lines = previous.parse_errors + new_parse_errors;
     Ok(report)
 }
 

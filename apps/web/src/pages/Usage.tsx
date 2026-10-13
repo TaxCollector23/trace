@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { api } from "../api";
 import type {
   CostSource,
+  PricingRatesResponse,
   UsageBreakdown,
   UsageEvent,
   UsageResponse,
@@ -30,6 +32,16 @@ export default function Usage() {
   const today = useResource((signal) => loadUsage("today", undefined, signal), { pollMs: 30_000 });
   const week = useResource((signal) => loadUsage("7d", undefined, signal), { pollMs: 30_000 });
   const month = useResource((signal) => loadUsage("30d", undefined, signal), { pollMs: 30_000 });
+  const pricing = useResource((signal) =>
+    api.pricingRates(signal).then(
+      (data) => ({ state: "ok" as const, data }),
+      () => ({
+        state: "unavailable" as const,
+        kind: "server" as const,
+        reason: "Pricing rates are unavailable from the local daemon.",
+      }),
+    )
+  );
   const detail = useResource(
     (signal) =>
       runId
@@ -75,10 +87,6 @@ export default function Usage() {
       <div className="usage-heading-row">
         <div>
           <h1 className="page-title">Usage</h1>
-          <p className="page-sub">
-            Verified token and cost records from local agent sessions. Trace keeps unknown pricing
-            visible instead of turning it into zero.
-          </p>
         </div>
         {runId && <Link className="back" to="/usage">← All usage</Link>}
       </div>
@@ -95,10 +103,19 @@ export default function Usage() {
             {period.label}
           </button>
         ))}
-        <span className="muted usage-toolbar-note">Aggregated in the daemon · event rows are paginated</span>
       </div>
 
       {!runId && <PeriodCards resources={resources} />}
+
+      {!runId && (pricing.resource.state === "ok" ? (
+        <RateCards
+          data={pricing.resource.data}
+          observedModels={overview.state === "ok" ? overview.data.by_model : []}
+          monthlyUsage={month.resource}
+        />
+      ) : (
+        <ResourceGate resource={pricing.resource} what="pricing rates" onRetry={pricing.reload}>{() => null}</ResourceGate>
+      ))}
 
       {runId ? (
         <ResourceGate
@@ -135,11 +152,10 @@ function PeriodCards({ resources }: { resources: Record<UsageRange, Resource<Usa
         const resource = resources[period.key];
         return (
           <section className="usage-period" key={period.key} aria-label={`${period.label} cost`}>
-            <div className="usage-eyebrow">{period.label}</div>
+            <div className="usage-eyebrow">API estimate · {period.label}</div>
             {resource.state === "ok" ? (
               <>
                 <CostValue value={resource.data.totals.cost_usd} source={resource.data.totals.cost_source} testId={`cost-${period.key}`} />
-                <CoverageLine totals={resource.data.totals} />
               </>
             ) : resource.state === "loading" ? (
               <div className="skel skel-line" style={{ width: "65%" }} aria-label="Loading" />
@@ -151,6 +167,124 @@ function PeriodCards({ resources }: { resources: Record<UsageRange, Resource<Usa
       })}
     </div>
   );
+}
+
+function RateCards({
+  data,
+  observedModels,
+  monthlyUsage,
+}: {
+  data: PricingRatesResponse;
+  observedModels: UsageBreakdown[];
+  monthlyUsage: Resource<UsageResponse>;
+}) {
+  return (
+    <section className="usage-rates" aria-labelledby="rate-cards-title">
+      <div className="usage-panel-heading"><h2 id="rate-cards-title">Rate comparison</h2></div>
+      <div className="usage-rates-grid">
+        <section className="usage-panel usage-rate-panel" aria-labelledby="subscription-rates-title">
+          <div className="usage-panel-heading"><h3 id="subscription-rates-title">Subscription rates</h3></div>
+          <div className="v4-table-wrap">
+            <table className="usage-table usage-rate-table">
+              <thead><tr><th>US plan</th><th>Plan / month</th><th>API equivalent · 30 days</th><th>Included API usage / month</th></tr></thead>
+              <tbody>
+                {data.subscriptions.map((plan) => (
+                  <tr key={`${plan.provider}:${plan.plan_id}`}>
+                    <td>{plan.plan_name}</td>
+                    <td>{fmtCost(plan.monthly_price_usd)}</td>
+                    <td>
+                      {monthlyUsage.state === "ok"
+                        ? providerApiEquivalent(plan.provider, monthlyUsage.data.by_model, data)
+                        : monthlyUsage.state === "loading" ? "Loading" : "Unavailable"}
+                    </td>
+                    <td>{plan.included_api_usage_usd === null ? "Not stated" : fmtCost(plan.included_api_usage_usd)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section className="usage-panel usage-rate-panel" aria-labelledby="api-rates-title">
+          <div className="usage-panel-heading"><h3 id="api-rates-title">API billing rates</h3></div>
+          {observedModels.length ? (
+            <div className="v4-table-wrap">
+              <table className="usage-table usage-rate-table">
+              <thead><tr><th>Model</th><th>Input / 1M tokens</th><th>Output / 1M tokens</th></tr></thead>
+                <tbody>
+                  {observedModels.map((observed) => {
+                    const rate = findModelRate(observed.key, data);
+                    const tier = rate?.tiers[0];
+                    return (
+                      <tr key={observed.key}>
+                        <td className="mono">{observed.label}</td>
+                        <td>{tier ? fmtRate(tier.input_per_mtok) : "unavailable"}</td>
+                        <td>{tier ? fmtRate(tier.output_per_mtok) : "unavailable"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="usage-unavailable-block">No model usage in this period.</div>
+          )}
+          <details className="usage-all-rates">
+            <summary>Browse all {data.api.models.length} model rates</summary>
+            <div className="v4-table-wrap">
+              <table className="usage-table usage-rate-table">
+                <thead><tr><th>Provider</th><th>Model</th><th>Tier</th><th>Input / 1M tokens</th><th>Output / 1M tokens</th><th>Cache read / 1M tokens</th></tr></thead>
+                <tbody>
+                  {data.api.models.flatMap((model) => model.tiers.map((tier) => (
+                    <tr key={`${model.provider}:${model.model}:${tier.name}`}>
+                      <td>{model.provider}</td>
+                      <td className="mono">{model.model}</td>
+                      <td>{tier.name}{tier.min_input_tokens ? ` · ${fmtNum(tier.min_input_tokens)}+ input` : ""}</td>
+                      <td>{fmtRate(tier.input_per_mtok)}</td>
+                      <td>{fmtRate(tier.output_per_mtok)}</td>
+                      <td>{tier.cache_read_per_mtok === null ? "unavailable" : fmtRate(tier.cache_read_per_mtok)}</td>
+                    </tr>
+                  ))) }
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </section>
+      </div>
+    </section>
+  );
+}
+
+function providerApiEquivalent(
+  provider: string,
+  models: UsageBreakdown[],
+  rates: PricingRatesResponse
+): string {
+  if (!models.length) return "No usage";
+  const providerRates = rates.api.models.filter((rate) => rate.provider.toLowerCase() === provider.toLowerCase());
+  if (!providerRates.length) return "Unavailable";
+  const matchingModels = models.filter((model) => findModelRate(model.key, rates)?.provider.toLowerCase() === provider.toLowerCase());
+  if (!matchingModels.length) return "Unavailable";
+  if (matchingModels.some((model) => model.api_equivalent_usd == null)) return "Unavailable";
+  return fmtCost(matchingModels.reduce((total, model) => total + (model.api_equivalent_usd ?? 0), 0));
+}
+
+function findModelRate(modelKey: string, rates: PricingRatesResponse) {
+  const key = modelKey.toLowerCase();
+  return rates.api.models.find((candidate) =>
+    [candidate.model, ...candidate.aliases].some((name) => {
+      const normalized = name.toLowerCase();
+      if (key === normalized) return true;
+      const prefix = `${normalized}-`;
+      if (!key.startsWith(prefix)) return false;
+      const suffix = key.slice(prefix.length);
+      const compact = suffix.replace(/-/g, "");
+      return compact.length >= 8 && [...compact].every((character) => /[0-9]/.test(character));
+    })
+  );
+}
+
+function fmtRate(value: number): string {
+  return `$${value.toFixed(value < 0.01 ? 4 : 2)}`;
 }
 
 function UsageOverview({
@@ -165,29 +299,34 @@ function UsageOverview({
   return (
     <>
       <DataNotice data={data} />
+      <details className="usage-details">
+        <summary>Usage details</summary>
+        <section className="usage-panel" aria-labelledby="token-split-title">
+          <PanelHeading id="token-split-title" title="Token split" />
+          <TokenGrid totals={data.totals} />
+        </section>
 
-      <section className="usage-panel" aria-labelledby="token-split-title">
-        <PanelHeading id="token-split-title" title="Token split" subtitle="The fields the source actually reported" />
-        <TokenGrid totals={data.totals} />
-      </section>
+        <div className="usage-two-column">
+          <BreakdownTable title="Cost by agent" rows={data.by_agent} source={data.source} />
+          <BreakdownTable title="Cost by model" rows={data.by_model} source={data.source} mono />
+        </div>
 
-      <div className="usage-two-column">
-        <BreakdownTable title="Cost by agent" rows={data.by_agent} />
-        <BreakdownTable title="Cost by model" rows={data.by_model} mono />
-      </div>
+        <div className="usage-two-column">
+          <BreakdownTable title="Cost by project" rows={data.by_project} source={data.source} />
+          <TimeSeries points={data.over_time} source={data.source} />
+        </div>
 
-      <div className="usage-two-column">
-        <BreakdownTable title="Cost by project" rows={data.by_project} />
-        <TimeSeries points={data.over_time} />
-      </div>
-
-      <SessionTable sessions={data.sessions} />
-      <EventTable
-        events={data.events}
-        pagination={data.pagination}
-        onLoadMore={onLoadMore}
-        loadingMore={loadingMore}
-      />
+        <SessionTable sessions={data.sessions} source={data.source} />
+        {(data.events.length > 0 || data.pagination.has_more) && (
+          <EventTable
+            events={data.events}
+            pagination={data.pagination}
+            source={data.source}
+            onLoadMore={onLoadMore}
+            loadingMore={loadingMore}
+          />
+        )}
+      </details>
     </>
   );
 }
@@ -226,11 +365,11 @@ function SessionDrilldown({
       </section>
       <div className="usage-two-column">
         <section className="usage-panel">
-          <PanelHeading title="Session tokens" subtitle="No token field is filled unless the source supplied it" />
+          <PanelHeading title="Session tokens" />
           <TokenGrid totals={session} />
         </section>
         <section className="usage-panel">
-          <PanelHeading title="Subagent tree" subtitle="Parent links come from usage events" />
+          <PanelHeading title="Subagent tree" />
           {session.subagents.length ? (
             <div className="usage-tree">
               {session.subagents.map((node) => <SubagentNode key={node.subagent_id} node={node} depth={0} />)}
@@ -243,12 +382,15 @@ function SessionDrilldown({
           )}
         </section>
       </div>
-      <EventTable
-        events={data.events}
-        pagination={data.pagination}
-        onLoadMore={onLoadMore}
-        loadingMore={loadingMore}
-      />
+      {(data.events.length > 0 || data.pagination.has_more) && (
+        <EventTable
+          events={data.events}
+          pagination={data.pagination}
+          source={data.source}
+          onLoadMore={onLoadMore}
+          loadingMore={loadingMore}
+        />
+      )}
     </>
   );
 }
@@ -258,33 +400,10 @@ function DataNotice({ data }: { data: UsageResponse }) {
     return <div className="usage-notice usage-notice-warning">Synthetic development fixture — not production data.</div>;
   }
   if (data.warning) return <div className="usage-notice">{data.warning}</div>;
-  const unknown = data.totals.unknown_event_count ?? 0;
-  if (unknown > 0) {
-    return (
-      <div className="usage-notice usage-notice-warning">
-        {coverageText(data.totals)} Unknown pricing is kept out of the cost total.
-      </div>
-    );
+  if ((data.totals.unknown_event_count ?? 0) > 0) {
+    return <div className="usage-notice usage-notice-warning">Some usage has unknown pricing.</div>;
   }
   return null;
-}
-
-function CoverageLine({ totals }: { totals: UsageTotals }) {
-  return <div className="usage-coverage">{coverageText(totals)}</div>;
-}
-
-function coverageText(totals: UsageTotals): string {
-  if (totals.cost_usd === null) {
-    return "Cost unavailable: no verified price in this window.";
-  }
-  if (totals.session_count !== null && totals.unknown_session_count !== null && totals.unknown_session_count > 0) {
-    const priced = totals.priced_session_count ?? Math.max(0, totals.session_count - totals.unknown_session_count);
-    return `$${totals.cost_usd.toFixed(2)} across ${priced} of ${totals.session_count} sessions; ${totals.unknown_session_count} have unknown pricing.`;
-  }
-  if (totals.unknown_event_count !== null && totals.unknown_event_count > 0) {
-    return `$${totals.cost_usd.toFixed(2)} from ${totals.priced_event_count ?? "some"} priced events; ${totals.unknown_event_count} events have unknown pricing.`;
-  }
-  return "All returned cost records have a verified source.";
 }
 
 function TokenGrid({ totals }: { totals: UsageTotals }) {
@@ -301,24 +420,25 @@ function TokenGrid({ totals }: { totals: UsageTotals }) {
         <div className="usage-token" key={label}>
           <div className="usage-token-value">{fmtNum(value)}</div>
           <div className="usage-token-label">{label}</div>
-          <CostSourceBadge source={totals.cost_source} />
         </div>
       ))}
     </div>
   );
 }
 
-function BreakdownTable({ title, rows, mono = false }: { title: string; rows: UsageBreakdown[]; mono?: boolean }) {
+function BreakdownTable({ title, rows, source, mono = false }: { title: string; rows: UsageBreakdown[]; source: UsageResponse["source"]; mono?: boolean }) {
   return (
     <section className="usage-panel">
-      <PanelHeading title={title} subtitle="Select an event link to inspect the source record" />
+      <PanelHeading title={title} />
       {!rows.length ? (
-        <div className="usage-unavailable-block">This split is unavailable from the current daemon.</div>
+        <div className="usage-unavailable-block">
+          {source === "legacy" ? "This breakdown is unavailable from this daemon." : "No usage records in this period."}
+        </div>
       ) : (
         <div className="v4-table-wrap">
           <table className="usage-table">
             <thead>
-              <tr><th>{title.replace("Cost by ", "")}</th><th>Cost</th><th>Tokens</th><th>Source events</th></tr>
+              <tr><th>{title.replace("Cost by ", "")}</th><th>Cost</th><th>Tokens</th><th>Events</th></tr>
             </thead>
             <tbody>
               {rows.map((row) => (
@@ -326,7 +446,7 @@ function BreakdownTable({ title, rows, mono = false }: { title: string; rows: Us
                   <td className={mono ? "mono" : undefined}>{row.label}</td>
                   <td><CostValue value={row.cost_usd} source={row.cost_source} /></td>
                   <td>{fmtNum(totalTokens(row))}</td>
-                  <td><SourceEventLinks eventIds={row.event_ids} /></td>
+                  <td>{fmtNum(row.event_count)}</td>
                 </tr>
               ))}
             </tbody>
@@ -337,13 +457,15 @@ function BreakdownTable({ title, rows, mono = false }: { title: string; rows: Us
   );
 }
 
-function TimeSeries({ points }: { points: UsageResponse["over_time"] }) {
+function TimeSeries({ points, source }: { points: UsageResponse["over_time"]; source: UsageResponse["source"] }) {
   const max = Math.max(...points.map((point) => point.cost_usd ?? 0), 0);
   return (
     <section className="usage-panel">
-      <PanelHeading title="Cost over time" subtitle="Server-aggregated day buckets" />
+      <PanelHeading title="Cost over time" />
       {!points.length ? (
-        <div className="usage-unavailable-block">Time series unavailable from the current daemon.</div>
+        <div className="usage-unavailable-block">
+          {source === "legacy" ? "Time series unavailable from this daemon." : "No usage records in this period."}
+        </div>
       ) : (
         <div className="usage-series">
           {points.map((point) => (
@@ -361,12 +483,14 @@ function TimeSeries({ points }: { points: UsageResponse["over_time"] }) {
   );
 }
 
-function SessionTable({ sessions }: { sessions: UsageSession[] }) {
+function SessionTable({ sessions, source }: { sessions: UsageSession[]; source: UsageResponse["source"] }) {
   return (
     <section className="usage-panel">
-      <PanelHeading title="Most expensive sessions" subtitle="Known costs sort first; unavailable sessions remain visible" />
+      <PanelHeading title="Most expensive sessions" />
       {!sessions.length ? (
-        <div className="usage-unavailable-block">Session aggregates are unavailable from the current daemon.</div>
+        <div className="usage-unavailable-block">
+          {source === "legacy" ? "Session aggregates are unavailable from this daemon." : "No sessions with usage in this period."}
+        </div>
       ) : (
         <div className="v4-table-wrap">
           <table className="usage-table">
@@ -392,19 +516,25 @@ function SessionTable({ sessions }: { sessions: UsageSession[] }) {
 function EventTable({
   events,
   pagination,
+  source,
   onLoadMore,
   loadingMore,
 }: {
   events: UsageEvent[];
   pagination: UsageResponse["pagination"];
+  source: UsageResponse["source"];
   onLoadMore: () => void;
   loadingMore: boolean;
 }) {
   return (
     <section className="usage-panel" id="usage-events" aria-labelledby="usage-events-title">
-      <PanelHeading id="usage-events-title" title="Underlying usage events" subtitle="Raw prompts and responses are never rendered here" />
+      <PanelHeading id="usage-events-title" title="Underlying usage events" />
       {!events.length ? (
-        <div className="usage-unavailable-block">Event rows are unavailable from the current daemon.</div>
+        <div className="usage-unavailable-block">
+          {source === "legacy"
+            ? "Individual usage event rows are unavailable from this daemon."
+            : "The local usage API returns aggregates; individual event rows are not available here."}
+        </div>
       ) : (
         <>
           <div className="v4-table-wrap">
@@ -454,11 +584,10 @@ function SubagentNode({ node, depth }: { node: UsageSubagent; depth: number }) {
   );
 }
 
-function PanelHeading({ id, title, subtitle }: { id?: string; title: string; subtitle: string }) {
+function PanelHeading({ id, title }: { id?: string; title: string }) {
   return (
     <div className="usage-panel-heading">
       <h2 id={id}>{title}</h2>
-      <span className="muted">{subtitle}</span>
     </div>
   );
 }

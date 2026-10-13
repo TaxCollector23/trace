@@ -66,6 +66,7 @@ pub fn router() -> Router<AppState> {
         .route("/doctor", get(doctor))
         .route("/analytics", get(analytics))
         .route("/usage", get(usage))
+        .route("/pricing", get(pricing_rates))
         .route("/benchmarks", get(benchmarks))
         .route("/benchmarks/redteam", get(redteam_benchmarks))
         // Deterministic policy-engine review (no API key required)
@@ -186,9 +187,33 @@ async fn dashboard(
     Query(q): Query<LimitQuery>,
 ) -> ApiResult<impl IntoResponse> {
     let s = store(&state);
-    let summaries = s.recent_run_summaries(q.limit.unwrap_or(50))?;
+    let mut summaries = s.recent_run_summaries(q.limit.unwrap_or(50))?;
+    // The overview needs run identity and counts, never prompt text or raw
+    // command arguments. Detailed run routes retain their existing contract.
+    for summary in &mut summaries {
+        summary.run.user_prompt = None;
+        summary.run.command = if summary.run.agent_name.is_some() {
+            "Agent session".to_string()
+        } else {
+            "Command run".to_string()
+        };
+    }
     let projects = visible_projects(s.list_projects()?);
-    Ok(Json(json!({ "runs": summaries, "projects": projects })))
+    // Config presence is evidence that an integration is wired, not proof that
+    // its host has loaded or approved a hook. Keep that distinction in the UI.
+    let integrations = trace_core::integrations::detect_connections()
+        .into_iter()
+        .map(|connection| {
+            json!({
+                "id": connection.id,
+                "name": connection.display_name,
+                "connected": connection.connected,
+            })
+        })
+        .collect::<Vec<_>>();
+    Ok(Json(
+        json!({ "runs": summaries, "projects": projects, "integrations": integrations }),
+    ))
 }
 
 // --- Projects -------------------------------------------------------------
@@ -646,6 +671,18 @@ async fn usage(
         q.since.as_deref(),
         import,
     )?))
+}
+
+/// Return the active API token-rate catalog and subscription plan prices from
+/// the local database. Neither table includes credentials or account state.
+async fn pricing_rates(State(state): State<AppState>) -> ApiResult<impl IntoResponse> {
+    let s = store(&state);
+    let api = s.active_pricing_catalog()?;
+    let subscriptions = s.subscription_rates()?;
+    Ok(Json(json!({
+        "api": api,
+        "subscriptions": subscriptions,
+    })))
 }
 
 /// Runs the policy engine's own labeled-fixture benchmark fresh on every
@@ -1269,9 +1306,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn pricing_endpoint_reads_api_and_subscription_rates_from_sqlite() {
+        let state = test_state();
+        let response = pricing_rates(State(state))
+            .await
+            .map_err(|error| error.message)
+            .expect("pricing endpoint should read the local rate database")
+            .into_response();
+        let json = body_json(response).await;
+        assert!(json["api"]["models"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|model| model["model"] == "gpt-5.4"));
+        assert!(json["subscriptions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|plan| plan["plan_id"] == "claude-pro" && plan["monthly_price_usd"] == 20.0));
+    }
+
+    #[tokio::test]
     async fn dashboard_handler_returns_runs_and_projects() {
         let state = test_state();
         let _run_id = seed_run(&state, None);
+        let project_id = store(&state).list_projects().unwrap()[0].id.clone();
+        store(&state)
+            .create_run(&NewRun {
+                project_id,
+                command: "codex private task text".into(),
+                agent_name: Some("codex".into()),
+                user_prompt: Some("private task text".into()),
+                starting_commit: None,
+                owner_pid: None,
+            })
+            .unwrap();
 
         let resp = dashboard(State(state.clone()), Query(LimitQuery { limit: None }))
             .await
@@ -1279,14 +1348,21 @@ mod tests {
             .expect("dashboard handler should succeed")
             .into_response();
         let json = body_json(resp).await;
-        assert_eq!(json["runs"].as_array().unwrap().len(), 1);
+        assert_eq!(json["runs"].as_array().unwrap().len(), 2);
         assert_eq!(json["projects"].as_array().unwrap().len(), 1);
+        assert!(json.to_string().contains("Agent session"));
+        assert!(!json.to_string().contains("private task text"));
+        assert_eq!(
+            json["integrations"].as_array().unwrap().len(),
+            trace_core::integrations::INTEGRATIONS.len()
+        );
     }
 
     #[tokio::test]
-    async fn analyze_run_persists_secret_finding_from_diff_summary() {
-        // No starting_commit => analyze_run never shells out to git and falls
-        // back to the stored diff_summary as the patch text. Fully offline.
+    async fn analyze_run_does_not_recover_a_secret_from_a_redacted_summary() {
+        // With no starting commit, analysis can only use the stored summary.
+        // Storage redacts secrets; live hook checks cover detection before
+        // that redaction, without preserving the raw value in the database.
         let state = test_state();
         let run_id = seed_run(&state, None);
         store(&state)
@@ -1305,10 +1381,16 @@ mod tests {
             .map_err(|e| e.message)
             .expect("analyze_run should succeed offline");
 
+        let stored_changes = store(&state).list_file_changes(&run_id).unwrap();
+        assert!(!stored_changes[0]
+            .diff_summary
+            .as_deref()
+            .unwrap_or_default()
+            .contains(concat!("AKIA", "ABCDEFGHIJKLMNOP")));
         let findings = store(&state).list_policy_findings(&run_id).unwrap();
         assert!(
-            findings.iter().any(|f| f.rule_key == "secret-in-diff"),
-            "expected a secret-in-diff finding to be persisted, got: {findings:?}"
+            !findings.iter().any(|f| f.rule_key == "secret-in-diff"),
+            "analysis cannot infer a secret from redacted storage: {findings:?}"
         );
     }
 

@@ -4,9 +4,8 @@ use anyhow::Result;
 
 use crate::Store;
 
-/// Per-run import accounting. Counts are about source processing, not token
-/// totals; a duplicate stream record is reported as updated, never counted as
-/// a second usage event.
+/// Per-import accounting. Cumulative source diagnostics are stored separately;
+/// duplicate stream records are reported as updated, never double-counted.
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ImportReport {
     pub agent: String,

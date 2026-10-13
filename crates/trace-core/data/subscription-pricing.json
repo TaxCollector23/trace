@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "pricing_version": "subscriptions-us-2026-10-13",
+  "region": "US",
+  "currency": "USD",
+  "effective_from": "2026-10-13T00:00:00Z",
+  "sources": [
+    {
+      "provider": "openai",
+      "url": "https://openai.com/chatgpt/pricing/",
+      "retrieved_at": "2026-10-13",
+      "notes": "Published monthly ChatGPT subscription prices; US list prices."
+    },
+    {
+      "provider": "anthropic",
+      "url": "https://support.anthropic.com/en/articles/11049762-choosing-a-claude-ai-plan",
+      "retrieved_at": "2026-10-13",
+      "notes": "Published monthly Claude subscription prices; US list prices."
+    },
+    {
+      "provider": "cursor",
+      "url": "https://docs.cursor.com/account/pricing",
+      "retrieved_at": "2026-10-13",
+      "notes": "Published monthly individual plan prices and guaranteed included model-usage amounts."
+    }
+  ],
+  "plans": [
+    { "provider": "openai", "plan_id": "chatgpt-plus", "plan_name": "ChatGPT Plus", "monthly_price_usd": 20.0 },
+    { "provider": "openai", "plan_id": "chatgpt-pro-100", "plan_name": "ChatGPT Pro 100", "monthly_price_usd": 100.0 },
+    { "provider": "openai", "plan_id": "chatgpt-pro-200", "plan_name": "ChatGPT Pro 200", "monthly_price_usd": 200.0 },
+    { "provider": "openai", "plan_id": "chatgpt-pro-500", "plan_name": "ChatGPT Pro 500", "monthly_price_usd": 500.0 },
+    { "provider": "anthropic", "plan_id": "claude-pro", "plan_name": "Claude Pro", "monthly_price_usd": 20.0 },
+    { "provider": "anthropic", "plan_id": "claude-max-5x", "plan_name": "Claude Max 5x", "monthly_price_usd": 100.0 },
+    { "provider": "anthropic", "plan_id": "claude-max-20x", "plan_name": "Claude Max 20x", "monthly_price_usd": 200.0 },
+    { "provider": "cursor", "plan_id": "cursor-hobby", "plan_name": "Cursor Hobby", "monthly_price_usd": 0.0 },
+    { "provider": "cursor", "plan_id": "cursor-pro", "plan_name": "Cursor Pro", "monthly_price_usd": 20.0, "included_api_usage_usd": 20.0 },
+    { "provider": "cursor", "plan_id": "cursor-pro-plus", "plan_name": "Cursor Pro+", "monthly_price_usd": 60.0, "included_api_usage_usd": 70.0 },
+    { "provider": "cursor", "plan_id": "cursor-ultra", "plan_name": "Cursor Ultra", "monthly_price_usd": 200.0, "included_api_usage_usd": 400.0 }
+  ]
+}

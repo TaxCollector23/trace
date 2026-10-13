@@ -28,8 +28,8 @@ pub fn run(by: &str, since: Option<&str>, json: bool) -> Result<()> {
 
 fn print_human(response: &UsageResponse) {
     println!(
-        "{} (by {}, imported {} file{})",
-        colors::bold("Claude Code usage"),
+        "{} (by {}; {} source file{} checked)",
+        colors::bold("Usage"),
         response.by,
         response.import.files_seen,
         if response.import.files_seen == 1 {
@@ -61,7 +61,10 @@ fn print_human(response: &UsageResponse) {
     }
 
     if response.rows.is_empty() {
-        println!("\n{}", colors::dim("No Claude Code usage events found."));
+        println!(
+            "\n{}",
+            colors::dim("No usage events found for this period.")
+        );
         return;
     }
     println!(

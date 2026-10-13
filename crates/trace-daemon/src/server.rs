@@ -24,20 +24,23 @@ use crate::state::{AppState, DaemonState};
 pub const PREFERRED_PORT: u16 = 8757;
 const LOOPBACK: Ipv4Addr = Ipv4Addr::LOCALHOST; // 127.0.0.1
 
-/// Bind a TCP listener on 127.0.0.1, starting at `start_port` and trying the
-/// next ports until one is free. Returns the listener and the chosen port.
+/// Bind on loopback, preferring the familiar Trace port range. When that range
+/// is occupied, let the OS choose another local port so the dashboard can
+/// still start. The chosen port is recorded in daemon.json for the CLI.
 async fn bind_available(start_port: u16) -> Result<(TcpListener, u16)> {
-    // Try up to 100 sequential ports before giving up.
+    // Try up to 100 sequential ports before requesting a system-assigned port.
     for port in start_port..start_port.saturating_add(100) {
         match TcpListener::bind((LOOPBACK, port)).await {
             Ok(listener) => return Ok((listener, port)),
-            Err(_) => continue,
+            Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => continue,
+            Err(error) => return Err(error).context("binding the Trace daemon on loopback"),
         }
     }
-    anyhow::bail!(
-        "no free port found in range {start_port}..{}",
-        start_port + 100
-    )
+    let listener = TcpListener::bind((LOOPBACK, 0))
+        .await
+        .context("binding the Trace daemon to a system-assigned loopback port")?;
+    let port = listener.local_addr()?.port();
+    Ok((listener, port))
 }
 
 /// Security response headers, applied to everything the daemon serves.

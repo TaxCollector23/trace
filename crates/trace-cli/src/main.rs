@@ -42,10 +42,9 @@ fn help_styles() -> Styles {
     // Version is handled manually (see `main`) so `--version` can print Trace
     // version + rule-pack version + rule count together.
     disable_version_flag = true,
-    about = "Trace — the trust layer for AI software engineering.",
-    long_about = "Trace records what AI coding agents change, run, cost, and break, \
-                  and helps you roll back. It is local-first: all data stays on your machine.",
-    after_help = "Quick start:\n  trc init\n  trc integrations install all\n  trc dashboard\n\nRun `trc <command> --help` for advanced commands."
+    about = "See what your coding agents do on this machine.",
+    long_about = "Trace records local coding sessions, command decisions, file changes, and available cost data. It helps you review and roll back runs.",
+    after_help = "Start here:\n  trc init                         Register this project\n  trc integrations install codex   Connect one agent (or use claude, cursor, opencode, windsurf)\n  trc status                       Check the local connection\n  trc run claude                   Start a monitored CLI session\n  trc dashboard                    Open the local overview\n\nRun `trc <command> --help` for details."
 )]
 struct Cli {
     #[command(subcommand)]
@@ -68,7 +67,7 @@ enum Commands {
         target: String,
     },
 
-    /// Run a command under Trace monitoring (e.g. `trc run "claude fix the bug"`).
+    /// Run a command under Trace monitoring (e.g. `trc run claude`).
     Run {
         /// The command to wrap. Quote multi-word commands.
         #[arg(required = true, trailing_var_arg = true, num_args = 1..)]
@@ -105,8 +104,7 @@ enum Commands {
         action: Option<DoctorAction>,
     },
 
-    /// Show a compact connection snapshot and the next useful action.
-    #[command(hide = true)]
+    /// Show what Trace can see and the next useful action.
     Status {
         /// Print machine-readable JSON for scripts and support bundles.
         #[arg(long)]
@@ -226,7 +224,7 @@ enum Commands {
 
     /// Connect Trace to your coding agents. `trc integrations install all`
     /// wires up Claude Code, Codex, Cursor, Windsurf, and OpenCode;
-    /// `trc integrations status` shows what is live.
+    /// `trc integrations status` shows what is configured.
     Integrations {
         #[command(subcommand)]
         action: Option<IntegrationsAction>,
@@ -348,7 +346,7 @@ enum PricingAction {
 
 #[derive(Subcommand)]
 enum IntegrationsAction {
-    /// Check what is live right now (daemon, GitHub token, …).
+    /// Check the daemon, GitHub token, and configured agent integrations.
     Status {
         /// Print machine-readable JSON for scripts and support bundles.
         #[arg(long)]
@@ -394,86 +392,23 @@ enum DaemonAction {
     Status,
 }
 
-/// "Trace" in the figlet "ANSI Shadow" font — the same block-with-shadow
-/// geometry as the dashboard's brand mark, rendered in pure box-drawing
-/// characters (U+2588 full block, U+2551/2550 shadow lines, U+2554 etc.).
-const BANNER: &str = "\
-████████╗██████╗  █████╗  ██████╗███████╗
-╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██╔════╝
-   ██║   ██████╔╝███████║██║     █████╗
-   ██║   ██╔══██╗██╔══██║██║     ██╔══╝
-   ██║   ██║  ██║██║  ██║╚██████╗███████╗
-   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚══════╝";
-
-/// Print the startup banner. Skipped when stdout is not a terminal (piped,
-/// redirected to a log file, or CI) so it never pollutes scripted output.
-fn print_banner() {
-    use std::io::IsTerminal;
-    if !std::io::stdout().is_terminal() {
-        return;
-    }
-    println!("{}\n", colors::brand(BANNER));
-}
-
 /// Keep a bare first invocation useful without dumping the full command list.
 /// Users can still ask for the complete help with `trc --help`.
 fn print_quickstart() {
-    println!("Trace is ready.");
+    println!("Trace records local coding-agent activity.");
+    println!("  trc init       Register the current project");
+    println!("  trc status     Check the daemon and agent connections");
+    println!("  trc dashboard  Open the local overview");
     println!();
-    println!("Next: trc integrations install all");
-    println!("Then: trc dashboard");
-    println!();
-    println!("Run `trc --help` to see every command.");
-}
-
-/// The startup art is a one-time welcome, not a banner on every invocation.
-fn first_bare_invocation() -> bool {
-    use std::io::IsTerminal;
-    if !std::io::stdout().is_terminal() {
-        return false;
-    }
-    let home = std::env::var_os("TRACE_HOME")
-        .map(std::path::PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".trace")));
-    let Some(home) = home else { return true };
-    let marker = home.join("cli-startup-art-shown");
-    if marker.exists() {
-        return false;
-    }
-    if std::fs::create_dir_all(&home).is_ok() {
-        let _ = std::fs::write(marker, "shown\n");
-    }
-    true
-}
-
-/// The banner belongs to onboarding, not to every command. Show it only on the
-/// first-run/help surface and the two onboarding commands — never on routine
-/// calls like `daemon status`, `doctor`, or `run`, which should stay compact.
-fn wants_banner(args: &[String]) -> bool {
-    let first = args
-        .iter()
-        .find(|a| !a.starts_with('-'))
-        .map(String::as_str);
-    match first {
-        None => true, // bare `trace` → help screen
-        Some("init") | Some("install") | Some("help") => true,
-        _ => args.iter().any(|a| a == "--help" || a == "-h"),
-    }
+    println!("Run `trc --help` for connection and run commands.");
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
     if args.is_empty() {
-        if first_bare_invocation() {
-            print_banner();
-        }
         print_quickstart();
         return;
-    }
-
-    if wants_banner(&args) {
-        print_banner();
     }
 
     // Handle `--version` / `-V` manually so it shows Trace version + rule-pack

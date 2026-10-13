@@ -1,6 +1,6 @@
 //! Minimal ANSI coloring for CLI output. No external crate: a handful of
-//! wrap-in-escape-codes helpers, gated on the same tty + NO_COLOR rules as
-//! the startup banner. Color is applied to already-padded text so fixed-width
+//! wrap-in-escape-codes helpers, gated on tty + NO_COLOR. Color is applied to
+//! already-padded text so fixed-width
 //! `{:<N}` alignment in query.rs is unaffected.
 
 use std::io::IsTerminal;

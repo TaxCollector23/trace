@@ -74,6 +74,10 @@ pub struct UsageTotals {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UsageBreakdown {
     pub key: String,
+    /// API list-rate equivalent computed from the same usage metadata, even
+    /// when the provider also reported a separate billed cost.
+    #[serde(default)]
+    pub api_equivalent_usd: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subagent_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -42,8 +42,9 @@ Cursor, and OpenCode create runs automatically after their next restart; Codex
 also needs `/hooks` approval. The installer writes each integration's hook or
 MCP file under `~/.trace/integrations/` and idempotently patches the agent's own
 config file, backing it up first. `status`
-reports the daemon, GitHub token availability, and which agents are connected
-right now (detected from their config files). See
+reports the daemon, GitHub token availability, and which agent configs are wired
+on this machine. It cannot verify Codex hook approval or prove that an agent is
+currently sending events. See
 [Integrations](/integrations/overview).
 
 ### `trc config show` and `trc config set <key> <value>`
@@ -114,7 +115,6 @@ Run a command under Trace monitoring.
 
 ```bash
 trc run claude
-trc run "claude fix the bug"
 trc run "npm test"
 trc run "cursor ."
 ```

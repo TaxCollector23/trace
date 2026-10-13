@@ -19,7 +19,7 @@ use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use trace_core::cost::UsageEventCostInput;
-use trace_core::models::NewApiUsage;
+use trace_core::models::{NewApiUsage, NewUsageEvent};
 
 use crate::state::AppState;
 
@@ -364,6 +364,42 @@ fn persist_capture(state: &AppState, run_id: String, capture: &UsageCapture, lat
         latency_ms: Some(latency_ms.min(i64::MAX as u128) as i64),
     };
     let _ = store.add_api_usage(&run_id, &new_usage);
+
+    // Keep proxy metadata in the canonical usage stream too, so `/api/usage`
+    // can aggregate it for the dashboard. The source reference contains only
+    // a generated id and provider name; request and response bodies never
+    // enter the database.
+    let message_id = trace_core::ids::new_id();
+    let input_tokens = match capture.provider.as_str() {
+        // Anthropic reports uncached input separately. OpenAI and Google
+        // include cache reads in their prompt/input total.
+        "anthropic" => capture.input_tokens,
+        _ => capture
+            .input_tokens
+            .and_then(|input| input.checked_sub(capture.cached_tokens.unwrap_or(0))),
+    };
+    let canonical = NewUsageEvent {
+        run_id: Some(run_id.clone()),
+        agent: format!("{}-api", capture.provider),
+        session_id: run_id,
+        message_id: message_id.clone(),
+        parent_message_id: None,
+        is_subagent: false,
+        subagent_id: None,
+        model: capture.model.clone(),
+        input_tokens,
+        output_tokens: capture.output_tokens,
+        cache_read_tokens: capture.cached_tokens,
+        cache_write_tokens: None,
+        cache_write_5m_tokens: None,
+        cache_write_1h_tokens: None,
+        reasoning_tokens: None,
+        ts: Some(Utc::now().to_rfc3339()),
+        cost_usd: None,
+        cost_source: "unknown".to_string(),
+        raw_ref: format!("trace-proxy://{}/{}", capture.provider, message_id),
+    };
+    let _ = store.upsert_usage_event(&canonical);
 }
 
 /// Extract metadata from a buffered provider response.  The request bytes are
@@ -561,6 +597,11 @@ fn append_sse_value(values: &mut Vec<Value>, data: &mut String) {
 mod tests {
     use super::*;
     use axum::http::header::{AUTHORIZATION, CONTENT_LENGTH, CONTENT_TYPE};
+    use std::sync::{Arc, Mutex};
+    use trace_core::{
+        usage::{ImportReport, UsageGroup},
+        NewProject, NewRun, Store,
+    };
 
     #[test]
     fn provider_allowlist_has_fixed_origins() {
@@ -606,6 +647,61 @@ mod tests {
         assert_eq!(capture.output_tokens, Some(500));
         assert_eq!(capture.cached_tokens, Some(200));
         assert!(capture.trace_estimated_cost_usd.is_some());
+    }
+
+    #[test]
+    fn proxy_usage_is_available_in_run_cost_and_canonical_analytics() {
+        let store = Store::open_in_memory().unwrap();
+        let project = store
+            .upsert_project(&NewProject {
+                name: "proxy-test".to_string(),
+                path: "/tmp/proxy-test".to_string(),
+                config_path: "/tmp/proxy-test/.trace/config.toml".to_string(),
+            })
+            .unwrap();
+        let run = store
+            .create_run(&NewRun {
+                project_id: project.id,
+                command: "proxy test".to_string(),
+                agent_name: Some("codex".to_string()),
+                user_prompt: None,
+                starting_commit: None,
+                owner_pid: None,
+            })
+            .unwrap();
+        let state = AppState {
+            store: Arc::new(Mutex::new(store)),
+            port: 0,
+            started_at: Utc::now().to_rfc3339(),
+            db_path: ":memory:".to_string(),
+        };
+        let capture = capture_usage(
+            Provider::OpenAi,
+            br#"{"model":"gpt-4o-mini","messages":[]}"#,
+            br#"{"model":"gpt-4o-mini","usage":{"prompt_tokens":1000,"completion_tokens":500,"prompt_tokens_details":{"cached_tokens":200}}}"#,
+            Some("application/json"),
+        )
+        .unwrap();
+        assert!(capture.trace_estimated_cost_usd.is_some());
+
+        persist_capture(&state, run.id.clone(), &capture, 12);
+
+        let store = state.store.lock().unwrap();
+        let api_usage = store.list_api_usage(&run.id).unwrap();
+        assert_eq!(api_usage.len(), 1);
+        assert_eq!(
+            api_usage[0].estimated_cost,
+            capture.trace_estimated_cost_usd
+        );
+
+        let usage = store
+            .usage_response(UsageGroup::Model, None, ImportReport::default())
+            .unwrap();
+        assert_eq!(usage.totals.event_count, 1);
+        assert_eq!(usage.totals.input_tokens, Some(800));
+        assert_eq!(usage.totals.cache_read_tokens, Some(200));
+        assert_eq!(usage.totals.output_tokens, Some(500));
+        assert!(usage.totals.cost_usd.is_some());
     }
 
     #[test]

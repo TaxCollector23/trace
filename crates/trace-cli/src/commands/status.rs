@@ -46,14 +46,35 @@ pub fn run(json_output: bool) -> Result<()> {
         Some(port) => println!("daemon: not responding (last known port {port})"),
         None => println!("daemon: not running — use `trc dashboard` to start it"),
     }
-    println!("agents: {connected}/{} connected", integrations.len());
-    if let Some(root) = project_root {
+    println!("agents: {connected}/{} configured", integrations.len());
+    if connected > 0 {
+        println!(
+            "wired: {}",
+            integrations
+                .iter()
+                .filter(|item| item.connected)
+                .map(|item| item.display_name)
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
+    if let Some(root) = &project_root {
         println!("folder: {}", root.display());
     } else {
         println!("folder: not a Trace project — use `trc init` here");
     }
-    if connected < integrations.len() {
-        println!("next: trc integrations install all");
+    if project_root.is_none() {
+        println!("next: trc init");
+    } else if connected == 0 {
+        println!("next: trc integrations install <agent>");
+    } else {
+        println!("next: start an agent session, or run `trc run <command>`");
+    }
+    if integrations
+        .iter()
+        .any(|item| item.id == "codex" && item.connected)
+    {
+        println!("codex: check /hooks inside Codex and approve Trace; configuration alone does not prove activity");
     }
     println!("open: trc dashboard");
     Ok(())

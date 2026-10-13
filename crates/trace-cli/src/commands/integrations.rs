@@ -1,5 +1,5 @@
 //! `trc integrations` and `trc integrations status` — list integration
-//! surfaces and report what is live right now.
+//! surfaces and report local configuration and daemon state.
 
 use anyhow::Result;
 use trace_core::github;
@@ -41,7 +41,7 @@ pub fn list() -> Result<()> {
     for (name, kind, path) in INTEGRATIONS {
         println!("  • {name} — {kind}  ({})", colors::dim(path));
     }
-    println!("\nRun `trc integrations status` to check what is live now.");
+    println!("\nRun `trc integrations status` to check local configuration.");
     Ok(())
 }
 
@@ -102,15 +102,15 @@ pub fn status(json_output: bool) -> Result<()> {
         ),
     }
 
-    // Which agents are connected right now (detected from their config files).
-    println!("\n{}", colors::bold("Connected agents:"));
+    // Agent configuration is detected from local files; it does not prove hook approval.
+    println!("\n{}", colors::bold("Agent integrations:"));
     let mut any = false;
     for connection in &connections {
         let mark = if connection.connected {
             any = true;
-            colors::green("connected")
+            colors::green("configured")
         } else {
-            colors::dim("not connected")
+            colors::dim("not configured")
         };
         let capability = trace_core::integrations::by_id(connection.id)
             .and_then(|definition| definition.command_enforcement)

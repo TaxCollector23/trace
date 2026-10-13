@@ -6,7 +6,7 @@
 use anyhow::{Context, Result};
 use rusqlite::{params, Connection, OptionalExtension};
 
-use crate::cost::{compute_usage_event_cost, UsageEventCostInput};
+use crate::cost::{compute_usage_event_cost_with_catalog, UsageEventCostInput};
 use crate::ids::new_id;
 use crate::models::*;
 use crate::time::now_rfc3339;
@@ -14,6 +14,7 @@ use crate::usage::{
     NewUsageEvent, UsageBreakdown, UsageEvent, UsageGroup, UsageResponse, UsageTotals,
     UsageUpsertResult,
 };
+use crate::{cost, subscription};
 
 /// Embedded schema. Applied idempotently on every open.
 const SCHEMA: &str = r#"
@@ -146,6 +147,35 @@ CREATE TABLE IF NOT EXISTS import_sources (
     updated_at          TEXT NOT NULL
 );
 
+-- Versioned API billing rates are stored locally and loaded before usage is
+-- priced. The JSON payload retains the full, validated model/tier schema.
+CREATE TABLE IF NOT EXISTS api_pricing_catalogs (
+    pricing_version TEXT PRIMARY KEY,
+    effective_from  TEXT NOT NULL,
+    origin          TEXT NOT NULL,
+    catalog_json    TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+
+-- Published flat monthly plan fees are not token rates. Keep them in a
+-- separate, queryable local rate table with their region and source.
+CREATE TABLE IF NOT EXISTS subscription_rates (
+    provider                TEXT NOT NULL,
+    plan_id                 TEXT NOT NULL,
+    plan_name               TEXT NOT NULL,
+    monthly_price_usd       REAL NOT NULL,
+    included_api_usage_usd  REAL,
+    region                  TEXT NOT NULL,
+    currency                TEXT NOT NULL,
+    pricing_version         TEXT NOT NULL,
+    effective_from          TEXT NOT NULL,
+    source_url              TEXT NOT NULL,
+    retrieved_at            TEXT NOT NULL,
+    source_notes            TEXT NOT NULL,
+    PRIMARY KEY (provider, plan_id, pricing_version)
+);
+CREATE INDEX IF NOT EXISTS idx_subscription_rates_provider ON subscription_rates(provider, effective_from);
+
 CREATE TABLE IF NOT EXISTS checkpoints (
     id              TEXT PRIMARY KEY,
     run_id          TEXT NOT NULL REFERENCES runs(id),
@@ -194,6 +224,84 @@ CREATE INDEX IF NOT EXISTS idx_policy_findings_run ON policy_findings(run_id);
 /// Thin wrapper around a SQLite connection that exposes typed operations.
 pub struct Store {
     conn: Connection,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
+pub struct StoredSubscriptionRate {
+    pub provider: String,
+    pub plan_id: String,
+    pub plan_name: String,
+    pub monthly_price_usd: f64,
+    pub included_api_usage_usd: Option<f64>,
+    pub region: String,
+    pub currency: String,
+    pub pricing_version: String,
+    pub effective_from: String,
+    pub source_url: String,
+    pub retrieved_at: String,
+    pub source_notes: String,
+}
+
+fn seed_pricing_database(conn: &Connection) -> Result<()> {
+    let active = cost::load_active_catalog_info()?;
+    let catalog = serde_json::to_string(&active.catalog)?;
+    conn.execute(
+        "INSERT INTO api_pricing_catalogs (pricing_version, effective_from, origin, catalog_json, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5)
+         ON CONFLICT(pricing_version) DO UPDATE SET
+            effective_from = excluded.effective_from,
+            origin = excluded.origin,
+            catalog_json = excluded.catalog_json,
+            updated_at = excluded.updated_at",
+        params![
+            active.catalog.pricing_version,
+            active.catalog.effective_from,
+            active.origin.as_str(),
+            catalog,
+            now_rfc3339(),
+        ],
+    )?;
+
+    let subscriptions = subscription::embedded_catalog();
+    for plan in &subscriptions.plans {
+        let source = subscriptions
+            .sources
+            .iter()
+            .find(|source| source.provider == plan.provider)
+            .expect("subscription catalog validation requires a source per provider");
+        conn.execute(
+            "INSERT INTO subscription_rates (
+                provider, plan_id, plan_name, monthly_price_usd,
+                included_api_usage_usd, region, currency, pricing_version,
+                effective_from, source_url, retrieved_at, source_notes
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)
+             ON CONFLICT(provider, plan_id, pricing_version) DO UPDATE SET
+                plan_name = excluded.plan_name,
+                monthly_price_usd = excluded.monthly_price_usd,
+                included_api_usage_usd = excluded.included_api_usage_usd,
+                region = excluded.region,
+                currency = excluded.currency,
+                effective_from = excluded.effective_from,
+                source_url = excluded.source_url,
+                retrieved_at = excluded.retrieved_at,
+                source_notes = excluded.source_notes",
+            params![
+                plan.provider,
+                plan.plan_id,
+                plan.plan_name,
+                plan.monthly_price_usd,
+                plan.included_api_usage_usd,
+                subscriptions.region,
+                subscriptions.currency,
+                subscriptions.pricing_version,
+                subscriptions.effective_from,
+                source.url,
+                source.retrieved_at,
+                source.notes,
+            ],
+        )?;
+    }
+    Ok(())
 }
 
 /// Apply additive migrations that cannot be expressed by
@@ -252,6 +360,7 @@ impl Store {
             .with_context(|| format!("opening sqlite db {}", path.display()))?;
         conn.execute_batch(SCHEMA).context("applying schema")?;
         ensure_schema_migrations(&conn)?;
+        seed_pricing_database(&conn)?;
         Ok(Store { conn })
     }
 
@@ -260,7 +369,52 @@ impl Store {
         let conn = Connection::open_in_memory()?;
         conn.execute_batch(SCHEMA).context("applying schema")?;
         ensure_schema_migrations(&conn)?;
+        seed_pricing_database(&conn)?;
         Ok(Store { conn })
+    }
+
+    /// Read the active API rate catalog from SQLite for calculations and UI.
+    pub fn active_pricing_catalog(&self) -> Result<cost::PricingCatalog> {
+        let json: String = self.conn.query_row(
+            "SELECT catalog_json FROM api_pricing_catalogs ORDER BY effective_from DESC, rowid DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )?;
+        cost::PricingCatalog::from_json(&json)
+    }
+
+    /// List monthly subscription prices with provenance from the local rate DB.
+    pub fn subscription_rates(&self) -> Result<Vec<StoredSubscriptionRate>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT provider, plan_id, plan_name, monthly_price_usd,
+                    included_api_usage_usd, region, currency, pricing_version,
+                    effective_from, source_url, retrieved_at, source_notes
+             FROM subscription_rates
+             WHERE pricing_version = (
+                 SELECT pricing_version FROM subscription_rates
+                 ORDER BY effective_from DESC LIMIT 1
+             )
+             ORDER BY provider, monthly_price_usd, plan_name",
+        )?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(StoredSubscriptionRate {
+                    provider: row.get(0)?,
+                    plan_id: row.get(1)?,
+                    plan_name: row.get(2)?,
+                    monthly_price_usd: row.get(3)?,
+                    included_api_usage_usd: row.get(4)?,
+                    region: row.get(5)?,
+                    currency: row.get(6)?,
+                    pricing_version: row.get(7)?,
+                    effective_from: row.get(8)?,
+                    source_url: row.get(9)?,
+                    retrieved_at: row.get(10)?,
+                    source_notes: row.get(11)?,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
     }
 
     // --- Projects ---------------------------------------------------------
@@ -830,27 +984,31 @@ impl Store {
         ) {
             anyhow::bail!("invalid usage cost source: {}", event.cost_source);
         }
-        let computed = compute_usage_event_cost(&UsageEventCostInput {
-            agent: Some(event.agent.clone()),
-            model: event.model.clone(),
-            input_tokens: event.input_tokens,
-            output_tokens: event.output_tokens,
-            cache_read_tokens: event.cache_read_tokens,
-            cache_write_tokens: event.cache_write_tokens,
-            cache_write_tokens_by_ttl: [
-                ("5m".to_string(), event.cache_write_5m_tokens),
-                ("1h".to_string(), event.cache_write_1h_tokens),
-            ]
-            .into_iter()
-            .filter_map(|(ttl, tokens)| tokens.map(|tokens| (ttl, tokens)))
-            .collect(),
-            reasoning_tokens: event.reasoning_tokens,
-            ts: event.ts.clone().unwrap_or_default(),
-            reported_cost_usd: (event.cost_source == "reported")
-                .then_some(event.cost_usd)
-                .flatten(),
-            ..UsageEventCostInput::default()
-        });
+        let catalog = self.active_pricing_catalog()?;
+        let computed = compute_usage_event_cost_with_catalog(
+            &catalog,
+            &UsageEventCostInput {
+                agent: Some(event.agent.clone()),
+                model: event.model.clone(),
+                input_tokens: event.input_tokens,
+                output_tokens: event.output_tokens,
+                cache_read_tokens: event.cache_read_tokens,
+                cache_write_tokens: event.cache_write_tokens,
+                cache_write_tokens_by_ttl: [
+                    ("5m".to_string(), event.cache_write_5m_tokens),
+                    ("1h".to_string(), event.cache_write_1h_tokens),
+                ]
+                .into_iter()
+                .filter_map(|(ttl, tokens)| tokens.map(|tokens| (ttl, tokens)))
+                .collect(),
+                reasoning_tokens: event.reasoning_tokens,
+                ts: event.ts.clone().unwrap_or_default(),
+                reported_cost_usd: (event.cost_source == "reported")
+                    .then_some(event.cost_usd)
+                    .flatten(),
+                ..UsageEventCostInput::default()
+            },
+        );
         let exists: bool = self.conn.query_row(
             "SELECT EXISTS(
                 SELECT 1 FROM usage_events
@@ -978,7 +1136,7 @@ impl Store {
             "WITH filtered AS (
                 SELECT {expression} AS grouping_key, input_tokens, output_tokens,
                        cache_read_tokens, cache_write_tokens, reasoning_tokens,
-                       cost_usd, cost_source, pricing_version, is_subagent, session_id,
+                       cost_usd, computed_cost_usd, cost_source, pricing_version, is_subagent, session_id,
                        parent_message_id, subagent_id
                 FROM usage_events
                 WHERE (?1 IS NULL OR ts >= ?1)
@@ -996,7 +1154,9 @@ impl Store {
                          THEN MIN(pricing_version) ELSE NULL END,
                     COUNT(DISTINCT session_id),
                     MAX(CASE WHEN is_subagent = 1 THEN parent_message_id END),
-                    MAX(CASE WHEN is_subagent = 1 THEN subagent_id END)
+                    MAX(CASE WHEN is_subagent = 1 THEN subagent_id END),
+                    CASE WHEN COUNT(computed_cost_usd) = COUNT(*)
+                         THEN SUM(computed_cost_usd) ELSE NULL END
              FROM filtered
              GROUP BY grouping_key
              ORDER BY grouping_key ASC"
@@ -1006,6 +1166,7 @@ impl Store {
             .query_map(params![since], |row| {
                 Ok(UsageBreakdown {
                     key: row.get(0)?,
+                    api_equivalent_usd: row.get(15)?,
                     subagent_id: row.get(14)?,
                     parent_message_id: row.get(13)?,
                     totals: map_usage_totals(row, 1)?,
@@ -1060,25 +1221,25 @@ impl Store {
 
         let (avg_per_hour, avg_per_day, avg_per_week, avg_per_month) = match &first_run_at {
             Some(first) if total_runs > 1 => {
-                let elapsed_hours = chrono::DateTime::parse_from_rfc3339(first)
-                    .ok()
-                    .map(|start| {
-                        let hours = (chrono::Utc::now() - start.with_timezone(&chrono::Utc))
-                            .num_minutes() as f64
-                            / 60.0;
-                        hours.max(1.0)
-                    });
-                match elapsed_hours {
-                    Some(hours) => {
-                        let per_hour = total_runs as f64 / hours;
-                        (
-                            Some(per_hour),
-                            Some(per_hour * 24.0),
-                            Some(per_hour * 24.0 * 7.0),
-                            Some(per_hour * 24.0 * 30.0),
-                        )
+                let elapsed_seconds =
+                    chrono::DateTime::parse_from_rfc3339(first)
+                        .ok()
+                        .map(|start| {
+                            (chrono::Utc::now() - start.with_timezone(&chrono::Utc)).num_seconds()
+                        });
+                match elapsed_seconds {
+                    Some(seconds) if seconds >= 3600 => {
+                        let per_hour = total_runs as f64 / (seconds as f64 / 3600.0);
+                        let per_day = (seconds >= 86_400)
+                            .then_some(total_runs as f64 / (seconds as f64 / 86_400.0));
+                        let per_week = (seconds >= 604_800)
+                            .then_some(total_runs as f64 / (seconds as f64 / 604_800.0));
+                        let per_month = (seconds >= 2_592_000)
+                            .then_some(total_runs as f64 / (seconds as f64 / 2_592_000.0));
+                        (Some(per_hour), per_day, per_week, per_month)
                     }
                     None => (None, None, None, None),
+                    Some(_) => (None, None, None, None),
                 }
             }
             _ => (None, None, None, None),
@@ -1853,6 +2014,64 @@ mod tests {
     use super::*;
 
     #[test]
+    fn sqlite_pricing_database_seeds_api_and_subscription_rates() {
+        let store = Store::open_in_memory().unwrap();
+        let api = store.active_pricing_catalog().unwrap();
+        assert_eq!(
+            api.pricing_version,
+            cost::embedded_catalog().pricing_version
+        );
+        assert!(api.models.iter().any(|model| model.model == "gpt-5.4"));
+
+        let subscriptions = store.subscription_rates().unwrap();
+        let claude_pro = subscriptions
+            .iter()
+            .find(|rate| rate.plan_id == "claude-pro")
+            .unwrap();
+        assert_eq!(claude_pro.monthly_price_usd, 20.0);
+        assert_eq!(claude_pro.currency, "USD");
+        assert!(!claude_pro.source_url.is_empty());
+
+        let event = NewUsageEvent {
+            run_id: None,
+            agent: "codex".into(),
+            session_id: "pricing-db-test".into(),
+            message_id: "message-1".into(),
+            parent_message_id: None,
+            is_subagent: false,
+            subagent_id: None,
+            model: Some("gpt-5.4".into()),
+            input_tokens: Some(1_000_000),
+            output_tokens: Some(1_000_000),
+            cache_read_tokens: None,
+            cache_write_tokens: None,
+            cache_write_5m_tokens: None,
+            cache_write_1h_tokens: None,
+            reasoning_tokens: None,
+            ts: Some("2026-10-13T12:00:00Z".into()),
+            cost_usd: None,
+            cost_source: "unknown".into(),
+            raw_ref: "test://pricing-db".into(),
+        };
+        store.upsert_usage_event(&event).unwrap();
+        let stored = store.list_usage_events(Some("codex")).unwrap();
+        assert_eq!(stored.len(), 1);
+        assert_eq!(stored[0].cost_source, "computed");
+        assert!(stored[0].computed_cost_usd.is_some());
+        let usage = store
+            .usage_response(
+                UsageGroup::Model,
+                None,
+                crate::usage::ImportReport::default(),
+            )
+            .unwrap();
+        assert_eq!(
+            usage.rows[0].api_equivalent_usd,
+            stored[0].computed_cost_usd
+        );
+    }
+
+    #[test]
     fn project_run_event_roundtrip() {
         let store = Store::open_in_memory().unwrap();
         let project = store
@@ -2381,16 +2600,15 @@ mod tests {
         assert!(one.avg_per_hour.is_none());
         assert!(one.avg_per_day.is_none());
 
-        // Two runs: rate becomes available and the cadences are consistent
-        // multiples of the hourly rate.
+        // Two runs created immediately together do not establish a meaningful
+        // hourly/daily/weekly/monthly rate.
         seed_run(&store, &project, None);
         let two = store.analytics_summary().unwrap();
         assert_eq!(two.total_runs, 2);
-        let per_hour = two.avg_per_hour.expect("rate available with >1 run");
-        assert!(per_hour > 0.0);
-        assert!((two.avg_per_day.unwrap() - per_hour * 24.0).abs() < 1e-9);
-        assert!((two.avg_per_week.unwrap() - per_hour * 24.0 * 7.0).abs() < 1e-9);
-        assert!((two.avg_per_month.unwrap() - per_hour * 24.0 * 30.0).abs() < 1e-9);
+        assert!(two.avg_per_hour.is_none());
+        assert!(two.avg_per_day.is_none());
+        assert!(two.avg_per_week.is_none());
+        assert!(two.avg_per_month.is_none());
         // by_agent is empty because neither run recorded api_usage.
         assert!(two.by_agent.is_empty());
     }

@@ -298,10 +298,12 @@ fn action_for(
     }
     if let Some(importer) = spec.importer {
         if events_imported == 0 {
-            return format!("sessions found; run `trc import {importer}`, then re-check");
+            return format!(
+                "local source path found; run `trc import {importer}` to check for sessions"
+            );
         }
     } else if spec.id == "claude" && events_imported == 0 {
-        return "sessions found; run `trc usage`, then re-check".to_string();
+        return "local source path found; run `trc usage` to check for session usage".to_string();
     }
     if connected {
         return "connected; run one agent task to confirm the next event".to_string();

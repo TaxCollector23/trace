@@ -68,7 +68,7 @@ function ConnectionTable({ rows }: { rows: ConnectionRow[] }) {
             <tr>
               <th>Agent</th>
               <th>Connection</th>
-              <th>Session data</th>
+              <th>Local source path</th>
               <th>Last event</th>
               <th>Imported</th>
               <th>Parse errors</th>

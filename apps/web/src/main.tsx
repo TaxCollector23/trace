@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { createHashRouter, RouterProvider } from "react-router-dom";
 import App from "./App";
-import ControlRoom from "./pages/ControlRoom";
+import Dashboard from "./pages/Dashboard";
 import RunPage from "./pages/RunPage";
 import SystemPage from "./pages/SystemPage";
 import RunTimeline from "./pages/RunTimeline";
@@ -25,7 +25,7 @@ const router = createHashRouter([
     path: "/",
     element: <App />,
     children: [
-      { index: true, element: <ControlRoom /> },
+      { index: true, element: <Dashboard /> },
       { path: "run", element: <RunPage /> },
       { path: "run/:runId", element: <RunPage /> },
       { path: "system", element: <SystemPage /> },

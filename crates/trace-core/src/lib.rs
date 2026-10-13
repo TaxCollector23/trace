@@ -66,6 +66,7 @@ pub mod redteam;
 pub mod rules_pack;
 pub mod scan;
 pub mod secrets;
+pub mod subscription;
 pub mod time;
 pub mod usage;
 

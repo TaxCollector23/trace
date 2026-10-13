@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { Mark } from "./Mark";
 import { CommandPalette } from "./v4/CommandPalette";
 
@@ -79,13 +79,9 @@ function ThemeToggle() {
 
 const navGroups: Array<{ label: string; links: [string, string][] }> = [
   {
-    label: "Observe",
+    label: "Review",
     links: [
-      ["/", "Overview"],
-      ["/usage", "Usage"],
-      ["/connections", "Connections"],
       ["/run", "Current run"],
-      ["/timeline", "Timeline"],
       ["/patch", "Changes"],
     ],
   },
@@ -111,7 +107,14 @@ const navGroups: Array<{ label: string; links: [string, string][] }> = [
 applyTheme(readTheme());
 
 export default function App() {
+  const location = useLocation();
+  const [moreOpen, setMoreOpen] = useState(false);
   const [version, setVersion] = useState<string>("");
+  useEffect(() => {
+    if (!["/", "/timeline", "/connections", "/usage"].some(
+      (path) => location.pathname === path || (path !== "/" && location.pathname.startsWith(`${path}/`))
+    )) setMoreOpen(true);
+  }, [location.pathname]);
   useEffect(() => {
     fetch("/api/health")
       .then((r) => r.json())
@@ -130,16 +133,23 @@ export default function App() {
           Trace
         </div>
         <nav className="nav" aria-label="Primary">
-          {navGroups.map((group) => (
-            <div className="nav-group" key={group.label}>
-              <div className="nav-group-label">{group.label}</div>
-              {group.links.map(([to, label]) => (
-                <NavLink key={to} to={to} end={to === "/"}>
-                  {label}
-                </NavLink>
-              ))}
-            </div>
-          ))}
+          <div className="nav-group">
+            <div className="nav-group-label">Workspace</div>
+            {([["/", "Overview"], ["/timeline", "Timeline"], ["/connections", "Connections"], ["/usage", "Usage"]] as [string, string][]).map(([to, label]) => (
+              <NavLink key={to} to={to} end={to === "/"}>{label}</NavLink>
+            ))}
+          </div>
+          <details className="nav-more" open={moreOpen} onToggle={(event) => setMoreOpen(event.currentTarget.open)}>
+            <summary>More tools</summary>
+            {navGroups.map((group) => (
+              <div className="nav-group" key={group.label}>
+                <div className="nav-group-label">{group.label}</div>
+                {group.links.map(([to, label]) => (
+                  <NavLink key={to} to={to}>{label}</NavLink>
+                ))}
+              </div>
+            ))}
+          </details>
         </nav>
         <ThemeToggle />
         <div className="local-note">

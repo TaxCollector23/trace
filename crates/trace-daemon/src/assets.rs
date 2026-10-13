@@ -38,6 +38,12 @@ pub fn dashboard_asset_present() -> bool {
     Dashboard::get("index.html").is_some()
 }
 
+/// The index shipped in this executable. The CLI compares it with the page
+/// served by an already-running daemon before opening the browser.
+pub fn dashboard_index_bytes() -> Option<Vec<u8>> {
+    Dashboard::get("index.html").map(|file| file.data.into_owned())
+}
+
 /// Axum fallback handler: serve the static asset for the path, or `index.html`.
 pub async fn static_handler(uri: Uri) -> Response {
     let path = uri.path().trim_start_matches('/');

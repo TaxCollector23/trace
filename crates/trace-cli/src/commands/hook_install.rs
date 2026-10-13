@@ -84,7 +84,7 @@ pub fn install(agent: &str) -> Result<()> {
                 }
             }
         }
-        println!("agents connected: {connected}/{}", SUPPORTED.len());
+        println!("agent configs installed: {connected}/{}", SUPPORTED.len());
         if let Some(port) = daemon_port {
             println!("dashboard: http://127.0.0.1:{port}");
         }

@@ -133,6 +133,7 @@ export interface UsageBreakdown extends UsageTotals {
   key: string;
   label: string;
   event_ids: string[];
+  api_equivalent_usd?: number | null;
 }
 
 export interface UsageSeriesPoint extends UsageTotals {
@@ -196,6 +197,48 @@ export interface UsageResponse {
   warning: string | null;
 }
 
+export interface PricingRate {
+  provider: string;
+  model: string;
+  aliases: string[];
+  effective_from: string;
+  tiers: Array<{
+    name: string;
+    min_input_tokens: number | null;
+    input_per_mtok: number;
+    output_per_mtok: number;
+    cache_read_per_mtok: number | null;
+    cache_write_per_mtok: Record<string, number>;
+    reasoning_billing: string;
+    notes: string | null;
+  }>;
+}
+
+export interface SubscriptionRate {
+  provider: string;
+  plan_id: string;
+  plan_name: string;
+  monthly_price_usd: number;
+  included_api_usage_usd: number | null;
+  region: string;
+  currency: string;
+  pricing_version: string;
+  effective_from: string;
+  source_url: string;
+  retrieved_at: string;
+  source_notes: string;
+}
+
+export interface PricingRatesResponse {
+  api: {
+    pricing_version: string;
+    effective_from: string;
+    sources: Array<{ provider: string; url: string; retrieved_at: string; notes: string }>;
+    models: PricingRate[];
+  };
+  subscriptions: SubscriptionRate[];
+}
+
 export interface Checkpoint {
   id: string;
   run_id: string;
@@ -217,6 +260,7 @@ export interface TestResult {
 export interface DashboardData {
   runs: RunSummary[];
   projects: Project[];
+  integrations: Array<{ id: string; name: string; connected: boolean }>;
 }
 
 export interface CompressionInfo {
@@ -369,8 +413,8 @@ export interface RedTeamReport {
   passed: boolean;
 }
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`/api${path}`);
+async function get<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(`/api${path}`, { signal });
   if (!res.ok) throw new Error(`GET ${path} failed: ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -412,6 +456,7 @@ export const api = {
   testResults: (id: string) => get<TestResult[]>(`/runs/${id}/test-results`),
   rollback: (id: string) => post<{ ok: boolean; git_ref: string }>(`/runs/${id}/rollback`, {}),
   analytics: () => get<AnalyticsSummary>("/analytics"),
+  pricingRates: (signal?: AbortSignal) => get<PricingRatesResponse>("/pricing", signal),
   // Deterministic policy engine review (no API key)
   policyFindings: (id: string) => get<PolicyFindingRecord[]>(`/runs/${id}/policy`),
   analyzeRun: (id: string) => post<AnalyzeRunResponse>(`/runs/${id}/analyze`, {}),

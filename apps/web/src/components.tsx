@@ -97,7 +97,7 @@ export function relTime(iso: string | null): string {
  * dashboard, run pickers and the usage page so labelling stays consistent. */
 const AGENT_LABELS: Record<string, string> = {
   claude: "Claude Code",
-  codex: "Codex CLI",
+  codex: "Codex",
   cursor: "Cursor",
   opencode: "OpenCode",
   copilot: "GitHub Copilot",

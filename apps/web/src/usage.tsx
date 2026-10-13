@@ -505,6 +505,7 @@ function normalizeBreakdowns(rawRows: Record<string, unknown>[], kind: string): 
       key,
       label,
       event_ids: stringArray(raw.event_ids ?? raw.eventIds),
+      api_equivalent_usd: firstNumber(raw.api_equivalent_usd),
     };
   });
 }
