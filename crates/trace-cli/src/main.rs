@@ -42,9 +42,8 @@ fn help_styles() -> Styles {
     // Version is handled manually (see `main`) so `--version` can print Trace
     // version + rule-pack version + rule count together.
     disable_version_flag = true,
-    about = "See what your coding agents do on this machine.",
-    long_about = "Trace records local coding sessions, command decisions, file changes, and available cost data. It helps you review and roll back runs.",
-    after_help = "Start here:\n  trc init                         Register this project\n  trc integrations install codex   Connect one agent (or use claude, cursor, opencode, windsurf)\n  trc status                       Check the local connection\n  trc run claude                   Start a monitored CLI session\n  trc dashboard                    Open the local overview\n\nRun `trc <command> --help` for details."
+    about = "Record and review local coding-agent sessions.",
+    after_help = "Quick start:\n  trc init\n  trc integrations install <agent>\n  trc dashboard\n\nUse `trc status` to check the connection."
 )]
 struct Cli {
     #[command(subcommand)]
@@ -53,7 +52,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Initialize Trace in the current project.
+    /// Set up Trace in the current project.
     Init,
 
     /// Connect Trace to your coding agents (Claude Code, Cursor, Windsurf,
@@ -67,7 +66,7 @@ enum Commands {
         target: String,
     },
 
-    /// Run a command under Trace monitoring (e.g. `trc run claude`).
+    /// Monitor an agent or command (e.g. `trc run claude`).
     Run {
         /// The command to wrap. Quote multi-word commands.
         #[arg(required = true, trailing_var_arg = true, num_args = 1..)]
@@ -104,7 +103,7 @@ enum Commands {
         action: Option<DoctorAction>,
     },
 
-    /// Show what Trace can see and the next useful action.
+    /// Check Trace and agent connection status.
     Status {
         /// Print machine-readable JSON for scripts and support bundles.
         #[arg(long)]
@@ -222,9 +221,7 @@ enum Commands {
         action: PricingAction,
     },
 
-    /// Connect Trace to your coding agents. `trc integrations install all`
-    /// wires up Claude Code, Codex, Cursor, Windsurf, and OpenCode;
-    /// `trc integrations status` shows what is configured.
+    /// Connect or check your coding-agent integrations.
     Integrations {
         #[command(subcommand)]
         action: Option<IntegrationsAction>,
@@ -395,12 +392,13 @@ enum DaemonAction {
 /// Keep a bare first invocation useful without dumping the full command list.
 /// Users can still ask for the complete help with `trc --help`.
 fn print_quickstart() {
-    println!("Trace records local coding-agent activity.");
-    println!("  trc init       Register the current project");
-    println!("  trc status     Check the daemon and agent connections");
-    println!("  trc dashboard  Open the local overview");
+    println!("Trace records local coding-agent sessions.");
+    println!("\nQuick start:");
+    println!("  trc init");
+    println!("  trc integrations install <agent>");
+    println!("  trc dashboard");
     println!();
-    println!("Run `trc --help` for connection and run commands.");
+    println!("Use `trc status` to check the connection.");
 }
 
 fn main() {

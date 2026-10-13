@@ -1,5 +1,5 @@
-//! `trc integrations` and `trc integrations status` — list integration
-//! surfaces and report local configuration and daemon state.
+//! `trc integrations` and `trc integrations status` — list supported agents
+//! and report local configuration and daemon state.
 
 use anyhow::Result;
 use trace_core::github;
@@ -7,41 +7,11 @@ use trace_core::github;
 use crate::colors;
 use crate::daemon_ctl;
 
-const INTEGRATIONS: &[(&str, &str, &str)] = &[
-    (
-        "Claude Code",
-        "session + safety checks",
-        "integrations/claude",
-    ),
-    (
-        "Codex",
-        "lifecycle hooks + wrapper fallback",
-        "integrations/codex",
-    ),
-    (
-        "Cursor",
-        "session + safety checks + tools",
-        "integrations/cursor",
-    ),
-    ("Windsurf", "activity + tools", "integrations/windsurf"),
-    (
-        "OpenCode",
-        "session + safety checks + tools",
-        "integrations/opencode",
-    ),
-    (
-        "GitHub",
-        "Actions + App + direct repo read",
-        "integrations/github",
-    ),
-];
-
 pub fn list() -> Result<()> {
-    println!("{}", colors::bold("Trace integrations:"));
-    for (name, kind, path) in INTEGRATIONS {
-        println!("  • {name} — {kind}  ({})", colors::dim(path));
-    }
-    println!("\nRun `trc integrations status` to check local configuration.");
+    println!("{}", colors::bold("Supported agents:"));
+    println!("  Claude Code · Codex · Cursor · Windsurf · OpenCode");
+    println!("\nConnect one with `trc integrations install <agent>`, or use `all`.");
+    println!("Check setup with `trc integrations status`.");
     Ok(())
 }
 
